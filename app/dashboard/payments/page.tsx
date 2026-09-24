@@ -22,8 +22,6 @@ import {
   TrendingUp,
   Receipt,
   X,
-  Phone,
-  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Payment, PaymentMethod, initialSamplePayments } from "@/lib/types/payment";
@@ -424,24 +422,9 @@ export default function PaymentsPage() {
                     </div>
 
                     {p.projects?.customer_phone && (
-                      <div className="flex items-center gap-1.5">
-                        <a
-                          href={`tel:${p.projects.customer_phone.replace(/[^\d+]/g, "")}`}
-                          className="p-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold flex items-center gap-1"
-                        >
-                          <Phone className="w-3 h-3" />
-                          <span className="hidden sm:inline">Call</span>
-                        </a>
-                        <a
-                          href={`https://wa.me/${p.projects.customer_phone.replace(/[^\d]/g, "")}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1"
-                        >
-                          <MessageCircle className="w-3 h-3" />
-                          <span className="hidden sm:inline">WhatsApp</span>
-                        </a>
-                      </div>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        {p.projects.customer_phone}
+                      </span>
                     )}
                   </div>
                 </div>

@@ -17,7 +17,6 @@ import {
   LogOut,
   X,
   Zap,
-  Phone,
   Plus,
 } from "lucide-react";
 import { logout } from "@/app/login/actions";

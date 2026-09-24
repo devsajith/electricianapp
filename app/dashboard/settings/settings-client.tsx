@@ -175,7 +175,7 @@ export function SettingsClient() {
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Contact Phone (for WhatsApp & Calls)
+              Contact Phone Number
             </label>
             <input
               type="text"

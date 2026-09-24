@@ -13,7 +13,6 @@ import {
   Eye,
   RefreshCw,
   IndianRupee,
-  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Estimate, EstimateStatus } from "@/lib/types/estimate";
@@ -241,9 +240,6 @@ export default function EstimatesPage() {
           ) : (
             filteredEstimates.map((est) => {
               const amount = getAmount(est);
-              const waText = encodeURIComponent(
-                `*Quotation / Estimate: ${est.estimate_number}*\nProject: ${est.project_name || "Electrical Work"}\nTotal Amount: ₹${amount.toLocaleString("en-IN")}\nStatus: ${est.status}`
-              );
 
               return (
                 <div
@@ -293,27 +289,15 @@ export default function EstimatesPage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <a
-                        href={`https://wa.me/?text=${waText}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1 active:scale-95 transition-transform"
+                    <Link href={`/dashboard/estimates/${est.id}`}>
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 gap-1 rounded-xl"
                       >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span>Share</span>
-                      </a>
-
-                      <Link href={`/dashboard/estimates/${est.id}`}>
-                        <Button
-                          size="sm"
-                          className="h-8 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 gap-1 rounded-xl"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-amber-400" />
-                          <span>View</span>
-                        </Button>
-                      </Link>
-                    </div>
+                        <Eye className="w-3.5 h-3.5 text-amber-400" />
+                        <span>View</span>
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               );

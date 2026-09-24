@@ -13,8 +13,6 @@ import {
   FolderKanban,
   Plus,
   Search,
-  Phone,
-  MessageCircle,
   MapPin,
   ChevronDown,
   ChevronUp,
@@ -349,24 +347,9 @@ export default function ProjectsPage() {
                     </div>
 
                     {p.customer_phone && (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <a
-                          href={`tel:${p.customer_phone.replace(/[^\d+]/g, "")}`}
-                          className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center gap-1 active:scale-95 transition-transform"
-                        >
-                          <Phone className="w-3.5 h-3.5" />
-                          <span>Call</span>
-                        </a>
-                        <a
-                          href={`https://wa.me/${p.customer_phone.replace(/[^\d]/g, "")}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1 active:scale-95 transition-transform"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          <span>WhatsApp</span>
-                        </a>
-                      </div>
+                      <span className="text-xs text-slate-400 font-mono shrink-0">
+                        {p.customer_phone}
+                      </span>
                     )}
                   </div>
 
@@ -638,20 +621,8 @@ export default function ProjectsPage() {
                                 )}
                               </div>
                               {p.customer_phone && (
-                                <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()}>
-                                  <a href={`tel:${p.customer_phone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-1 hover:underline hover:text-amber-400">
-                                    <Phone className="w-3 h-3 text-amber-400" />
-                                    <span>{p.customer_phone}</span>
-                                  </a>
-                                  <a
-                                    href={`https://wa.me/${p.customer_phone.replace(/[^\d]/g, "")}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-semibold"
-                                  >
-                                    <MessageCircle className="w-3 h-3" />
-                                    <span>WhatsApp</span>
-                                  </a>
+                                <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                                  {p.customer_phone}
                                 </div>
                               )}
                             </div>

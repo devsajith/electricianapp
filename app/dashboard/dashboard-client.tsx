@@ -8,8 +8,6 @@ import {
   Receipt,
   FileSpreadsheet,
   Plus,
-  Phone,
-  MessageCircle,
   TrendingUp,
   TrendingDown,
   Clock,
@@ -359,7 +357,7 @@ export function DashboardClient({
         </div>
       </div>
 
-      {/* Main Field Grid: Recent Jobs (with Call & WhatsApp) + Cash Flow */}
+      {/* Main Field Grid: Recent Jobs + Cash Flow */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Left Column (2 Cols): Active & Recent Jobs Feed */}
         <div className="lg:col-span-2 space-y-3">
@@ -369,7 +367,7 @@ export function DashboardClient({
                 Current Jobs & Customer Work Orders
               </h2>
               <p className="text-xs text-slate-400">
-                Call, WhatsApp, or log payments directly for each customer
+                Manage ongoing jobs and record payments or expenses
               </p>
             </div>
             <Link
@@ -388,13 +386,11 @@ export function DashboardClient({
                 (sum, pay) => sum + (Number(pay.amount) || 0),
                 0
               );
-              const cleanPhone = (p.customer_phone || "").replace(/[^\d+]/g, "");
-              const waPhone = (p.customer_phone || "").replace(/[^\d]/g, "");
 
               return (
                 <div
                   key={p.id || p.project_number}
-                  className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-sm space-y-3 hover:border-slate-700 transition-all"
+                  className="p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm space-y-3 hover:border-slate-700 transition-all"
                 >
                   {/* Top line: Customer name, Job #, Status */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -409,6 +405,11 @@ export function DashboardClient({
                       </div>
                       <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
                         <span className="font-medium text-slate-300">{p.project_type}</span>
+                        {p.customer_phone && (
+                          <span className="text-slate-400 font-mono">
+                            • {p.customer_phone}
+                          </span>
+                        )}
                         {p.address && (
                           <span className="hidden sm:inline text-slate-500 truncate max-w-xs">
                             • {p.address}
@@ -436,55 +437,29 @@ export function DashboardClient({
                     )}
                   </div>
 
-                  {/* Bottom Action Bar: Call, WhatsApp, Record Payment */}
-                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
-                    <div className="flex items-center gap-2">
-                      {cleanPhone && (
-                        <a
-                          href={`tel:${cleanPhone}`}
-                          className="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform"
-                        >
-                          <Phone className="w-3.5 h-3.5" />
-                          <span>Call</span>
-                        </a>
-                      )}
+                  {/* Bottom Action Bar: Record Payment, Add Expense */}
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-800/60">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProjectId(p.id);
+                        setPaymentModalOpen(true);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold active:scale-95 transition-all"
+                    >
+                      + Payment
+                    </button>
 
-                      {waPhone && (
-                        <a
-                          href={`https://wa.me/${waPhone}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          <span>WhatsApp</span>
-                        </a>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedProjectId(p.id);
-                          setPaymentModalOpen(true);
-                        }}
-                        className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold active:scale-95 transition-all"
-                      >
-                        + Payment
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedProjectId(p.id);
-                          setExpenseModalOpen(true);
-                        }}
-                        className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold active:scale-95 transition-all"
-                      >
-                        + Expense
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProjectId(p.id);
+                        setExpenseModalOpen(true);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold active:scale-95 transition-all"
+                    >
+                      + Expense
+                    </button>
                   </div>
                 </div>
               );
