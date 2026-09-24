@@ -5,9 +5,27 @@ export interface EstimateItem {
   estimate_id?: string;
   description: string;
   qty: number;
+  quantity?: number; // matches Supabase estimate_items.quantity column
   unit: string; // e.g. 'meter', 'nos', 'sqft', 'set', 'hrs', 'kg', 'lot'
   rate: number; // ₹ per unit
   amount: number; // qty * rate
+}
+
+export interface ProjectItemList {
+  project_id: string;
+  project_number: string;
+  customer_name: string;
+  project_type?: string;
+  address?: string;
+  estimate_id?: string;
+  estimate_number?: string;
+  items: EstimateItem[];
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total_amount: number;
+  notes?: string;
+  updated_at?: string;
 }
 
 export interface Estimate {

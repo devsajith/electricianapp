@@ -81,3 +81,13 @@ CREATE POLICY "Allow all access to estimates" ON public.estimates FOR ALL USING 
 DROP POLICY IF EXISTS "Allow all access to estimate_items" ON public.estimate_items;
 CREATE POLICY "Allow all access to estimate_items" ON public.estimate_items FOR ALL USING (true) WITH CHECK (true);
 
+-- 9. Drop restrictive legacy CHECK constraints on payments
+ALTER TABLE public.payments DROP CONSTRAINT IF EXISTS payments_payment_method_check;
+ALTER TABLE public.payments DROP CONSTRAINT IF EXISTS payments_payment_type_check;
+
+-- 10. RLS Policy for payments (if using open client access)
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access to payments" ON public.payments;
+CREATE POLICY "Allow all access to payments" ON public.payments FOR ALL USING (true) WITH CHECK (true);
+
+

@@ -29,8 +29,8 @@ export function getStatusStyle(status: string): StatusStyle {
     case "ongoing":
       return {
         label: "In Progress",
-        badgeClass: "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200 dark:border-blue-800",
-        dotClass: "bg-blue-500 animate-pulse",
+        badgeClass: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border-amber-200 dark:border-amber-500/30",
+        dotClass: "bg-amber-500",
       };
     case "on hold":
     case "on-hold":

@@ -13,6 +13,7 @@ import {
   Eye,
   RefreshCw,
   IndianRupee,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Estimate, EstimateStatus } from "@/lib/types/estimate";
@@ -63,7 +64,7 @@ export default function EstimatesPage() {
       case "Approved":
         return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
       case "Sent":
-        return "bg-blue-500/10 text-blue-400 border-blue-500/30";
+        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
       case "Draft":
         return "bg-slate-700/50 text-slate-300 border-slate-600/40";
       case "Rejected":
@@ -101,7 +102,7 @@ export default function EstimatesPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/60 border border-slate-800 shadow-lg">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="p-1.5 rounded-md bg-amber-500/10 text-amber-400">
@@ -131,7 +132,7 @@ export default function EstimatesPage() {
             Refresh
           </Button>
           <Link href="/dashboard/estimates/new">
-            <Button className="h-10 sm:h-9 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 shadow-md">
+            <Button className="h-10 sm:h-9 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 shadow-sm">
               <Plus className="w-4 h-4" />
               <span>Create Estimate</span>
             </Button>
@@ -174,9 +175,9 @@ export default function EstimatesPage() {
             <span className="text-[11px] font-medium uppercase tracking-wider">
               Awaiting Approval
             </span>
-            <Clock className="w-4 h-4 text-blue-400" />
+            <Clock className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-lg sm:text-xl font-extrabold text-blue-400">
+          <div className="text-lg sm:text-xl font-extrabold text-white">
             {pendingCount} Sent
           </div>
           <div className="text-[10px] text-slate-500">Sent to clients</div>
@@ -231,8 +232,97 @@ export default function EstimatesPage() {
           </div>
         </div>
 
-        {/* Table View */}
-        <div className="overflow-x-auto rounded-xl border border-slate-800/80">
+        {/* Mobile Cards View (< md) */}
+        <div className="block md:hidden space-y-3">
+          {filteredEstimates.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-xs bg-slate-950/40 rounded-xl border border-slate-800/60">
+              No matching estimates found.
+            </div>
+          ) : (
+            filteredEstimates.map((est) => {
+              const amount = getAmount(est);
+              const waText = encodeURIComponent(
+                `*Quotation / Estimate: ${est.estimate_number}*\nProject: ${est.project_name || "Electrical Work"}\nTotal Amount: ₹${amount.toLocaleString("en-IN")}\nStatus: ${est.status}`
+              );
+
+              return (
+                <div
+                  key={est.id}
+                  className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 shadow-sm space-y-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono font-bold text-amber-400 text-xs bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                      {est.estimate_number}
+                    </span>
+
+                    <select
+                      value={est.status}
+                      onChange={(e) =>
+                        handleStatusChange(est.id, e.target.value as EstimateStatus)
+                      }
+                      className={`px-3 py-1 rounded-full text-xs font-bold border focus:outline-none cursor-pointer ${getStatusBadgeClass(
+                        est.status
+                      )}`}
+                    >
+                      <option value="Draft" className="bg-slate-900 text-slate-200">Draft</option>
+                      <option value="Sent" className="bg-slate-900 text-slate-200">Sent</option>
+                      <option value="Approved" className="bg-slate-900 text-slate-200">Approved</option>
+                      <option value="Rejected" className="bg-slate-900 text-slate-200">Rejected</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <h3 className="font-bold text-white text-sm">
+                      {est.project_name || "General Electrical Work"}
+                    </h3>
+                    {est.description && est.description !== est.project_name && (
+                      <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">
+                        {est.description}
+                      </p>
+                    )}
+                    <span className="text-[11px] text-slate-500 font-mono block mt-1">
+                      Date: {est.created_at ? new Date(est.created_at).toLocaleDateString() : "N/A"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">Total Amount</span>
+                      <span className="text-base font-black text-white font-mono">
+                        ₹{amount.toLocaleString("en-IN")}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <a
+                        href={`https://wa.me/?text=${waText}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1 active:scale-95 transition-transform"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>Share</span>
+                      </a>
+
+                      <Link href={`/dashboard/estimates/${est.id}`}>
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 gap-1 rounded-xl"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-amber-400" />
+                          <span>View</span>
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop Table View (hidden on mobile) */}
+        <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-800/80">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-950/90 border-b border-slate-800 text-[11px] uppercase tracking-wider font-bold text-slate-300">

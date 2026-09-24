@@ -13,15 +13,12 @@ export default function LoginPage() {
   const [state, formAction, pending] = useActionState(action, null);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 px-4 py-12 text-slate-100">
-      {/* Background Decorative Element */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent pointer-events-none" />
-
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 px-4 py-12 text-slate-100">
       <div className="w-full max-w-md relative z-10">
         {/* Header Branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 mb-4 shadow-lg shadow-amber-500/5">
-            <Zap className="w-8 h-8 animate-pulse" />
+          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 mb-4 shadow-sm">
+            <Zap className="w-8 h-8 fill-current" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
             Electrician App
@@ -34,9 +31,9 @@ export default function LoginPage() {
         </div>
 
         {/* Card Container */}
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-sm p-6 sm:p-8">
           {/* Mode Switcher Tabs */}
-          <div className="grid grid-cols-2 p-1 bg-slate-950/60 rounded-xl mb-6 border border-slate-800/80">
+          <div className="grid grid-cols-2 p-1 bg-slate-950 rounded-xl mb-6 border border-slate-800">
             <button
               type="button"
               onClick={() => setMode("login")}

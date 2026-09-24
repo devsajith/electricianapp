@@ -53,7 +53,7 @@ export async function getMaterialsService(): Promise<{ data: Material[]; error?:
     }
 
     if (!data || data.length === 0) {
-      return { data: [] };
+      return { data: initialSampleMaterials };
     }
 
     const rows = data as Record<string, unknown>[];

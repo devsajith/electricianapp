@@ -49,72 +49,191 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #f59e0b;
+  --primary-foreground: #000000;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #f59e0b;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #f59e0b;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #f1f5f9;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #f59e0b;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #0c0c0e;
+  --card-foreground: #ffffff;
+  --popover: #0c0c0e;
+  --popover-foreground: #ffffff;
+  --primary: #f59e0b;
+  --primary-foreground: #000000;
+  --secondary: #18181b;
+  --secondary-foreground: #ffffff;
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa;
+  --accent: #18181b;
+  --accent-foreground: #ffffff;
+  --destructive: #f43f5e;
+  --border: #26262a;
+  --input: #26262a;
+  --ring: #f59e0b;
+  --sidebar: #0c0c0e;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #f59e0b;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #18181b;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #26262a;
+  --sidebar-ring: #f59e0b;
+}
+
+/* ======================================================== */
+/* LIGHT MODE DYNAMIC PALETTE                               */
+/* ======================================================== */
+html.light {
+  color-scheme: light;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+
+  /* Remap slate tokens to crisp clean light mode */
+  --color-slate-950: #f8fafc;
+  --color-slate-900: #ffffff;
+  --color-slate-800: #e2e8f0;
+  --color-slate-700: #cbd5e1;
+  --color-slate-600: #64748b;
+  --color-slate-500: #64748b;
+  --color-slate-400: #475569;
+  --color-slate-300: #334155;
+  --color-slate-200: #1e293b;
+  --color-slate-100: #0f172a;
+}
+
+html.light .text-white {
+  color: #0f172a;
+}
+
+html.light .keep-white,
+html.light button.bg-amber-500,
+html.light button.bg-emerald-500,
+html.light button.bg-rose-500,
+html.light button.bg-sky-500,
+html.light .bg-amber-500 .text-white,
+html.light .bg-emerald-500 .text-white,
+html.light .bg-rose-500 .text-white,
+html.light .bg-sky-500 .text-white,
+html.light [class*="bg-amber-500"] .text-white,
+html.light [class*="bg-emerald-500"] .text-white,
+html.light [class*="bg-rose-500"] .text-white,
+html.light [class*="bg-sky-500"] .text-white {
+  color: #ffffff !important;
+}
+
+html.light input:not([type="checkbox"]):not([type="radio"]),
+html.light select,
+html.light textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.light .bg-slate-900\/80,
+html.light .bg-slate-900\/90,
+html.light .bg-slate-900\/70,
+html.light .bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+}
+
+html.light .bg-slate-950\/60,
+html.light .bg-slate-950\/70,
+html.light .bg-slate-950\/80,
+html.light .bg-slate-950\/90,
+html.light .bg-slate-950 {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* ======================================================== */
+/* TRUE BLACKISH DARK THEME (ZERO BLUE TINT, 100% CONTRAST) */
+/* ======================================================== */
+html.dark {
+  color-scheme: dark;
+  --background: #000000;
+  --foreground: #ffffff;
+
+  /* True Black & Carbon Gray Palette - Completely removed blue */
+  --color-slate-950: #000000; /* Pure Jet Black: app & screen backgrounds */
+  --color-slate-900: #0e0e11; /* Deep Carbon Black: cards, sidebar, dialogs */
+  --color-slate-800: #26262b; /* Neutral dark borders & dividers */
+  --color-slate-700: #3a3a42; /* Hover borders & secondary dividers */
+  --color-slate-600: #71717a; /* Muted icons */
+  --color-slate-500: #a1a1aa; /* Meta info (high legibility) */
+  --color-slate-400: #d4d4d8; /* 100% readable light zinc body text */
+  --color-slate-300: #e4e4e7; /* Crisp bright silver labels */
+  --color-slate-200: #f4f4f5; /* High-contrast white-zinc */
+  --color-slate-100: #ffffff; /* 100% pure bright white */
+
+  /* Neutralize any legacy indigo/blue backgrounds in dark mode */
+  --color-indigo-950: #121215;
+  --color-blue-950: #121215;
+}
+
+/* High contrast inputs and selects in dark mode */
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: #060608 !important;
+  color: #ffffff !important;
+  border-color: #27272a !important;
+}
+
+html.dark select option {
+  background-color: #0e0e11 !important;
+  color: #ffffff !important;
+}
+
+/* Dark mode card contrast and clean elevation */
+html.dark .bg-slate-900\/80,
+html.dark .bg-slate-900\/90,
+html.dark .bg-slate-900\/70,
+html.dark .bg-slate-900 {
+  background-color: #0e0e11 !important;
+  border-color: #26262b !important;
+}
+
+html.dark .bg-slate-950\/60,
+html.dark .bg-slate-950\/70,
+html.dark .bg-slate-950\/80,
+html.dark .bg-slate-950\/90,
+html.dark .bg-slate-950 {
+  background-color: #000000 !important;
+  border-color: #26262b !important;
 }
 
 @layer base {
@@ -122,9 +241,14 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--background);
+    color: var(--foreground);
   }
   html {
     @apply font-sans;
   }
+}
+
+@utility safe-area-pb {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }

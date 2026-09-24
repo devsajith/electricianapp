@@ -98,7 +98,7 @@ export default function EstimateDetailPage({
       case "Approved":
         return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
       case "Sent":
-        return "bg-blue-500/10 text-blue-400 border-blue-500/30";
+        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
       case "Draft":
         return "bg-slate-700/50 text-slate-300 border-slate-600/40";
       case "Rejected":
@@ -114,7 +114,7 @@ export default function EstimateDetailPage({
   return (
     <div className="space-y-6 pb-12">
       {/* Top Header & Quick Action Toolbar */}
-      <div className="print:hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/60 border border-slate-800 shadow-lg">
+      <div className="print:hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm">
         <div>
           <Link
             href="/dashboard/estimates"
@@ -151,7 +151,7 @@ export default function EstimateDetailPage({
           {estimate.status === "Draft" && (
             <Button
               onClick={() => handleStatusUpdate("Sent")}
-              className="h-9 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs gap-1.5"
+              className="h-9 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5"
             >
               <Send className="w-3.5 h-3.5" />
               <span>Mark as Sent</span>
@@ -194,13 +194,13 @@ export default function EstimateDetailPage({
       </div>
 
       {/* Printable Invoice & Proposal Document */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 sm:p-10 shadow-xl space-y-8 print:bg-white print:text-slate-900 print:border-none print:shadow-none print:p-0">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-10 shadow-sm space-y-8 print:bg-white print:text-slate-900 print:border-none print:shadow-none print:p-0">
         {/* Company Header & Quote Title */}
         <div className="flex flex-col sm:flex-row items-start justify-between gap-6 border-b border-slate-800 print:border-slate-300 pb-6">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="p-2 rounded-lg bg-amber-500 text-slate-950 font-extrabold text-sm flex items-center justify-center">
-                ⚡
+                <Zap className="w-4 h-4 fill-current" />
               </span>
               <span className="text-xl font-extrabold text-white print:text-slate-900 tracking-tight">
                 Electrician App Contracting
@@ -221,7 +221,7 @@ export default function EstimateDetailPage({
             {estimate.created_at && (
               <div className="text-xs text-slate-400 print:text-slate-600 flex items-center sm:justify-end gap-1">
                 <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                <span>
+                <span suppressHydrationWarning>
                   Date: {new Date(estimate.created_at).toLocaleDateString()}
                 </span>
               </div>

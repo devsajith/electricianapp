@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FolderKanban,
+  ListChecks,
   FileSpreadsheet,
   Package,
   Users,
@@ -23,10 +24,11 @@ const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Projects", href: "/dashboard/projects", icon: FolderKanban },
   { name: "Estimates", href: "/dashboard/estimates", icon: FileSpreadsheet },
+  { name: "Payments", href: "/dashboard/payments", icon: Wallet },
+  { name: "Expenses", href: "/dashboard/expenses", icon: Receipt },
+  { name: "Rates Catalog", href: "/dashboard/item-list", icon: ListChecks },
   { name: "Materials", href: "/dashboard/materials", icon: Package },
   { name: "Labour", href: "/dashboard/labour", icon: Users },
-  { name: "Expenses", href: "/dashboard/expenses", icon: Receipt },
-  { name: "Payments", href: "/dashboard/payments", icon: Wallet },
   { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];

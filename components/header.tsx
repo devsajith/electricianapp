@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { Search, Menu } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface HeaderProps {
   userEmail?: string | null;
@@ -53,6 +54,9 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
             className="w-full pl-9 pr-4 py-1.5 bg-slate-950/60 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500/40 transition-all"
           />
         </div>
+
+        {/* Theme Toggle Button (Dark / Light) */}
+        <ThemeToggle />
 
         {/* User Badge */}
         <div className="h-9 px-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center gap-2 text-xs font-semibold text-slate-200">

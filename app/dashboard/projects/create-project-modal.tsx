@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import { createProjectAction } from "./actions";
-import { X, Plus, Loader2, Zap, Sparkles } from "lucide-react";
+import { X, Plus, Loader2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ModalProps {
@@ -57,7 +57,7 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
           {/* Auto Project Number Notice Badge */}
           <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between text-xs text-amber-300">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+              <Zap className="w-4 h-4 text-amber-400 shrink-0 fill-current" />
               <span className="text-[11px] sm:text-xs">Project ID auto-generated (e.g. <strong>PRJ-784920</strong>)</span>
             </div>
             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">Auto</span>
