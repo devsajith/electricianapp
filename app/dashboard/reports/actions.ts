@@ -8,6 +8,7 @@ import { Payment, initialSamplePayments } from "@/lib/types/payment";
 import { Expense, initialSampleExpenses } from "@/lib/types/expense";
 import { Project } from "@/services/project.service";
 import { Estimate, initialSampleEstimates } from "@/lib/types/estimate";
+import { withTimeout } from "@/lib/timeout";
 
 const sampleProjectsFallback: Project[] = [
   {
@@ -60,12 +61,21 @@ export interface ReportsData {
 
 export async function getReportsDataAction(): Promise<ReportsData> {
   try {
-    const [payRes, projRes, expRes, estRes] = await Promise.all([
-      getPaymentsService(),
-      getProjectsService(),
-      getExpensesService(),
-      getEstimatesService(),
-    ]);
+    const [payRes, projRes, expRes, estRes] = await withTimeout(
+      Promise.all([
+        getPaymentsService(),
+        getProjectsService(),
+        getExpensesService(),
+        getEstimatesService(),
+      ]),
+      [
+        { data: initialSamplePayments },
+        { data: sampleProjectsFallback },
+        { data: initialSampleExpenses },
+        { data: initialSampleEstimates },
+      ],
+      2500
+    );
 
     const payments =
       payRes.data && payRes.data.length > 0

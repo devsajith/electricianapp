@@ -13,6 +13,9 @@ import {
   Eye,
   RefreshCw,
   IndianRupee,
+  MapPin,
+  FileSpreadsheet,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Estimate, EstimateStatus } from "@/lib/types/estimate";
@@ -20,7 +23,7 @@ import { getEstimates, updateEstimateStatus } from "@/lib/estimate-store";
 import { getEstimatesAction, updateEstimateStatusAction } from "./actions";
 
 export default function EstimatesPage() {
-  const [estimates, setEstimates] = useState<Estimate[]>([]);
+  const [estimates, setEstimates] = useState<Estimate[]>(() => getEstimates());
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("All");
@@ -28,14 +31,18 @@ export default function EstimatesPage() {
 
   const loadEstimates = async () => {
     setLoading(true);
+    const timer = setTimeout(() => setLoading(false), 2500);
+
     try {
       const dbData = await getEstimatesAction();
+      clearTimeout(timer);
       if (dbData && dbData.length > 0) {
         setEstimates(dbData);
       } else {
         setEstimates(getEstimates());
       }
     } catch {
+      clearTimeout(timer);
       setEstimates(getEstimates());
     } finally {
       setLoading(false);
@@ -61,13 +68,13 @@ export default function EstimatesPage() {
   const getStatusBadgeClass = (status: EstimateStatus) => {
     switch (status) {
       case "Approved":
-        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+        return "bg-emerald-950/80 text-emerald-400 border-emerald-500/40";
       case "Sent":
-        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+        return "bg-blue-950/80 text-blue-400 border-blue-500/40";
       case "Draft":
-        return "bg-slate-700/50 text-slate-300 border-slate-600/40";
+        return "bg-slate-800 text-slate-300 border-slate-700";
       case "Rejected":
-        return "bg-red-500/10 text-red-400 border-red-500/30";
+        return "bg-rose-950/80 text-rose-400 border-rose-500/40";
       default:
         return "bg-slate-800 text-slate-300 border-slate-700";
     }
@@ -97,6 +104,37 @@ export default function EstimatesPage() {
     .reduce((acc, curr) => acc + getAmount(curr), 0);
   const pendingCount = estimates.filter((e) => e.status === "Sent").length;
   const draftCount = estimates.filter((e) => e.status === "Draft").length;
+
+  const exportToCsv = () => {
+    if (filteredEstimates.length === 0) return;
+    const headers = ["Row", "Quote #", "Date", "Client", "Place", "Phone", "Quoted Rate", "Unit", "Status"];
+    const rows = filteredEstimates.map((est, idx) => {
+      const client = est.client_name || est.project_name?.replace(/ \([^)]*\)/, "") || "Client";
+      const place = est.client_place || "—";
+      const unitStr = est.quotation_unit || est.items?.[0]?.unit || "Squarefeet";
+      const rateVal = est.rate || est.items?.[0]?.rate || 0;
+      const dateStr = est.created_at ? new Date(est.created_at).toLocaleDateString() : "N/A";
+      return [
+        idx + 1,
+        `"${est.estimate_number}"`,
+        `"${dateStr}"`,
+        `"${client.replace(/"/g, '""')}"`,
+        `"${place.replace(/"/g, '""')}"`,
+        `"${(est.client_phone || "").replace(/"/g, '""')}"`,
+        rateVal,
+        `"${unitStr.replace(/"/g, '""')}"`,
+        `"${est.status}"`,
+      ];
+    });
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Quotations_Register_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -231,197 +269,186 @@ export default function EstimatesPage() {
           </div>
         </div>
 
-        {/* Mobile Cards View (< md) */}
-        <div className="block md:hidden space-y-3">
+        {/* Excel Spreadsheet Container */}
+        <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950">
+          {/* Excel Green Ribbon Bar */}
+          <div className="bg-[#107c41] px-4 py-2 flex flex-wrap items-center justify-between text-white border-b border-emerald-800 text-xs">
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+              <span className="font-bold tracking-wide">Quotations_Register.xlsx</span>
+              <span className="bg-emerald-900/60 text-emerald-200 text-[10px] px-2 py-0.5 rounded font-mono font-semibold">
+                AutoSave [ON]
+              </span>
+              <span className="text-[11px] text-emerald-100 hidden sm:inline ml-2">
+                Showing {filteredEstimates.length} of {estimates.length} quotations
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={exportToCsv}
+                className="flex items-center gap-1.5 px-3 py-1 bg-emerald-800 hover:bg-emerald-700 text-white rounded font-medium text-xs shadow-sm transition-colors border border-emerald-600"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Excel (.CSV)</span>
+              </button>
+            </div>
+          </div>
+
           {filteredEstimates.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 text-xs bg-slate-950/40 rounded-xl border border-slate-800/60">
-              No matching estimates found.
+            <div className="p-12 text-center text-slate-400 space-y-3">
+              <FileText className="w-10 h-10 mx-auto text-slate-600" />
+              <p className="text-sm font-semibold text-slate-300">No matching quotations found</p>
+              <p className="text-xs text-slate-500">Try adjusting your status or search filters.</p>
             </div>
           ) : (
-            filteredEstimates.map((est) => {
-              const amount = getAmount(est);
-
-              return (
-                <div
-                  key={est.id}
-                  className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 shadow-sm space-y-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono font-bold text-amber-400 text-xs bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                      {est.estimate_number}
-                    </span>
-
-                    <select
-                      value={est.status}
-                      onChange={(e) =>
-                        handleStatusChange(est.id, e.target.value as EstimateStatus)
-                      }
-                      className={`px-3 py-1 rounded-full text-xs font-bold border focus:outline-none cursor-pointer ${getStatusBadgeClass(
-                        est.status
-                      )}`}
-                    >
-                      <option value="Draft" className="bg-slate-900 text-slate-200">Draft</option>
-                      <option value="Sent" className="bg-slate-900 text-slate-200">Sent</option>
-                      <option value="Approved" className="bg-slate-900 text-slate-200">Approved</option>
-                      <option value="Rejected" className="bg-slate-900 text-slate-200">Rejected</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <h3 className="font-bold text-white text-sm">
-                      {est.project_name || "General Electrical Work"}
-                    </h3>
-                    {est.description && est.description !== est.project_name && (
-                      <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">
-                        {est.description}
-                      </p>
-                    )}
-                    <span className="text-[11px] text-slate-500 font-mono block mt-1">
-                      Date: {est.created_at ? new Date(est.created_at).toLocaleDateString() : "N/A"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-500 block">Total Amount</span>
-                      <span className="text-base font-black text-white font-mono">
-                        ₹{amount.toLocaleString("en-IN")}
-                      </span>
-                    </div>
-
-                    <Link href={`/dashboard/estimates/${est.id}`}>
-                      <Button
-                        size="sm"
-                        className="h-8 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 gap-1 rounded-xl"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-amber-400" />
-                        <span>View</span>
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Desktop Table View (hidden on mobile) */}
-        <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-800/80">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-950/90 border-b border-slate-800 text-[11px] uppercase tracking-wider font-bold text-slate-300">
-                <th className="py-3.5 px-4">Estimate Number</th>
-                <th className="py-3.5 px-4">Project</th>
-                <th className="py-3.5 px-4">Date</th>
-                <th className="py-3.5 px-4 text-right">Total Amount</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-xs">
-              {filteredEstimates.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="py-10 text-center text-slate-400 text-xs"
-                  >
-                    No matching estimates found.
-                  </td>
-                </tr>
-              ) : (
-                filteredEstimates.map((est) => (
-                  <tr
-                    key={est.id}
-                    className="hover:bg-slate-800/30 transition-colors"
-                  >
-                    {/* Estimate Number */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-amber-400">
-                      {est.estimate_number}
-                    </td>
-
-                    {/* Project */}
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-100">
-                        {est.project_name || "General Electrical Work"}
-                      </div>
-                      {est.description && est.description !== est.project_name && (
-                        <div className="text-[11px] text-slate-400 truncate max-w-xs">
-                          {est.description}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Date */}
-                    <td className="py-3.5 px-4 text-slate-400">
-                      {est.created_at
-                        ? new Date(est.created_at).toLocaleDateString()
-                        : "N/A"}
-                    </td>
-
-                    {/* Total Amount */}
-                    <td className="py-3.5 px-4 text-right font-extrabold text-slate-100 text-sm">
-                      ₹{getAmount(est).toLocaleString("en-IN")}
-                    </td>
-
-                    {/* Status */}
-                    <td className="py-3.5 px-4">
-                      <select
-                        value={est.status}
-                        onChange={(e) =>
-                          handleStatusChange(
-                            est.id,
-                            e.target.value as EstimateStatus
-                          )
-                        }
-                        className={`px-3 py-1 rounded-full text-xs font-bold border focus:outline-none cursor-pointer ${getStatusBadgeClass(
-                          est.status
-                        )}`}
-                      >
-                        <option
-                          value="Draft"
-                          className="bg-slate-900 text-slate-200"
-                        >
-                          Draft
-                        </option>
-                        <option
-                          value="Sent"
-                          className="bg-slate-900 text-slate-200"
-                        >
-                          Sent
-                        </option>
-                        <option
-                          value="Approved"
-                          className="bg-slate-900 text-slate-200"
-                        >
-                          Approved
-                        </option>
-                        <option
-                          value="Rejected"
-                          className="bg-slate-900 text-slate-200"
-                        >
-                          Rejected
-                        </option>
-                      </select>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 text-right">
-                      <Link href={`/dashboard/estimates/${est.id}`}>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 gap-1"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-amber-400" />
-                          <span>View Quote</span>
-                        </Button>
-                      </Link>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-700">
+                    <th className="py-2 px-3 w-12 text-center border-r border-slate-700/80 bg-slate-900/90 text-slate-500 font-mono select-none">
+                      ◢
+                    </th>
+                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-36">
+                      <div className="text-[10px] text-emerald-400 font-mono">A</div>
+                      QUOTE #
+                    </th>
+                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
+                      <div className="text-[10px] text-emerald-400 font-mono">B</div>
+                      CLIENT & PLACE
+                    </th>
+                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-48">
+                      <div className="text-[10px] text-emerald-400 font-mono">C</div>
+                      QUOTED RATE
+                    </th>
+                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-center w-36">
+                      <div className="text-[10px] text-emerald-400 font-mono">D</div>
+                      STATUS
+                    </th>
+                    <th className="py-2.5 px-4 font-bold text-center w-28">
+                      <div className="text-[10px] text-emerald-400 font-mono">E</div>
+                      ACTIONS
+                    </th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-slate-800 text-xs font-mono">
+                  {filteredEstimates.map((est, idx) => {
+                    const client = est.client_name || est.project_name?.replace(/ \([^)]*\)/, "") || "Client";
+                    const place = est.client_place || "—";
+                    const unitStr = est.quotation_unit || est.items?.[0]?.unit || "Squarefeet";
+                    const rateVal = est.rate || est.items?.[0]?.rate || 0;
+
+                    return (
+                      <tr
+                        key={est.id}
+                        className="hover:bg-emerald-500/10 transition-colors group border-b border-slate-800/80"
+                      >
+                        {/* Row Index */}
+                        <td className="py-2.5 px-3 text-center bg-slate-900/70 border-r border-slate-800 text-slate-400 select-none text-[11px] font-mono group-hover:text-emerald-400 group-hover:bg-emerald-950/30">
+                          {idx + 1}
+                        </td>
+
+                        {/* Quote Number & Date */}
+                        <td className="py-2.5 px-4 border-r border-slate-800">
+                          <div className="font-mono font-bold text-emerald-400">
+                            {est.estimate_number}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            {est.created_at ? new Date(est.created_at).toLocaleDateString() : "N/A"}
+                          </div>
+                        </td>
+
+                        {/* Client & Place */}
+                        <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
+                          <div className="font-bold text-slate-100">
+                            {client}
+                          </div>
+                          <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                            <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
+                            <span className="truncate max-w-[240px]">{place}</span>
+                          </div>
+                        </td>
+
+                        {/* Quoted Rate */}
+                        <td className="py-2.5 px-4 border-r border-slate-800">
+                          {rateVal > 0 ? (
+                            <div>
+                              <span className="font-mono font-extrabold text-emerald-400 text-sm">
+                                ₹{rateVal}
+                              </span>
+                              <span className="text-[11px] text-slate-400 ml-1.5 font-medium font-sans">
+                                / {unitStr.toLowerCase().includes("meter") ? "meter" : "sq.ft"}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 font-sans">Custom</span>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-2.5 px-4 border-r border-slate-800 text-center font-sans">
+                          <select
+                            value={est.status}
+                            onChange={(e) =>
+                              handleStatusChange(
+                                est.id,
+                                e.target.value as EstimateStatus
+                              )
+                            }
+                            className={`px-3 py-1 rounded text-xs font-bold border focus:outline-none cursor-pointer ${getStatusBadgeClass(
+                              est.status
+                            )}`}
+                          >
+                            <option value="Draft" className="bg-slate-900 text-slate-200">
+                              Draft
+                            </option>
+                            <option value="Sent" className="bg-slate-900 text-slate-200">
+                              Sent
+                            </option>
+                            <option value="Approved" className="bg-slate-900 text-slate-200">
+                              Approved
+                            </option>
+                            <option value="Rejected" className="bg-slate-900 text-slate-200">
+                              Rejected
+                            </option>
+                          </select>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-2.5 px-4 text-center font-sans">
+                          <Link href={`/dashboard/estimates/${est.id}`}>
+                            <Button
+                              size="sm"
+                              className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1 rounded px-2.5 shadow-sm"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>PDF</span>
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Bottom Sheet Tab & Status Bar */}
+          <div className="bg-slate-900 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-[11px] text-slate-400 select-none">
+            <div className="flex items-center gap-1">
+              <span className="px-3 py-1 bg-slate-950 text-emerald-400 font-semibold rounded-t border-t-2 border-emerald-500 border-x border-slate-800 flex items-center gap-1.5">
+                <FileSpreadsheet className="w-3 h-3 text-emerald-400" />
+                Sheet1 - Quotations Register
+              </span>
+            </div>
+            <div className="flex items-center gap-4 font-mono text-[10px]">
+              <span>READY</span>
+              <span className="border-l border-slate-700 pl-3">COUNT: {filteredEstimates.length}</span>
+              <span className="border-l border-slate-700 pl-3 text-emerald-400">APPROVED: {approvedTotal > 0 ? `₹${approvedTotal.toLocaleString("en-IN")}` : "0"}</span>
+              <span className="border-l border-slate-700 pl-3 text-slate-400">PENDING: {pendingCount}</span>
+              <span className="border-l border-slate-700 pl-3 text-slate-400">DRAFT: {draftCount}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

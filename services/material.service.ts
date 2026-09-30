@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Material, initialSampleMaterials } from "@/lib/types/material";
+import { withTimeout } from "@/lib/timeout";
 
 export interface CreateMaterialDTO {
   item_name: string;
@@ -27,58 +28,64 @@ export interface UpdateMaterialDTO {
  * Service: Fetch all material records from Supabase material_catalogue table
  */
 export async function getMaterialsService(): Promise<{ data: Material[]; error?: string }> {
-  try {
-    const supabase = await createClient();
+  return withTimeout(
+    (async () => {
+      try {
+        const supabase = await createClient();
 
-    // Query the exact Supabase table: material_catalogue
-    let { data, error } = await supabase
-      .from("material_catalogue")
-      .select("*")
-      .order("created_at", { ascending: false });
+        // Query the exact Supabase table: material_catalogue
+        let { data, error } = await supabase
+          .from("material_catalogue")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-    // Fallback if table name is plural materials
-    if (error && (error.code === "PGRST205" || error.message.includes("does not exist"))) {
-      console.warn("[MaterialService] material_catalogue table not found, trying materials fallback table");
-      const fallback = await supabase
-        .from("materials")
-        .select("*")
-        .order("created_at", { ascending: false });
-      data = fallback.data;
-      error = fallback.error;
-    }
+        // Fallback if table name is plural materials
+        if (error && (error.code === "PGRST205" || error.message.includes("does not exist"))) {
+          console.warn("[MaterialService] material_catalogue table not found, trying materials fallback table");
+          const fallback = await supabase
+            .from("materials")
+            .select("*")
+            .order("created_at", { ascending: false });
+          data = fallback.data;
+          error = fallback.error;
+        }
 
-    if (error) {
-      console.error("[MaterialService] Supabase materials query error:", error.message);
-      return { data: [] };
-    }
+        if (error) {
+          console.error("[MaterialService] Supabase materials query error:", error.message);
+          return { data: initialSampleMaterials };
+        }
 
-    if (!data || data.length === 0) {
-      return { data: initialSampleMaterials };
-    }
+        if (!data || data.length === 0) {
+          return { data: initialSampleMaterials };
+        }
 
-    const rows = data as Record<string, unknown>[];
-    const items: Material[] = rows.map((row) => {
-      const price = Number(row.default_price ?? row.unit_price ?? row.price ?? 0);
-      return {
-        id: String(row.id || `mat-${Date.now()}`),
-        item_name: String(row.item_name || row.name || "Electrical Material"),
-        category: String(row.category || "General"),
-        brand: row.brand ? String(row.brand) : null,
-        unit: String(row.unit || "nos"),
-        default_price: price,
-        supplier: row.supplier ? String(row.supplier) : null,
-        notes: row.notes ? String(row.notes) : (row.description ? String(row.description) : null),
-        is_active: typeof row.is_active === "boolean" ? row.is_active : row.status !== "Inactive",
-        created_at: String(row.created_at || new Date().toISOString()),
-        updated_at: row.updated_at ? String(row.updated_at) : undefined,
-      };
-    });
+        const rows = data as Record<string, unknown>[];
+        const items: Material[] = rows.map((row) => {
+          const price = Number(row.default_price ?? row.unit_price ?? row.price ?? 0);
+          return {
+            id: String(row.id || `mat-${Date.now()}`),
+            item_name: String(row.item_name || row.name || "Electrical Material"),
+            category: String(row.category || "General"),
+            brand: row.brand ? String(row.brand) : null,
+            unit: String(row.unit || "nos"),
+            default_price: price,
+            supplier: row.supplier ? String(row.supplier) : null,
+            notes: row.notes ? String(row.notes) : (row.description ? String(row.description) : null),
+            is_active: typeof row.is_active === "boolean" ? row.is_active : row.status !== "Inactive",
+            created_at: String(row.created_at || new Date().toISOString()),
+            updated_at: row.updated_at ? String(row.updated_at) : undefined,
+          };
+        });
 
-    return { data: items };
-  } catch (err) {
-    console.error("[MaterialService] Exception fetching materials:", err);
-    return { data: initialSampleMaterials };
-  }
+        return { data: items };
+      } catch (err) {
+        console.error("[MaterialService] Exception fetching materials:", err);
+        return { data: initialSampleMaterials };
+      }
+    })(),
+    { data: initialSampleMaterials },
+    2500
+  );
 }
 
 /**
@@ -87,56 +94,61 @@ export async function getMaterialsService(): Promise<{ data: Material[]; error?:
 export async function getMaterialByIdService(
   id: string
 ): Promise<{ data?: Material; error?: string }> {
-  try {
-    const supabase = await createClient();
+  const fallbackSample = initialSampleMaterials.find((m) => m.id === id);
+  return withTimeout(
+    (async () => {
+      try {
+        const supabase = await createClient();
 
-    let { data, error } = await supabase
-      .from("material_catalogue")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
+        let { data, error } = await supabase
+          .from("material_catalogue")
+          .select("*")
+          .eq("id", id)
+          .maybeSingle();
 
-    if (error && (error.code === "PGRST205" || error.message.includes("does not exist"))) {
-      const fallback = await supabase
-        .from("materials")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
-      data = fallback.data;
-      error = fallback.error;
-    }
+        if (error && (error.code === "PGRST205" || error.message.includes("does not exist"))) {
+          const fallback = await supabase
+            .from("materials")
+            .select("*")
+            .eq("id", id)
+            .maybeSingle();
+          data = fallback.data;
+          error = fallback.error;
+        }
 
-    if (!error && data) {
-      const row = data as Record<string, unknown>;
-      const price = Number(row.default_price ?? row.unit_price ?? 0);
-      const material: Material = {
-        id: String(row.id),
-        item_name: String(row.item_name || row.name),
-        category: String(row.category),
-        brand: row.brand ? String(row.brand) : null,
-        unit: String(row.unit),
-        default_price: price,
-        supplier: row.supplier ? String(row.supplier) : null,
-        notes: row.notes ? String(row.notes) : (row.description ? String(row.description) : null),
-        is_active: typeof row.is_active === "boolean" ? row.is_active : row.status !== "Inactive",
-        created_at: String(row.created_at || new Date().toISOString()),
-        updated_at: row.updated_at ? String(row.updated_at) : undefined,
-      };
-      return { data: material };
-    }
+        if (!error && data) {
+          const row = data as Record<string, unknown>;
+          const price = Number(row.default_price ?? row.unit_price ?? 0);
+          const material: Material = {
+            id: String(row.id),
+            item_name: String(row.item_name || row.name),
+            category: String(row.category),
+            brand: row.brand ? String(row.brand) : null,
+            unit: String(row.unit),
+            default_price: price,
+            supplier: row.supplier ? String(row.supplier) : null,
+            notes: row.notes ? String(row.notes) : (row.description ? String(row.description) : null),
+            is_active: typeof row.is_active === "boolean" ? row.is_active : row.status !== "Inactive",
+            created_at: String(row.created_at || new Date().toISOString()),
+            updated_at: row.updated_at ? String(row.updated_at) : undefined,
+          };
+          return { data: material };
+        }
 
-    const sampleMatch = initialSampleMaterials.find((m) => m.id === id);
-    if (sampleMatch) {
-      return { data: sampleMatch };
-    }
+        if (fallbackSample) {
+          return { data: fallbackSample };
+        }
 
-    return { error: "Material not found" };
-  } catch (err) {
-    console.error(`[MaterialService] Exception fetching material ${id}:`, err);
-    const sampleMatch = initialSampleMaterials.find((m) => m.id === id);
-    if (sampleMatch) return { data: sampleMatch };
-    return { error: "Failed to fetch material details" };
-  }
+        return { error: "Material not found" };
+      } catch (err) {
+        console.error(`[MaterialService] Exception fetching material ${id}:`, err);
+        if (fallbackSample) return { data: fallbackSample };
+        return { error: "Failed to fetch material details" };
+      }
+    })(),
+    fallbackSample ? { data: fallbackSample } : { error: "Material not found" },
+    2500
+  );
 }
 
 /**

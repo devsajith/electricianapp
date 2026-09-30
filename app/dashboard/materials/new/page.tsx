@@ -5,12 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Package, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  MATERIAL_CATEGORIES,
-  MATERIAL_UNITS,
-  MaterialCategory,
-  MaterialUnit,
-} from "@/lib/types/material";
+import { MATERIAL_UNITS, MaterialUnit } from "@/lib/types/material";
 import { createMaterialAction } from "../actions";
 
 export default function NewMaterialPage() {
@@ -18,15 +13,10 @@ export default function NewMaterialPage() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // Form states matching Supabase material_catalogue schema exact fields
+  // Form states: only Item Name, Brand, Unit
   const [itemName, setItemName] = useState("");
-  const [category, setCategory] = useState<string>(MATERIAL_CATEGORIES[0]);
   const [brand, setBrand] = useState("");
-  const [unit, setUnit] = useState<string>(MATERIAL_UNITS[0]);
-  const [defaultPrice, setDefaultPrice] = useState<string>("");
-  const [supplier, setSupplier] = useState("");
-  const [notes, setNotes] = useState("");
-  const [isActive, setIsActive] = useState(true);
+  const [unit, setUnit] = useState<string>(MATERIAL_UNITS[0] || "Meter");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,32 +27,21 @@ export default function NewMaterialPage() {
       return;
     }
 
-    if (!category.trim()) {
-      setError("Category is required.");
-      return;
-    }
-
     if (!unit.trim()) {
       setError("Unit is required.");
-      return;
-    }
-
-    const priceNum = defaultPrice.trim() ? parseFloat(defaultPrice) : 0;
-    if (isNaN(priceNum) || priceNum < 0) {
-      setError("Please enter a valid Default Price.");
       return;
     }
 
     startTransition(async () => {
       const result = await createMaterialAction({
         item_name: itemName.trim(),
-        category: category.trim(),
+        category: "General",
         brand: brand.trim() || null,
         unit: unit.trim(),
-        default_price: priceNum,
-        supplier: supplier.trim() || null,
-        notes: notes.trim() || null,
-        is_active: isActive,
+        default_price: 0,
+        supplier: null,
+        notes: null,
+        is_active: true,
       });
 
       if (result.error) {
@@ -74,8 +53,8 @@ export default function NewMaterialPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      {/* Back Button & Header */}
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Back Button */}
       <div className="flex items-center gap-3">
         <Link href="/dashboard/materials">
           <Button
@@ -95,7 +74,7 @@ export default function NewMaterialPage() {
             Add Material
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Add new item to your <code className="text-amber-400 font-mono">material_catalogue</code> database table.
+            Add a new material item with Item Name, Brand, and Unit.
           </p>
         </div>
       </div>
@@ -133,26 +112,7 @@ export default function NewMaterialPage() {
               />
             </div>
 
-            {/* 2. Category * */}
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Category <span className="text-rose-400">*</span>
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as MaterialCategory)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500"
-                required
-              >
-                {MATERIAL_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 3. Brand */}
+            {/* 2. Brand */}
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1.5">
                 Brand
@@ -161,12 +121,12 @@ export default function NewMaterialPage() {
                 type="text"
                 value={brand}
                 onChange={(e) => setBrand(e.target.value)}
-                placeholder="e.g. Polycab, Havells, Schneider, Philips"
+                placeholder="e.g. Polycab, Havells, Schneider"
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
               />
             </div>
 
-            {/* 4. Unit * */}
+            {/* 3. Unit * */}
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1.5">
                 Unit <span className="text-rose-400">*</span>
@@ -183,75 +143,6 @@ export default function NewMaterialPage() {
                   </option>
                 ))}
               </select>
-            </div>
-
-            {/* 5. Default Price */}
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Default Price (₹)
-              </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
-                  ₹
-                </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={defaultPrice}
-                  onChange={(e) => setDefaultPrice(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3.5 py-2.5 text-xs text-white font-semibold placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-            </div>
-
-            {/* 6. Supplier */}
-            <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Supplier
-              </label>
-              <input
-                type="text"
-                value={supplier}
-                onChange={(e) => setSupplier(e.target.value)}
-                placeholder="e.g. Polycab Wires Ltd, Havells India"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            {/* 7. Notes */}
-            <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Notes
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Technical specifications, description, or notes..."
-                rows={3}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            {/* 8. Active (is_active boolean) */}
-            <div className="md:col-span-2 pt-2 border-t border-slate-800">
-              <label className="inline-flex items-center gap-3 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-amber-500 focus:ring-offset-slate-900"
-                />
-                <div>
-                  <span className="text-xs font-semibold text-slate-200">
-                    Active Item (is_active)
-                  </span>
-                  <p className="text-[11px] text-slate-400">
-                    Saves <code className="text-amber-400 font-mono">is_active = true</code> in the Supabase database.
-                  </p>
-                </div>
-              </label>
             </div>
           </div>
         </div>
@@ -273,7 +164,7 @@ export default function NewMaterialPage() {
             className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-2 shadow-md"
           >
             <Save className="w-4 h-4" />
-            <span>{isPending ? "Saving to Supabase..." : "Save Material"}</span>
+            <span>{isPending ? "Saving..." : "Save Material"}</span>
           </Button>
         </div>
       </form>

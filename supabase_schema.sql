@@ -90,4 +90,9 @@ ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all access to payments" ON public.payments;
 CREATE POLICY "Allow all access to payments" ON public.payments FOR ALL USING (true) WITH CHECK (true);
 
+-- 11. Support Self Expenses and Project-based Expenses
+ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS expense_type TEXT DEFAULT 'project';
+ALTER TABLE public.expenses ALTER COLUMN project_id DROP NOT NULL;
+
+
 

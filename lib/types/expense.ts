@@ -1,8 +1,13 @@
+export type ExpenseType = "project" | "self";
+
 export type ExpenseCategory =
   | "Emergency Material"
   | "Travel & Fuel"
   | "Equipment & Tools"
   | "Food & Refreshment"
+  | "Office & Shop"
+  | "Vehicle & Maintenance"
+  | "Personal / Self Draw"
   | "Permits & Fees"
   | "Labour / Helper"
   | "Miscellaneous";
@@ -12,6 +17,9 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   "Travel & Fuel",
   "Equipment & Tools",
   "Food & Refreshment",
+  "Office & Shop",
+  "Vehicle & Maintenance",
+  "Personal / Self Draw",
   "Permits & Fees",
   "Labour / Helper",
   "Miscellaneous",
@@ -19,7 +27,8 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
 
 export interface Expense {
   id: string;
-  project_id: string;
+  expense_type?: ExpenseType; // "project" or "self" (default: "project" if project_id exists)
+  project_id?: string | null;
   project_number?: string;
   customer_name?: string;
   project_type?: string;
@@ -33,7 +42,8 @@ export interface Expense {
 }
 
 export interface CreateExpenseDTO {
-  project_id: string;
+  expense_type?: ExpenseType;
+  project_id?: string | null;
   category: string;
   description: string;
   amount: number;
@@ -44,6 +54,7 @@ export interface CreateExpenseDTO {
 export const initialSampleExpenses: Expense[] = [
   {
     id: "exp-101",
+    expense_type: "project",
     project_id: "sample-1",
     project_number: "PRJ-918234",
     customer_name: "Apex Retail Plaza",
@@ -55,6 +66,7 @@ export const initialSampleExpenses: Expense[] = [
   },
   {
     id: "exp-102",
+    expense_type: "project",
     project_id: "sample-1",
     project_number: "PRJ-918234",
     customer_name: "Apex Retail Plaza",
@@ -66,6 +78,7 @@ export const initialSampleExpenses: Expense[] = [
   },
   {
     id: "exp-103",
+    expense_type: "project",
     project_id: "sample-2",
     project_number: "PRJ-482019",
     customer_name: "Sarah Jenkins",
@@ -74,5 +87,35 @@ export const initialSampleExpenses: Expense[] = [
     amount: 1200,
     expense_date: "2026-09-05",
     created_at: "2026-09-05T09:15:00Z",
+  },
+  {
+    id: "exp-104",
+    expense_type: "self",
+    project_id: null,
+    category: "Office & Shop",
+    description: "Shop electricity bill and workshop lighting repair",
+    amount: 1450,
+    expense_date: "2026-09-10",
+    created_at: "2026-09-10T10:00:00Z",
+  },
+  {
+    id: "exp-105",
+    expense_type: "self",
+    project_id: null,
+    category: "Vehicle & Maintenance",
+    description: "Monthly diesel refill for service van & bike maintenance",
+    amount: 2200,
+    expense_date: "2026-09-14",
+    created_at: "2026-09-14T16:00:00Z",
+  },
+  {
+    id: "exp-106",
+    expense_type: "self",
+    project_id: null,
+    category: "Food & Refreshment",
+    description: "Weekly tea, snacks, and drinking water for crew at workshop",
+    amount: 480,
+    expense_date: "2026-09-16",
+    created_at: "2026-09-16T17:30:00Z",
   },
 ];

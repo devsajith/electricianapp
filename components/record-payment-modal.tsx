@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useTransition, useRef } from "react";
 import {
   Wallet,
   X,
@@ -9,14 +9,12 @@ import {
   Calendar,
   IndianRupee,
   Building2,
-  FileText,
-  CreditCard,
   Smartphone,
   Banknote,
-  Loader2,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Payment, PaymentMethod, PaymentType, PAYMENT_METHODS, PAYMENT_TYPES, PAYMENT_MILESTONES } from "@/lib/types/payment";
+import { Payment } from "@/lib/types/payment";
 import { recordPaymentAction } from "@/app/dashboard/payments/actions";
 import { getProjectsAction, ProjectRecord } from "@/app/dashboard/projects/actions";
 
@@ -26,6 +24,12 @@ interface RecordPaymentModalProps {
   defaultProjectId?: string;
   onSuccess?: (payment?: Payment) => void;
 }
+
+const PAYMENT_METHODS_OPTIONS = [
+  { id: "Cash", label: "Cash", icon: Banknote, color: "text-amber-400" },
+  { id: "GPay", label: "GPay", icon: Smartphone, color: "text-emerald-400" },
+  { id: "Account Transfer", label: "Account Transfer", icon: Building2, color: "text-blue-400" },
+] as const;
 
 export function RecordPaymentModal({
   isOpen,
@@ -38,16 +42,15 @@ export function RecordPaymentModal({
 
   const [projectId, setProjectId] = useState<string>(defaultProjectId || "");
   const [amount, setAmount] = useState<string>("");
-  const [paymentType, setPaymentType] = useState<PaymentType>("Advance");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("UPI");
-  const [referenceNumber, setReferenceNumber] = useState<string>("");
-  const [notes, setNotes] = useState<string>("");
+  const [paymentType, setPaymentType] = useState<string>("Advance");
+  const [paymentMethod, setPaymentMethod] = useState<"Cash" | "GPay" | "Account Transfer">("Cash");
   const [paymentDate, setPaymentDate] = useState<string>("");
 
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -87,6 +90,16 @@ export function RecordPaymentModal({
       return;
     }
 
+    if (!paymentType.trim()) {
+      setErrorMessage("Please specify the payment type (e.g. Advance, Stage 1).");
+      return;
+    }
+
+    if (!paymentDate) {
+      setErrorMessage("Please choose a payment date.");
+      return;
+    }
+
     setSaving(true);
     startTransition(async () => {
       try {
@@ -95,9 +108,7 @@ export function RecordPaymentModal({
           amount: numAmount,
           payment_date: paymentDate,
           payment_method: paymentMethod,
-          payment_type: paymentType,
-          reference_number: referenceNumber.trim() || undefined,
-          notes: notes.trim() || undefined,
+          payment_type: paymentType.trim(),
         });
 
         if (res.error) {
@@ -107,12 +118,11 @@ export function RecordPaymentModal({
           setSuccessMessage("Client payment recorded successfully!");
           setTimeout(() => {
             setAmount("");
-            setReferenceNumber("");
-            setNotes("");
+            setPaymentType("Advance");
             setSaving(false);
             onSuccess?.(res.data);
             onClose();
-          }, 800);
+          }, 700);
         }
       } catch (err: unknown) {
         setErrorMessage(err instanceof Error ? err.message : "Failed to record payment.");
@@ -123,38 +133,21 @@ export function RecordPaymentModal({
 
   const selectedProj = projects.find((p) => p.id === projectId);
 
-  const getMethodIcon = (method: string) => {
-    switch (method) {
-      case "UPI":
-        return <Smartphone className="w-3.5 h-3.5" />;
-      case "Cash":
-        return <Banknote className="w-3.5 h-3.5" />;
-      case "Bank Transfer":
-        return <Building2 className="w-3.5 h-3.5" />;
-      case "Cheque":
-        return <FileText className="w-3.5 h-3.5" />;
-      case "Card":
-        return <CreditCard className="w-3.5 h-3.5" />;
-      default:
-        return <Wallet className="w-3.5 h-3.5" />;
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header */}
+        {/* Modal Header */}
         <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
           <div className="flex items-center gap-2.5">
             <span className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-              <Wallet className="w-4 h-4" />
+              <Wallet className="w-5 h-5" />
             </span>
             <div>
               <h3 className="font-bold text-white text-base leading-tight">
-                Record Client Payment
+                Record Received Payment
               </h3>
               <p className="text-[11px] text-slate-400">
-                Log advances, stage settlements, or final balance received
+                Track payments received from clients
               </p>
             </div>
           </div>
@@ -183,10 +176,10 @@ export function RecordPaymentModal({
             </div>
           )}
 
-          {/* Project Selector */}
+          {/* 1. Project Selector */}
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Select Project <span className="text-amber-400">*</span>
+              Select Client / Project <span className="text-amber-400">*</span>
             </label>
             {loadingProjects ? (
               <div className="h-10 bg-slate-800/50 rounded-xl animate-pulse flex items-center px-3 text-xs text-slate-500">
@@ -202,22 +195,22 @@ export function RecordPaymentModal({
                 <option value="">-- Choose Project --</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.project_number} — {p.customer_name} ({p.project_type})
+                    {p.customer_name} — {p.project_number} ({p.project_type})
                   </option>
                 ))}
               </select>
             )}
             {selectedProj && (
               <p className="mt-1 text-[11px] text-slate-500">
-                Client: <span className="text-slate-300 font-medium">{selectedProj.customer_name}</span> • Phone: {selectedProj.customer_phone || "N/A"}
+                Client: <span className="text-slate-300 font-medium">{selectedProj.customer_name}</span> • Place: {selectedProj.place || selectedProj.address || "N/A"}
               </p>
             )}
           </div>
 
-          {/* Payment Amount */}
+          {/* 2. Amount */}
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Payment Amount Received <span className="text-emerald-400">*</span>
+              Amount Received <span className="text-emerald-400">*</span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-emerald-400">
@@ -236,173 +229,117 @@ export function RecordPaymentModal({
             </div>
           </div>
 
-          {/* Payment Type Selector (Advance, Milestone, Final, Retention, Full) */}
+          {/* 3. Payment Type (Text Box) */}
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5 text-amber-400" />
               Payment Type <span className="text-amber-400">*</span>
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {PAYMENT_TYPES.map((t) => {
-                const isSelected = paymentType === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => {
-                      setPaymentType(t.id);
-                      if (!notes) {
-                        if (t.id === "Advance") setNotes("Advance Booking (20%)");
-                        else if (t.id === "Milestone") setNotes("Rough-in / Conduiting Stage (30%)");
-                        else if (t.id === "Final Settlement") setNotes("Final Testing & Handover (5%)");
-                        else if (t.id === "Full Payment") setNotes("Full Settlement");
-                      }
-                    }}
-                    className={`flex flex-col p-2.5 rounded-xl border text-xs font-medium text-left transition-all ${
-                      isSelected
-                        ? "bg-amber-500/10 border-amber-500/40 text-amber-300 shadow-sm"
-                        : "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
-                    }`}
-                  >
-                    <span className="font-bold truncate">{t.label}</span>
-                    <span className="text-[10px] text-slate-500 truncate">{t.description}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <input
+              type="text"
+              required
+              value={paymentType}
+              onChange={(e) => setPaymentType(e.target.value)}
+              placeholder="e.g. Advance, Stage 1, Conduit stage, Final settlement"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
+            />
+            <p className="mt-1 text-[10px] text-slate-500">
+              Type of payment received (e.g. Advance, Material Advance, Final Payment)
+            </p>
           </div>
 
-          {/* Payment Method Selector */}
+          {/* 4. Payment Method (Cash, GPay, Account Transfer) */}
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Payment Mode / Channel
+              Payment Method <span className="text-amber-400">*</span>
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {PAYMENT_METHODS.map((m) => {
+            <div className="grid grid-cols-3 gap-2">
+              {PAYMENT_METHODS_OPTIONS.map((m) => {
                 const isSelected = paymentMethod === m.id;
+                const IconComponent = m.icon;
                 return (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => setPaymentMethod(m.id)}
-                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-medium text-left transition-all ${
+                    className={`flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-semibold transition-all ${
                       isSelected
-                        ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-sm"
+                        ? "bg-emerald-500/10 border-emerald-500/50 text-white shadow-sm ring-1 ring-emerald-500/30"
                         : "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
                     }`}
                   >
-                    <span className={isSelected ? "text-emerald-400" : "text-slate-400"}>
-                      {getMethodIcon(m.id)}
-                    </span>
-                    <span className="truncate">{m.id}</span>
+                    <IconComponent className={`w-4 h-4 mb-1 ${isSelected ? m.color : "text-slate-400"}`} />
+                    <span className="truncate">{m.label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Reference / UTR / Cheque Number */}
-          <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Reference / Transaction ID / Cheque No.
-            </label>
-            <input
-              type="text"
-              placeholder={
-                paymentMethod === "UPI"
-                  ? "e.g. UPI Ref / UTR: 4291840281"
-                  : paymentMethod === "Cheque"
-                  ? "e.g. Cheque No: 440192 (SBI)"
-                  : paymentMethod === "Bank Transfer"
-                  ? "e.g. NEFT/IMPS Ref: HDFC99281"
-                  : "e.g. Receipt No / Cash voucher"
-              }
-              value={referenceNumber}
-              onChange={(e) => setReferenceNumber(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
-            />
-          </div>
-
-          {/* Milestone Quick Chips */}
+          {/* 5. Payment Date (Date Picker) */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Milestone / Stage (Quick Select)
+              <label
+                htmlFor="payment_date"
+                className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"
+              >
+                <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                Payment Date <span className="text-amber-400">*</span>
               </label>
-              <span className="text-[10px] text-slate-500">
-                Tap to fill notes
-              </span>
+              <button
+                type="button"
+                onClick={() => setPaymentDate(new Date().toISOString().split("T")[0])}
+                className="text-[10px] text-amber-400 hover:text-amber-300 font-semibold transition-colors"
+              >
+                Today
+              </button>
             </div>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {PAYMENT_MILESTONES.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setNotes(m)}
-                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition-colors ${
-                    notes === m
-                      ? "bg-amber-500/20 border-amber-500/40 text-amber-300 font-semibold"
-                      : "bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-
-            {/* Custom Notes */}
-            <textarea
-              rows={2}
-              placeholder="e.g. Advance 30% received for wiring materials and conduit rough-in..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 resize-none"
-            />
-          </div>
-
-          {/* Date Picker */}
-          <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Payment Date
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                <Calendar className="w-3.5 h-3.5" />
+            <div
+              onClick={() => dateInputRef.current?.showPicker?.()}
+              className="relative cursor-pointer group"
+            >
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-amber-400">
+                <Calendar className="w-4 h-4" />
               </div>
               <input
+                ref={dateInputRef}
+                id="payment_date"
                 type="date"
+                required
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
-                required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 cursor-pointer"
               />
             </div>
           </div>
 
-          {/* Footer Actions */}
+          {/* Modal Footer Actions */}
           <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-800">
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={onClose}
               disabled={saving}
-              className="border-slate-800 text-slate-300 hover:bg-slate-800 text-xs px-4"
+              className="border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
             >
               Cancel
             </Button>
             <Button
               type="submit"
+              size="sm"
               disabled={saving}
-              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs gap-1.5 shadow-md px-5"
+              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs gap-1.5 shadow-sm"
             >
               {saving ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Saving...</span>
+                  <span className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                  Saving...
                 </>
               ) : (
                 <>
-                  <Wallet className="w-3.5 h-3.5" />
-                  <span>Record Payment</span>
+                  <Check className="w-3.5 h-3.5" />
+                  Record Payment
                 </>
               )}
             </Button>

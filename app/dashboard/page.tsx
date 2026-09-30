@@ -4,21 +4,38 @@ import { getPaymentsAction } from "./payments/actions";
 import { getExpensesAction } from "./expenses/actions";
 import { getEstimatesAction } from "./estimates/actions";
 import { DashboardClient } from "./dashboard-client";
+import { withTimeout } from "@/lib/timeout";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  const [projectsRes, paymentsRes, expensesRes, estimatesRes] = await Promise.all([
-    getProjectsAction(),
-    getPaymentsAction(),
-    getExpensesAction(),
-    getEstimatesAction(),
-  ]);
+  // Ensure user fetch never blocks beyond 2s
+  const user = await withTimeout(
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        return data?.user || null;
+      } catch {
+        return null;
+      }
+    })(),
+    null,
+    2000
+  );
+
+  // Ensure data fetch never blocks beyond 2.5s
+  const [projectsRes, paymentsRes, expensesRes, estimatesRes] = await withTimeout(
+    Promise.all([
+      getProjectsAction(),
+      getPaymentsAction(),
+      getExpensesAction(),
+      getEstimatesAction(),
+    ]),
+    [[], { data: [] }, { data: [] }, []],
+    2500
+  );
 
   const projects =
     projectsRes && projectsRes.length > 0

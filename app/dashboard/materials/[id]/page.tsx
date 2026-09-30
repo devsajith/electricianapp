@@ -38,8 +38,11 @@ export default function MaterialDetailPage({
 
   const loadMaterial = async () => {
     setLoading(true);
+    const timer = setTimeout(() => setLoading(false), 2500);
+
     try {
       const data = await getMaterialByIdAction(id);
+      clearTimeout(timer);
       if (data) {
         setMaterial(data);
       } else {
@@ -47,6 +50,7 @@ export default function MaterialDetailPage({
       }
     } catch (err) {
       console.error("Error loading material detail:", err);
+      clearTimeout(timer);
       setErrorMsg("Failed to load material details.");
     } finally {
       setLoading(false);

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Payment, CreatePaymentDTO, initialSamplePayments } from "@/lib/types/payment";
 import { PostgrestError } from "@supabase/supabase-js";
+import { withTimeout } from "@/lib/timeout";
 
 /**
  * Helper to validate UUID syntax for PostgreSQL uuid columns
@@ -60,42 +61,48 @@ function parsePaymentRow(row: Record<string, unknown>): Payment {
  * Service: Fetch all client payments from Supabase joined with project details
  */
 export async function getPaymentsService(): Promise<{ data: Payment[]; error?: string }> {
-  try {
-    const supabase = await createClient();
+  return withTimeout(
+    (async () => {
+      try {
+        const supabase = await createClient();
 
-    // Query payments and join with projects
-    let { data, error } = await supabase
-      .from("payments")
-      .select("*, projects(id, project_number, customer_name, customer_phone)")
-      .order("payment_date", { ascending: false });
+        // Query payments and join with projects
+        let { data, error } = await supabase
+          .from("payments")
+          .select("*, projects(id, project_number, customer_name, customer_phone)")
+          .order("payment_date", { ascending: false });
 
-    // Fallback if projects relation has an issue in PostgREST cache
-    if (error && (error.code === "PGRST200" || error.code === "PGRST100")) {
-      const fallback = await supabase
-        .from("payments")
-        .select("*")
-        .order("payment_date", { ascending: false });
-      data = fallback.data;
-      error = fallback.error;
-    }
+        // Fallback if projects relation has an issue in PostgREST cache
+        if (error && (error.code === "PGRST200" || error.code === "PGRST100")) {
+          const fallback = await supabase
+            .from("payments")
+            .select("*")
+            .order("payment_date", { ascending: false });
+          data = fallback.data;
+          error = fallback.error;
+        }
 
-    if (error) {
-      console.error("[PaymentService] Error fetching payments:", error);
-      return { data: initialSamplePayments, error: error.message };
-    }
+        if (error) {
+          console.error("[PaymentService] Error fetching payments:", error);
+          return { data: initialSamplePayments, error: error.message };
+        }
 
-    if (!data || data.length === 0) {
-      return { data: [] };
-    }
+        if (!data || data.length === 0) {
+          return { data: [] };
+        }
 
-    const rows = data as Record<string, unknown>[];
-    const items: Payment[] = rows.map((row) => parsePaymentRow(row));
+        const rows = data as Record<string, unknown>[];
+        const items: Payment[] = rows.map((row) => parsePaymentRow(row));
 
-    return { data: items };
-  } catch (err: unknown) {
-    console.error("[PaymentService] Exception in getPaymentsService:", err);
-    return { data: initialSamplePayments, error: err instanceof Error ? err.message : "Error fetching payments" };
-  }
+        return { data: items };
+      } catch (err: unknown) {
+        console.error("[PaymentService] Exception in getPaymentsService:", err);
+        return { data: initialSamplePayments, error: err instanceof Error ? err.message : "Error fetching payments" };
+      }
+    })(),
+    { data: initialSamplePayments, error: "timeout" },
+    2500
+  );
 }
 
 /**
@@ -143,11 +150,15 @@ function getMethodCandidates(chosenMethod: string): string[] {
   const candidates: string[] = [norm];
 
   switch (norm.toUpperCase()) {
+    case "GPAY":
+    case "G PAY":
+    case "GOOGLE PAY":
     case "UPI":
-      candidates.push("Online", "Bank Transfer", "Cash", "upi", "online", "bank_transfer", "cash", "Other", "other");
+      candidates.push("GPay", "UPI", "Online", "Bank Transfer", "Cash", "gpay", "upi", "online", "bank_transfer", "cash", "Other", "other");
       break;
+    case "ACCOUNT TRANSFER":
     case "BANK TRANSFER":
-      candidates.push("bank_transfer", "Bank Transfer", "Online", "online", "Transfer", "Cash", "cash", "Other");
+      candidates.push("Account Transfer", "Bank Transfer", "bank_transfer", "Online", "online", "Transfer", "Cash", "cash", "Other");
       break;
     case "CASH":
       candidates.push("Cash", "cash", "Other", "other");

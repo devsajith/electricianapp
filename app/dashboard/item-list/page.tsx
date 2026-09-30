@@ -32,11 +32,15 @@ export default function ItemListPage() {
 
   const loadData = async () => {
     setLoading(true);
+    const timer = setTimeout(() => setLoading(false), 2500);
+
     try {
       const res = await getAllProjectItemListsAction();
+      clearTimeout(timer);
       setProjectLists(res.data || []);
     } catch (e) {
       console.error("Error loading project item lists:", e);
+      clearTimeout(timer);
     } finally {
       setLoading(false);
     }

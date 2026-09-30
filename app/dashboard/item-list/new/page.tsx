@@ -38,7 +38,7 @@ interface SelectedItem {
   category?: string;
 }
 
-const COMMON_UNITS = ["nos", "meter", "roll", "coil", "box", "set", "pkt", "bundle", "kg"];
+const COMMON_UNITS = ["Meter", "No", "Bottle", "Length", "Kg", "Pkt"];
 
 function CreateItemListComponent() {
   const router = useRouter();
@@ -62,7 +62,7 @@ function CreateItemListComponent() {
   // Custom Item Drawer / Form
   const [customName, setCustomName] = useState<string>("");
   const [customQty, setCustomQty] = useState<number>(1);
-  const [customUnit, setCustomUnit] = useState<string>("nos");
+  const [customUnit, setCustomUnit] = useState<string>("No");
   const [isAddingCustom, setIsAddingCustom] = useState<boolean>(false);
 
   // Status states
@@ -79,9 +79,14 @@ function CreateItemListComponent() {
     let isMounted = true;
     setMounted(true);
 
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 2500);
+
     Promise.all([getProjectsAction(), getCatalogueMaterialsAction()])
       .then(([projList, mats]) => {
         if (!isMounted) return;
+        clearTimeout(safetyTimer);
         setProjects(projList || []);
         setMaterials(mats || []);
 
@@ -96,11 +101,13 @@ function CreateItemListComponent() {
       })
       .catch((e) => {
         console.error("Error loading initial data:", e);
-        setLoading(false);
+        clearTimeout(safetyTimer);
+        if (isMounted) setLoading(false);
       });
 
     return () => {
       isMounted = false;
+      clearTimeout(safetyTimer);
     };
   }, [preselectedProjectId]);
 

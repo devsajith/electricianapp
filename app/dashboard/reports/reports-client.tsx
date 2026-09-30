@@ -742,45 +742,93 @@ export function ReportsClient({
               </span>
             </div>
 
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+            {/* Project Billing Table - Excel Spreadsheet Container */}
+            <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950">
+              {/* Excel Green Ribbon Bar */}
+              <div className="bg-[#107c41] px-4 py-2 flex flex-wrap items-center justify-between text-white border-b border-emerald-800 text-xs">
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+                  <span className="font-bold tracking-wide">Project_Billing_Ledger.xlsx</span>
+                  <span className="bg-emerald-900/60 text-emerald-200 text-[10px] px-2 py-0.5 rounded font-mono font-semibold">
+                    AutoSave [ON]
+                  </span>
+                  <span className="text-[11px] text-emerald-100 hidden sm:inline ml-2">
+                    Showing {projectRevenueMap.length} projects
+                  </span>
+                </div>
+              </div>
+
+              {/* Excel Grid Table */}
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[760px]">
                   <thead>
-                    <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider font-semibold text-slate-500 bg-slate-950/40">
-                      <th className="py-3 px-4">Project & Client</th>
-                      <th className="py-3 px-4">Category</th>
-                      <th className="py-3 px-4 text-right">Period Inflow</th>
-                      <th className="py-3 px-4 text-right">Cumulative Paid</th>
-                      <th className="py-3 px-4 text-right">Estimate Total</th>
-                      <th className="py-3 px-4 text-right">Pending Balance</th>
-                      <th className="py-3 px-4 text-center">Collection %</th>
+                    <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-700">
+                      <th className="py-2 px-3 w-12 text-center border-r border-slate-700/80 bg-slate-900/90 text-slate-500 font-mono select-none">
+                        ◢
+                      </th>
+                      <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
+                        <div className="text-[10px] text-emerald-400 font-mono">A</div>
+                        PROJECT & CLIENT
+                      </th>
+                      <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-36">
+                        <div className="text-[10px] text-emerald-400 font-mono">B</div>
+                        CATEGORY
+                      </th>
+                      <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-right w-36">
+                        <div className="text-[10px] text-emerald-400 font-mono">C</div>
+                        PERIOD INFLOW
+                      </th>
+                      <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-right w-36">
+                        <div className="text-[10px] text-emerald-400 font-mono">D</div>
+                        CUMULATIVE PAID
+                      </th>
+                      <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-right w-36">
+                        <div className="text-[10px] text-emerald-400 font-mono">E</div>
+                        ESTIMATE TOTAL
+                      </th>
+                      <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-right w-36">
+                        <div className="text-[10px] text-emerald-400 font-mono">F</div>
+                        PENDING BALANCE
+                      </th>
+                      <th className="py-2.5 px-4 font-bold text-center w-36">
+                        <div className="text-[10px] text-emerald-400 font-mono">G</div>
+                        COLLECTION %
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60 text-xs">
-                    {projectRevenueMap.map((item) => {
+                  <tbody className="divide-y divide-slate-800 text-xs font-mono">
+                    {projectRevenueMap.map((item, idx) => {
                       const est = item.estimatedTotal;
                       const paid = item.lifetimeRevenue;
                       const pending = est > 0 ? Math.max(0, est - paid) : 0;
                       const percent = est > 0 ? Math.min(100, Math.round((paid / est) * 100)) : 100;
 
                       return (
-                        <tr key={item.project.id || item.project.project_number} className="hover:bg-slate-800/40 transition-colors">
-                          <td className="py-3.5 px-4">
+                        <tr
+                          key={item.project.id || item.project.project_number}
+                          className="hover:bg-emerald-500/10 transition-colors group border-b border-slate-800/80"
+                        >
+                          {/* Row Index */}
+                          <td className="py-2.5 px-3 text-center bg-slate-900/70 border-r border-slate-800 text-slate-400 select-none text-[11px] font-mono group-hover:text-emerald-400 group-hover:bg-emerald-950/30">
+                            {idx + 1}
+                          </td>
+
+                          <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
                             <div className="font-semibold text-slate-200">
                               {item.project.customer_name}
                             </div>
-                            <div className="text-[11px] text-amber-400 font-mono">
+                            <div className="text-[11px] text-emerald-400 font-mono">
                               {item.project.project_number}
                             </div>
                           </td>
 
-                          <td className="py-3.5 px-4 text-slate-400">
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                          <td className="py-2.5 px-4 border-r border-slate-800 text-slate-400 font-sans">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
                               {item.project.project_type || "Wiring"}
                             </span>
                           </td>
 
-                          <td className="py-3.5 px-4 text-right font-bold text-emerald-400">
+                          <td className="py-2.5 px-4 border-r border-slate-800 text-right font-bold text-emerald-400">
                             {item.periodRevenue > 0 ? (
                               `₹${item.periodRevenue.toLocaleString("en-IN")}`
                             ) : (
@@ -788,15 +836,15 @@ export function ReportsClient({
                             )}
                           </td>
 
-                          <td className="py-3.5 px-4 text-right font-medium text-slate-300">
+                          <td className="py-2.5 px-4 border-r border-slate-800 text-right font-medium text-slate-300">
                             ₹{paid.toLocaleString("en-IN")}
                           </td>
 
-                          <td className="py-3.5 px-4 text-right font-mono text-slate-400">
+                          <td className="py-2.5 px-4 border-r border-slate-800 text-right text-slate-400">
                             {est > 0 ? `₹${est.toLocaleString("en-IN")}` : "Unestimated"}
                           </td>
 
-                          <td className="py-3.5 px-4 text-right font-mono">
+                          <td className="py-2.5 px-4 border-r border-slate-800 text-right">
                             {est > 0 ? (
                               pending === 0 ? (
                                 <span className="text-emerald-400 font-bold">Settled</span>
@@ -810,7 +858,7 @@ export function ReportsClient({
                             )}
                           </td>
 
-                          <td className="py-3.5 px-4 text-center">
+                          <td className="py-2.5 px-4 text-center font-sans">
                             <div className="flex items-center justify-center gap-2">
                               <div className="w-16 bg-slate-800 rounded-full h-1.5 overflow-hidden">
                                 <div
@@ -827,7 +875,49 @@ export function ReportsClient({
                       );
                     })}
                   </tbody>
+
+                  {/* Accounting Totals Row */}
+                  <tfoot>
+                    <tr className="bg-slate-900/90 font-bold border-t-2 border-slate-700 border-b-4 border-double border-slate-600 text-xs">
+                      <td className="py-3 px-3 text-center bg-slate-950 border-r border-slate-700 text-emerald-400 font-mono">
+                        Σ
+                      </td>
+                      <td colSpan={2} className="py-3 px-4 border-r border-slate-700 text-slate-200 uppercase tracking-wider text-[11px] font-sans">
+                        Total Billing ({projectRevenueMap.length} Projects)
+                      </td>
+                      <td className="py-3 px-4 border-r border-slate-700 text-right font-mono text-emerald-400 text-sm">
+                        ₹{projectRevenueMap.reduce((s, p) => s + p.periodRevenue, 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-3 px-4 border-r border-slate-700 text-right font-mono text-slate-200">
+                        ₹{projectRevenueMap.reduce((s, p) => s + p.lifetimeRevenue, 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-3 px-4 border-r border-slate-700 text-right font-mono text-slate-300">
+                        ₹{projectRevenueMap.reduce((s, p) => s + p.estimatedTotal, 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-3 px-4 border-r border-slate-700 text-right font-mono text-rose-400">
+                        ₹{projectRevenueMap.reduce((s, p) => s + (p.estimatedTotal > 0 ? Math.max(0, p.estimatedTotal - p.lifetimeRevenue) : 0), 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-3 px-4"></td>
+                    </tr>
+                  </tfoot>
                 </table>
+              </div>
+
+              {/* Bottom Sheet Tab & Status Bar */}
+              <div className="bg-slate-900 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-[11px] text-slate-400 select-none">
+                <div className="flex items-center gap-1">
+                  <span className="px-3 py-1 bg-slate-950 text-emerald-400 font-semibold rounded-t border-t-2 border-emerald-500 border-x border-slate-800 flex items-center gap-1.5">
+                    <FileSpreadsheet className="w-3 h-3 text-emerald-400" />
+                    Sheet1 - Project Billing
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 font-mono text-[10px]">
+                  <span>READY</span>
+                  <span className="border-l border-slate-700 pl-3">PROJECTS: {projectRevenueMap.length}</span>
+                  <span className="border-l border-slate-700 pl-3 text-emerald-400">
+                    PERIOD INFLOW: ₹{projectRevenueMap.reduce((s, p) => s + p.periodRevenue, 0).toLocaleString("en-IN")}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -1090,18 +1180,20 @@ export function ReportsClient({
             </div>
           )}
 
-          {/* Detailed Payment Transaction Table */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/40">
-              <div>
-                <h3 className="text-sm font-bold text-white tracking-tight">Payment Ledger Records</h3>
-                <p className="text-xs text-slate-400">
-                  Showing {filteredPayments.length} transactions for the current criteria.
-                </p>
+          {/* Detailed Payment Transaction Table - Excel Spreadsheet Container */}
+          <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950">
+            {/* Excel Green Ribbon Bar */}
+            <div className="bg-[#107c41] px-4 py-2 flex flex-wrap items-center justify-between text-white border-b border-emerald-800 text-xs">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+                <span className="font-bold tracking-wide">Payments_Ledger.xlsx</span>
+                <span className="bg-emerald-900/60 text-emerald-200 text-[10px] px-2 py-0.5 rounded font-mono font-semibold">
+                  AutoSave [ON]
+                </span>
+                <span className="text-[11px] text-emerald-100 hidden sm:inline ml-2">
+                  Showing {filteredPayments.length} transactions
+                </span>
               </div>
-              <span className="text-xs font-mono font-bold text-emerald-400">
-                Total: ₹{paymentReportTotal.toLocaleString("en-IN")}
-              </span>
             </div>
 
             {filteredPayments.length === 0 ? (
@@ -1116,59 +1208,91 @@ export function ReportsClient({
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[760px]">
                   <thead>
-                    <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider font-semibold text-slate-500 bg-slate-950/20">
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Project & Customer</th>
-                      <th className="py-3 px-4">Type & Mode</th>
-                      <th className="py-3 px-4">Reference / UTR</th>
-                      <th className="py-3 px-4">Notes</th>
-                      <th className="py-3 px-4 text-right">Amount</th>
-                      <th className="py-3 px-4 text-center no-print">Voucher</th>
+                    <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-700">
+                      <th className="py-2 px-3 w-12 text-center border-r border-slate-700/80 bg-slate-900/90 text-slate-500 font-mono select-none">
+                        ◢
+                      </th>
+                      <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-32">
+                        <div className="text-[10px] text-emerald-400 font-mono">A</div>
+                        DATE
+                      </th>
+                      <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
+                        <div className="text-[10px] text-emerald-400 font-mono">B</div>
+                        PROJECT & CUSTOMER
+                      </th>
+                      <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-40">
+                        <div className="text-[10px] text-emerald-400 font-mono">C</div>
+                        TYPE & MODE
+                      </th>
+                      <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-36">
+                        <div className="text-[10px] text-emerald-400 font-mono">D</div>
+                        REFERENCE / UTR
+                      </th>
+                      <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
+                        <div className="text-[10px] text-emerald-400 font-mono">E</div>
+                        NOTES
+                      </th>
+                      <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-right w-36">
+                        <div className="text-[10px] text-emerald-400 font-mono">F</div>
+                        AMOUNT (₹)
+                      </th>
+                      <th className="py-2.5 px-3 font-bold text-center w-16 no-print">
+                        <div className="text-[10px] text-emerald-400 font-mono">G</div>
+                        VOUCHER
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60 text-xs">
-                    {filteredPayments.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">
+                  <tbody className="divide-y divide-slate-800 text-xs font-mono">
+                    {filteredPayments.map((p, idx) => (
+                      <tr
+                        key={p.id}
+                        className="hover:bg-emerald-500/10 transition-colors group border-b border-slate-800/80"
+                      >
+                        {/* Row Index */}
+                        <td className="py-2.5 px-3 text-center bg-slate-900/70 border-r border-slate-800 text-slate-400 select-none text-[11px] font-mono group-hover:text-emerald-400 group-hover:bg-emerald-950/30">
+                          {idx + 1}
+                        </td>
+
+                        <td className="py-2.5 px-4 border-r border-slate-800 text-slate-300">
                           {p.payment_date}
                         </td>
 
-                        <td className="py-3.5 px-4">
+                        <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
                           <div className="font-semibold text-slate-200">
                             {p.projects?.customer_name || "Client"}
                           </div>
-                          <div className="text-[11px] text-amber-400 font-mono">
+                          <div className="text-[11px] text-emerald-400 font-mono">
                             {p.projects?.project_number || "PRJ"}
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4">
+                        <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
                           <div className="flex flex-col gap-1 items-start">
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
                               {p.payment_type || "Advance"}
                             </span>
                             {getMethodBadge(p.payment_method)}
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4 font-mono text-slate-300">
+                        <td className="py-2.5 px-4 border-r border-slate-800 text-slate-300">
                           {p.reference_number || <span className="text-slate-600">-</span>}
                         </td>
 
-                        <td className="py-3.5 px-4 text-slate-400 max-w-xs truncate">
+                        <td className="py-2.5 px-4 border-r border-slate-800 text-slate-400 max-w-xs truncate font-sans">
                           {p.notes || <span className="text-slate-600 italic">No notes</span>}
                         </td>
 
-                        <td className="py-3.5 px-4 text-right font-black text-emerald-400 text-sm whitespace-nowrap">
+                        <td className="py-2.5 px-4 border-r border-slate-800 text-right font-black text-emerald-400 text-sm whitespace-nowrap">
                           ₹{Number(p.amount).toLocaleString("en-IN")}
                         </td>
 
-                        <td className="py-3.5 px-4 text-center no-print">
+                        <td className="py-2.5 px-3 text-center no-print font-sans">
                           <button
                             type="button"
                             onClick={() => setVoucherPayment(p)}
                             title="View / Print Voucher"
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                            className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
                           >
                             <Printer className="w-3.5 h-3.5" />
                           </button>
@@ -1176,9 +1300,47 @@ export function ReportsClient({
                       </tr>
                     ))}
                   </tbody>
+
+                  {/* Accounting Totals Row */}
+                  <tfoot>
+                    <tr className="bg-slate-900/90 font-bold border-t-2 border-slate-700 border-b-4 border-double border-slate-600 text-xs">
+                      <td className="py-3 px-3 text-center bg-slate-950 border-r border-slate-700 text-emerald-400 font-mono">
+                        Σ
+                      </td>
+                      <td colSpan={5} className="py-3 px-4 border-r border-slate-700 text-slate-200 uppercase tracking-wider text-[11px] font-sans">
+                        Total Collections ({filteredPayments.length} transactions)
+                      </td>
+                      <td className="py-3 px-4 border-r border-slate-700 text-right font-mono text-emerald-400 text-sm">
+                        ₹{paymentReportTotal.toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-3 px-3 no-print"></td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}
+
+            {/* Bottom Sheet Tab & Status Bar */}
+            <div className="bg-slate-900 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-[11px] text-slate-400 select-none">
+              <div className="flex items-center gap-1">
+                <span className="px-3 py-1 bg-slate-950 text-emerald-400 font-semibold rounded-t border-t-2 border-emerald-500 border-x border-slate-800 flex items-center gap-1.5">
+                  <FileSpreadsheet className="w-3 h-3 text-emerald-400" />
+                  Sheet1 - Payments Ledger
+                </span>
+              </div>
+              <div className="flex items-center gap-4 font-mono text-[10px]">
+                <span>READY</span>
+                <span className="border-l border-slate-700 pl-3">COUNT: {filteredPayments.length}</span>
+                <span className="border-l border-slate-700 pl-3 text-emerald-400">
+                  SUM: ₹{paymentReportTotal.toLocaleString("en-IN")}
+                </span>
+                {filteredPayments.length > 0 && (
+                  <span className="border-l border-slate-700 pl-3 text-slate-300 hidden sm:inline">
+                    AVERAGE: ₹{Math.round(paymentReportTotal / filteredPayments.length).toLocaleString("en-IN")}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

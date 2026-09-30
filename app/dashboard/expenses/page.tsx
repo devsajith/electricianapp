@@ -16,27 +16,38 @@ import {
   TrendingDown,
   Layers,
   Zap,
+  FileSpreadsheet,
+  Download,
+  Briefcase,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Expense, EXPENSE_CATEGORIES } from "@/lib/types/expense";
+import { Expense, EXPENSE_CATEGORIES, initialSampleExpenses, ExpenseType } from "@/lib/types/expense";
 import { getExpensesAction, deleteExpenseAction } from "./actions";
 import { RecordExpenseModal } from "@/components/record-expense-modal";
 
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>(initialSampleExpenses);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [activeFilter, setActiveFilter] = useState<"all" | "project" | "self">("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalDefaultType, setModalDefaultType] = useState<ExpenseType>("project");
   const [, startTransition] = useTransition();
 
   const loadExpenses = async () => {
     setLoading(true);
+    const timer = setTimeout(() => setLoading(false), 2500);
+
     try {
       const res = await getExpensesAction();
-      setExpenses(res.data || []);
+      clearTimeout(timer);
+      if (res.data && res.data.length > 0) {
+        setExpenses(res.data);
+      }
     } catch (e) {
       console.error("Error loading expenses:", e);
+      clearTimeout(timer);
     } finally {
       setLoading(false);
     }
@@ -54,25 +65,92 @@ export default function ExpensesPage() {
     });
   };
 
-  // Filtered expenses
-  const filteredExpenses = expenses.filter((exp) => {
-    const matchesCategory =
-      selectedCategory === "All" || exp.category === selectedCategory;
-    const q = searchQuery.toLowerCase().trim();
-    const matchesSearch =
+  const openRecordModal = (type: ExpenseType = "project") => {
+    setModalDefaultType(type);
+    setIsModalOpen(true);
+  };
+
+  // Separate expenses into Project Expenses vs Self Expenses
+  const projectExpenses = expenses.filter(
+    (e) => e.expense_type === "project" || (e.expense_type !== "self" && (e.project_id || e.customer_name))
+  );
+  const selfExpenses = expenses.filter(
+    (e) => e.expense_type === "self" || (!e.project_id && !e.customer_name)
+  );
+
+  // Overall KPI Calculations
+  const totalAmount = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const projectTotalAmount = projectExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const selfTotalAmount = selfExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const uniqueProjects = new Set(projectExpenses.map((e) => e.project_id).filter(Boolean)).size;
+
+  // Filter Project Expenses
+  const q = searchQuery.toLowerCase().trim();
+  const filteredProjectExpenses = projectExpenses.filter((exp) => {
+    return (
       !q ||
       exp.description.toLowerCase().includes(q) ||
       exp.category.toLowerCase().includes(q) ||
       (exp.customer_name && exp.customer_name.toLowerCase().includes(q)) ||
-      (exp.project_number && exp.project_number.toLowerCase().includes(q));
-
-    return matchesCategory && matchesSearch;
+      (exp.project_number && exp.project_number.toLowerCase().includes(q))
+    );
   });
+  const filteredProjectTotal = filteredProjectExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-  // KPI calculations
-  const totalAmount = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const uniqueProjects = new Set(expenses.map((e) => e.project_id)).size;
-  const avgAmount = expenses.length > 0 ? Math.round(totalAmount / expenses.length) : 0;
+  // Filter Self Expenses
+  const filteredSelfExpenses = selfExpenses.filter((exp) => {
+    return (
+      !q ||
+      exp.description.toLowerCase().includes(q) ||
+      exp.category.toLowerCase().includes(q) ||
+      (exp.receipt_url && exp.receipt_url.toLowerCase().includes(q))
+    );
+  });
+  const filteredSelfTotal = filteredSelfExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  // Export Project Expenses CSV
+  const exportProjectCsv = () => {
+    if (filteredProjectExpenses.length === 0) return;
+    const headers = ["Row", "Expense Date", "Project", "Project Number", "Category", "Description", "Receipt Ref", "Amount (INR)"];
+    const rows = filteredProjectExpenses.map((exp, idx) => [
+      idx + 1,
+      `"${exp.expense_date}"`,
+      `"${(exp.customer_name || "Project").replace(/"/g, '""')}"`,
+      `"${exp.project_number || ""}"`,
+      `"${exp.category.replace(/"/g, '""')}"`,
+      `"${exp.description.replace(/"/g, '""')}"`,
+      `"${exp.receipt_url || ""}"`,
+      exp.amount || 0,
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", `Project_Expenses_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Export Self Expenses CSV
+  const exportSelfCsv = () => {
+    if (filteredSelfExpenses.length === 0) return;
+    const headers = ["Row", "Expense Date", "Category", "Description", "Receipt / Bill Ref", "Amount (INR)"];
+    const rows = filteredSelfExpenses.map((exp, idx) => [
+      idx + 1,
+      `"${exp.expense_date}"`,
+      `"${exp.category.replace(/"/g, '""')}"`,
+      `"${exp.description.replace(/"/g, '""')}"`,
+      `"${exp.receipt_url || ""}"`,
+      exp.amount || 0,
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", `Self_Expenses_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Category badge style
   const getCategoryBadge = (cat: string) => {
@@ -85,6 +163,12 @@ export default function ExpensesPage() {
         return "bg-amber-500/10 text-amber-300 border-amber-500/30";
       case "Food & Refreshment":
         return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+      case "Office & Shop":
+        return "bg-blue-500/10 text-blue-400 border-blue-500/30";
+      case "Vehicle & Maintenance":
+        return "bg-purple-500/10 text-purple-400 border-purple-500/30";
+      case "Personal / Self Draw":
+        return "bg-teal-500/10 text-teal-400 border-teal-500/30";
       case "Permits & Fees":
         return "bg-rose-500/10 text-rose-400 border-rose-500/30";
       case "Labour / Helper":
@@ -104,15 +188,15 @@ export default function ExpensesPage() {
               <Receipt className="w-5 h-5" />
             </span>
             <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-              Project Expenses
+              Expense Management
             </h1>
           </div>
           <p className="text-xs text-slate-400">
-            Record sudden job site costs, local hardware purchases, fuel, rentals, and overhead for projects.
+            Dedicated tables for Project-based site expenses and Self / Overhead expenses with independent calculations.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-start">
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
           <Button
             variant="outline"
             onClick={loadExpenses}
@@ -124,273 +208,591 @@ export default function ExpensesPage() {
           </Button>
 
           <Button
-            onClick={() => setIsModalOpen(true)}
-            className="h-10 sm:h-9 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 shadow-sm flex-1 sm:flex-none justify-center"
+            onClick={() => openRecordModal("project")}
+            className="h-10 sm:h-9 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            <span>Record Expense</span>
+            <span>+ Project Expense</span>
+          </Button>
+
+          <Button
+            onClick={() => openRecordModal("self")}
+            className="h-10 sm:h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-sm"
+          >
+            <User className="w-4 h-4" />
+            <span>+ Self Expense</span>
           </Button>
         </div>
       </div>
 
-      {/* KPI Stats Cards */}
+      {/* KPI Stats Cards - Calculated Separately */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        {/* Total Combined */}
         <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[11px] font-medium uppercase tracking-wider">
-              Total Expenses
+              Total Expenditure
             </span>
-            <IndianRupee className="w-4 h-4 text-amber-400" />
-          </div>
-          <p className="text-xl sm:text-2xl font-black text-amber-400 font-mono">
-            ₹{totalAmount.toLocaleString("en-IN")}
-          </p>
-          <span className="text-[10px] text-slate-500">{expenses.length} records logged</span>
-        </div>
-
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm space-y-1">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-medium uppercase tracking-wider">
-              Projects Incurred
-            </span>
-            <FolderKanban className="w-4 h-4 text-amber-400" />
+            <IndianRupee className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-xl sm:text-2xl font-black text-white font-mono">
-            {uniqueProjects}
+            ₹{totalAmount.toLocaleString("en-IN")}
           </p>
-          <span className="text-[10px] text-slate-500">Active project sites</span>
+          <span className="text-[10px] text-slate-500">{expenses.length} total entries</span>
         </div>
 
+        {/* Project Expenses KPI */}
+        <div className="p-4 rounded-xl bg-slate-900/80 border border-amber-500/30 shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-amber-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1">
+              <Briefcase className="w-3.5 h-3.5" />
+              Project Expenses
+            </span>
+            <span className="text-[10px] font-mono bg-amber-500/10 px-1.5 py-0.5 rounded text-amber-400 border border-amber-500/30">
+              {projectExpenses.length} entries
+            </span>
+          </div>
+          <p className="text-xl sm:text-2xl font-black text-amber-400 font-mono">
+            ₹{projectTotalAmount.toLocaleString("en-IN")}
+          </p>
+          <span className="text-[10px] text-slate-400">
+            {uniqueProjects} active customer sites
+          </span>
+        </div>
+
+        {/* Self Expenses KPI */}
+        <div className="p-4 rounded-xl bg-slate-900/80 border border-emerald-500/30 shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-emerald-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1">
+              <User className="w-3.5 h-3.5" />
+              Self Expenses
+            </span>
+            <span className="text-[10px] font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded text-emerald-400 border border-emerald-500/30">
+              {selfExpenses.length} entries
+            </span>
+          </div>
+          <p className="text-xl sm:text-2xl font-black text-emerald-400 font-mono">
+            ₹{selfTotalAmount.toLocaleString("en-IN")}
+          </p>
+          <span className="text-[10px] text-slate-400">Shop, personal draw, vehicle & tools</span>
+        </div>
+
+        {/* Ratio / Split */}
         <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[11px] font-medium uppercase tracking-wider">
-              Average Expense
+              Expense Distribution
             </span>
             <TrendingDown className="w-4 h-4 text-emerald-400" />
           </div>
-          <p className="text-xl sm:text-2xl font-black text-emerald-400 font-mono">
-            ₹{avgAmount.toLocaleString("en-IN")}
+          <p className="text-sm font-bold text-slate-200 mt-1">
+            <span className="text-amber-400 font-mono">
+              {totalAmount > 0 ? Math.round((projectTotalAmount / totalAmount) * 100) : 0}%
+            </span>{" "}
+            Project /{" "}
+            <span className="text-emerald-400 font-mono">
+              {totalAmount > 0 ? Math.round((selfTotalAmount / totalAmount) * 100) : 0}%
+            </span>{" "}
+            Self
           </p>
-          <span className="text-[10px] text-slate-500">Per recorded expense</span>
+          <span className="text-[10px] text-slate-500">Calculated & tracked independently</span>
+        </div>
+      </div>
+
+      {/* Search Bar & 3 Filter Options: All, Project, Self */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+        {/* Search box */}
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search expenses by description, project #, client name..."
+            className="w-full pl-10 pr-4 py-2.5 sm:py-2 bg-slate-950/60 border border-slate-800 rounded-xl text-base sm:text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+          />
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm space-y-1">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-medium uppercase tracking-wider">
-              Quick Action
-            </span>
-            <Zap className="w-4 h-4 text-amber-400" />
-          </div>
+        {/* ONLY 3 Filter Options: All, Project, Self */}
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-800/60">
           <button
-            onClick={() => setIsModalOpen(true)}
-            className="w-full mt-1 py-1.5 px-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
+            onClick={() => setActiveFilter("all")}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeFilter === "all"
+                ? "bg-amber-500 text-slate-950 shadow-sm"
+                : "bg-slate-950/70 text-slate-300 hover:text-white border border-slate-800"
+            }`}
           >
-            <Plus className="w-3.5 h-3.5" />
-            + New Sudden Expense
+            <span>All</span>
+            <span
+              className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                activeFilter === "all"
+                  ? "bg-slate-950/20 text-slate-950 font-black"
+                  : "bg-slate-800 text-slate-400"
+              }`}
+            >
+              {expenses.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveFilter("project")}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeFilter === "project"
+                ? "bg-amber-500 text-slate-950 shadow-sm"
+                : "bg-slate-950/70 text-slate-300 hover:text-white border border-slate-800"
+            }`}
+          >
+            <span>Project</span>
+            <span
+              className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                activeFilter === "project"
+                  ? "bg-slate-950/20 text-slate-950 font-black"
+                  : "bg-slate-800 text-slate-400"
+              }`}
+            >
+              {projectExpenses.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveFilter("self")}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeFilter === "self"
+                ? "bg-amber-500 text-slate-950 shadow-sm"
+                : "bg-slate-950/70 text-slate-300 hover:text-white border border-slate-800"
+            }`}
+          >
+            <span>Self</span>
+            <span
+              className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                activeFilter === "self"
+                  ? "bg-slate-950/20 text-slate-950 font-black"
+                  : "bg-slate-800 text-slate-400"
+              }`}
+            >
+              {selfExpenses.length}
+            </span>
           </button>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          {/* Search box */}
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search expenses by description, project #, client name..."
-              className="w-full pl-10 pr-4 py-2.5 sm:py-2 bg-slate-950/60 border border-slate-800 rounded-xl text-base sm:text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-            />
-          </div>
+      {loading ? (
+        <div className="py-20 text-center text-slate-500 text-xs space-y-2">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-amber-400" />
+          <p>Loading expenses records...</p>
         </div>
-
-        {/* Category Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none pt-2 border-t border-slate-800/60">
-          {["All", ...EXPENSE_CATEGORIES].map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                selectedCategory === cat
-                  ? "bg-amber-500 text-slate-950 font-bold shadow-sm"
-                  : "bg-slate-950/50 text-slate-400 hover:text-slate-200 border border-slate-800"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Expenses Table (Desktop) / Cards (Mobile) */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-3">
-        {loading ? (
-          <div className="py-16 text-center text-slate-500 text-xs space-y-2">
-            <RefreshCw className="w-6 h-6 animate-spin mx-auto text-amber-400" />
-            <p>Loading project expenses...</p>
-          </div>
-        ) : filteredExpenses.length === 0 ? (
-          <div className="py-16 text-center text-slate-400 text-xs space-y-3">
-            <Receipt className="w-10 h-10 mx-auto text-slate-600" />
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold text-slate-200">No project expenses found</h3>
-              <p className="text-slate-500 max-w-sm mx-auto">
-                {searchQuery
-                  ? `No expenses matching "${searchQuery}".`
-                  : "Record sudden job site expenses, local purchases, or travel costs."}
-              </p>
-            </div>
-            <Button
-              onClick={() => setIsModalOpen(true)}
-              className="h-8 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 mt-2"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Record First Expense</span>
-            </Button>
-          </div>
-        ) : (
-          <>
-            {/* Desktop Table View */}
-            <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-800/80">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-950/90 border-b border-slate-800 text-[11px] uppercase tracking-wider font-bold text-slate-400">
-                    <th className="py-3 px-4 w-32">Date</th>
-                    <th className="py-3 px-4 w-52">Project</th>
-                    <th className="py-3 px-4 w-44">Category</th>
-                    <th className="py-3 px-4">Description / Purpose</th>
-                    <th className="py-3 px-4 text-right w-36">Amount</th>
-                    <th className="py-3 px-3 w-12 text-center"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 text-xs">
-                  {filteredExpenses.map((exp) => (
-                    <tr key={exp.id} className="hover:bg-slate-800/30 transition-colors">
-                      {/* Date */}
-                      <td className="py-3.5 px-4 font-mono text-slate-300">
-                        {exp.expense_date}
-                      </td>
-
-                      {/* Project info */}
-                      <td className="py-3.5 px-4">
-                        <Link
-                          href={`/dashboard/projects`}
-                          className="font-bold text-white hover:text-amber-400 transition-colors block"
-                        >
-                          {exp.customer_name || "Project"}
-                        </Link>
-                        {exp.project_number && (
-                          <span className="text-[10px] text-amber-400/80 font-mono">
-                            {exp.project_number}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Category Badge */}
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${getCategoryBadge(
-                            exp.category
-                          )}`}
-                        >
-                          {exp.category}
-                        </span>
-                      </td>
-
-                      {/* Description */}
-                      <td className="py-3.5 px-4 text-slate-200">
-                        <span>{exp.description}</span>
-                        {exp.receipt_url && (
-                          <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">
-                            Ref: {exp.receipt_url}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Amount */}
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-sm text-amber-400">
-                        ₹{(exp.amount || 0).toLocaleString("en-IN")}
-                      </td>
-
-                      {/* Delete */}
-                      <td className="py-3.5 px-3 text-center">
-                        <button
-                          onClick={() => handleDeleteExpense(exp.id, exp.description)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                          title="Delete expense"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Cards View (< md) */}
-            <div className="block md:hidden space-y-3">
-              {filteredExpenses.map((exp) => (
-                <div
-                  key={exp.id}
-                  className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2.5 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${getCategoryBadge(
-                          exp.category
-                        )}`}
-                      >
-                        {exp.category}
+      ) : (
+        <div className="space-y-8">
+          {/* ======================================================== */}
+          {/* TABLE 1: PROJECT-BASED EXPENSES TABLE */}
+          {/* ======================================================== */}
+          {(activeFilter === "all" || activeFilter === "project") && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                    <Briefcase className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                      <span>Project-based Expenses</span>
+                      <span className="text-[11px] font-mono text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                        Total: ₹{filteredProjectTotal.toLocaleString("en-IN")}
                       </span>
-                      <h3 className="font-bold text-sm text-white mt-1">
-                        {exp.customer_name || "Project Expense"}
-                      </h3>
-                      {exp.project_number && (
-                        <span className="text-[10px] font-mono text-amber-400">
-                          {exp.project_number}
+                    </h2>
+                    <p className="text-[11px] text-slate-400">
+                      Materials, site helpers, and travel incurred on customer client jobs.
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => openRecordModal("project")}
+                  size="sm"
+                  className="h-8 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Project Expense</span>
+                </Button>
+              </div>
+
+              {filteredProjectExpenses.length === 0 ? (
+                <div className="p-10 rounded-2xl bg-slate-950/60 border border-slate-800 text-center text-slate-400 text-xs space-y-2">
+                  <Receipt className="w-8 h-8 mx-auto text-slate-600" />
+                  <p className="font-semibold text-slate-300">No project-based expenses found</p>
+                  <p className="text-slate-500 text-[11px]">
+                    {searchQuery ? `No entries matching "${searchQuery}".` : "No job site expenses logged yet."}
+                  </p>
+                </div>
+              ) : (
+                /* Excel Spreadsheet: Project_Expenses_Ledger.xlsx */
+                <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950">
+                  {/* Excel Green Ribbon */}
+                  <div className="bg-[#107c41] px-4 py-2 flex flex-wrap items-center justify-between text-white border-b border-emerald-800 text-xs">
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+                      <span className="font-bold tracking-wide">Project_Expenses_Ledger.xlsx</span>
+                      <span className="bg-emerald-900/60 text-emerald-200 text-[10px] px-2 py-0.5 rounded font-mono font-semibold">
+                        AutoSave [ON]
+                      </span>
+                      <span className="text-[11px] text-emerald-100 hidden sm:inline ml-2">
+                        Showing {filteredProjectExpenses.length} entries
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={exportProjectCsv}
+                        className="flex items-center gap-1.5 px-3 py-1 bg-emerald-800 hover:bg-emerald-700 text-white rounded font-medium text-xs shadow-sm transition-colors border border-emerald-600"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Export Excel (.CSV)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Excel Grid */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[750px]">
+                      <thead>
+                        <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-700">
+                          <th className="py-2 px-3 w-12 text-center border-r border-slate-700/80 bg-slate-900/90 text-slate-500 font-mono select-none">
+                            ◢
+                          </th>
+                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-32">
+                            <div className="text-[10px] text-emerald-400 font-mono">A</div>
+                            DATE
+                          </th>
+                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-52">
+                            <div className="text-[10px] text-emerald-400 font-mono">B</div>
+                            PROJECT & CUSTOMER
+                          </th>
+                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-40">
+                            <div className="text-[10px] text-emerald-400 font-mono">C</div>
+                            CATEGORY
+                          </th>
+                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
+                            <div className="text-[10px] text-emerald-400 font-mono">D</div>
+                            DESCRIPTION / PURPOSE
+                          </th>
+                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-right w-36">
+                            <div className="text-[10px] text-emerald-400 font-mono">E</div>
+                            AMOUNT (₹)
+                          </th>
+                          <th className="py-2.5 px-3 font-bold text-center w-16">
+                            <div className="text-[10px] text-emerald-400 font-mono">F</div>
+                            ACTION
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800 text-xs font-mono">
+                        {filteredProjectExpenses.map((exp, idx) => (
+                          <tr
+                            key={exp.id}
+                            className="hover:bg-emerald-500/10 transition-colors group border-b border-slate-800/80"
+                          >
+                            <td className="py-2.5 px-3 text-center bg-slate-900/70 border-r border-slate-800 text-slate-400 select-none text-[11px] font-mono group-hover:text-emerald-400 group-hover:bg-emerald-950/30">
+                              {idx + 1}
+                            </td>
+
+                            <td className="py-2.5 px-4 border-r border-slate-800 text-slate-300">
+                              {exp.expense_date}
+                            </td>
+
+                            <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
+                              <Link
+                                href="/dashboard/projects"
+                                className="font-bold text-white hover:text-emerald-400 transition-colors block"
+                              >
+                                {exp.customer_name || "Project"}
+                              </Link>
+                              {exp.project_number && (
+                                <span className="text-[10px] text-amber-400 font-mono font-semibold">
+                                  {exp.project_number}
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
+                              <span
+                                className={`inline-block px-2.5 py-0.5 rounded text-[11px] font-bold border ${getCategoryBadge(
+                                  exp.category
+                                )}`}
+                              >
+                                {exp.category}
+                              </span>
+                            </td>
+
+                            <td className="py-2.5 px-4 border-r border-slate-800 text-slate-200 font-sans">
+                              <span className="font-medium">{exp.description}</span>
+                              {exp.receipt_url && (
+                                <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">
+                                  Ref: {exp.receipt_url}
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-2.5 px-4 border-r border-slate-800 text-right font-mono font-bold text-sm text-amber-400">
+                              ₹{(exp.amount || 0).toLocaleString("en-IN")}
+                            </td>
+
+                            <td className="py-2.5 px-3 text-center">
+                              <button
+                                onClick={() => handleDeleteExpense(exp.id, exp.description)}
+                                className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                title="Delete expense"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+
+                      {/* Accounting Totals Row */}
+                      <tfoot>
+                        <tr className="bg-slate-900/90 font-bold border-t-2 border-slate-700 border-b-4 border-double border-slate-600 text-xs">
+                          <td className="py-3 px-3 text-center bg-slate-950 border-r border-slate-700 text-emerald-400 font-mono">
+                            Σ
+                          </td>
+                          <td colSpan={4} className="py-3 px-4 border-r border-slate-700 text-slate-200 uppercase tracking-wider text-[11px]">
+                            Total Project Expenses ({filteredProjectExpenses.length} entries)
+                          </td>
+                          <td className="py-3 px-4 border-r border-slate-700 text-right font-mono text-amber-400 text-sm">
+                            ₹{filteredProjectTotal.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-3 px-3"></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+
+                  {/* Bottom Sheet Tab & Status Bar */}
+                  <div className="bg-slate-900 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-[11px] text-slate-400 select-none">
+                    <div className="flex items-center gap-1">
+                      <span className="px-3 py-1 bg-slate-950 text-emerald-400 font-semibold rounded-t border-t-2 border-emerald-500 border-x border-slate-800 flex items-center gap-1.5">
+                        <FileSpreadsheet className="w-3 h-3 text-emerald-400" />
+                        Sheet1 - Project Expenses
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 font-mono text-[10px]">
+                      <span>READY</span>
+                      <span className="border-l border-slate-700 pl-3">COUNT: {filteredProjectExpenses.length}</span>
+                      <span className="border-l border-slate-700 pl-3 text-amber-400 font-bold">
+                        SUM: ₹{filteredProjectTotal.toLocaleString("en-IN")}
+                      </span>
+                      {filteredProjectExpenses.length > 0 && (
+                        <span className="border-l border-slate-700 pl-3 text-slate-300 hidden sm:inline">
+                          AVERAGE: ₹{Math.round(filteredProjectTotal / filteredProjectExpenses.length).toLocaleString("en-IN")}
                         </span>
                       )}
                     </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
-                    <div className="text-right">
-                      <span className="font-mono font-black text-amber-400 text-base block">
-                        ₹{(exp.amount || 0).toLocaleString("en-IN")}
+          {/* ======================================================== */}
+          {/* TABLE 2: SEPARATE SELF EXPENSES TABLE */}
+          {/* ======================================================== */}
+          {(activeFilter === "all" || activeFilter === "self") && (
+            <div className="space-y-3 pt-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                      <span>Self & Overhead Expenses</span>
+                      <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                        Total: ₹{filteredSelfTotal.toLocaleString("en-IN")}
                       </span>
-                      <span className="text-[10px] font-mono text-slate-500">
-                        {exp.expense_date}
+                    </h2>
+                    <p className="text-[11px] text-slate-400">
+                      Personal draws, shop electricity, van diesel, crew tea/snacks, and general tools.
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => openRecordModal("self")}
+                  size="sm"
+                  className="h-8 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Self Expense</span>
+                </Button>
+              </div>
+
+              {filteredSelfExpenses.length === 0 ? (
+                <div className="p-10 rounded-2xl bg-slate-950/60 border border-slate-800 text-center text-slate-400 text-xs space-y-2">
+                  <User className="w-8 h-8 mx-auto text-slate-600" />
+                  <p className="font-semibold text-slate-300">No self expenses found</p>
+                  <p className="text-slate-500 text-[11px]">
+                    {searchQuery ? `No entries matching "${searchQuery}".` : "No personal or shop overhead logged yet."}
+                  </p>
+                </div>
+              ) : (
+                /* Excel Spreadsheet: Self_Expenses_Ledger.xlsx */
+                <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950">
+                  {/* Excel Green Ribbon */}
+                  <div className="bg-[#107c41] px-4 py-2 flex flex-wrap items-center justify-between text-white border-b border-emerald-800 text-xs">
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+                      <span className="font-bold tracking-wide">Self_Expenses_Ledger.xlsx</span>
+                      <span className="bg-emerald-900/60 text-emerald-200 text-[10px] px-2 py-0.5 rounded font-mono font-semibold">
+                        AutoSave [ON]
                       </span>
+                      <span className="text-[11px] text-emerald-100 hidden sm:inline ml-2">
+                        Showing {filteredSelfExpenses.length} entries
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={exportSelfCsv}
+                        className="flex items-center gap-1.5 px-3 py-1 bg-emerald-800 hover:bg-emerald-700 text-white rounded font-medium text-xs shadow-sm transition-colors border border-emerald-600"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Export Excel (.CSV)</span>
+                      </button>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
-                    {exp.description}
-                  </p>
+                  {/* Excel Grid */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[700px]">
+                      <thead>
+                        <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-700">
+                          <th className="py-2 px-3 w-12 text-center border-r border-slate-700/80 bg-slate-900/90 text-slate-500 font-mono select-none">
+                            ◢
+                          </th>
+                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-32">
+                            <div className="text-[10px] text-emerald-400 font-mono">A</div>
+                            DATE
+                          </th>
+                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-44">
+                            <div className="text-[10px] text-emerald-400 font-mono">B</div>
+                            EXPENSE CATEGORY
+                          </th>
+                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
+                            <div className="text-[10px] text-emerald-400 font-mono">C</div>
+                            DESCRIPTION / PURPOSE
+                          </th>
+                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-44">
+                            <div className="text-[10px] text-emerald-400 font-mono">D</div>
+                            RECEIPT / MEMO REF
+                          </th>
+                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-right w-36">
+                            <div className="text-[10px] text-emerald-400 font-mono">E</div>
+                            AMOUNT (₹)
+                          </th>
+                          <th className="py-2.5 px-3 font-bold text-center w-16">
+                            <div className="text-[10px] text-emerald-400 font-mono">F</div>
+                            ACTION
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800 text-xs font-mono">
+                        {filteredSelfExpenses.map((exp, idx) => (
+                          <tr
+                            key={exp.id}
+                            className="hover:bg-emerald-500/10 transition-colors group border-b border-slate-800/80"
+                          >
+                            <td className="py-2.5 px-3 text-center bg-slate-900/70 border-r border-slate-800 text-slate-400 select-none text-[11px] font-mono group-hover:text-emerald-400 group-hover:bg-emerald-950/30">
+                              {idx + 1}
+                            </td>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-800/60">
-                    <span>{exp.receipt_url ? `Ref: ${exp.receipt_url}` : "Logged on site"}</span>
-                    <button
-                      onClick={() => handleDeleteExpense(exp.id, exp.description)}
-                      className="text-red-400 hover:text-red-300 font-semibold flex items-center gap-1"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Delete
-                    </button>
+                            <td className="py-2.5 px-4 border-r border-slate-800 text-slate-300">
+                              {exp.expense_date}
+                            </td>
+
+                            <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
+                              <span
+                                className={`inline-block px-2.5 py-0.5 rounded text-[11px] font-bold border ${getCategoryBadge(
+                                  exp.category
+                                )}`}
+                              >
+                                {exp.category}
+                              </span>
+                            </td>
+
+                            <td className="py-2.5 px-4 border-r border-slate-800 text-slate-200 font-sans">
+                              <span className="font-medium">{exp.description}</span>
+                            </td>
+
+                            <td className="py-2.5 px-4 border-r border-slate-800 font-mono text-[11px] text-slate-400">
+                              {exp.receipt_url || <span className="text-slate-600">—</span>}
+                            </td>
+
+                            <td className="py-2.5 px-4 border-r border-slate-800 text-right font-mono font-bold text-sm text-emerald-400">
+                              ₹{(exp.amount || 0).toLocaleString("en-IN")}
+                            </td>
+
+                            <td className="py-2.5 px-3 text-center">
+                              <button
+                                onClick={() => handleDeleteExpense(exp.id, exp.description)}
+                                className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                title="Delete expense"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+
+                      {/* Accounting Totals Row */}
+                      <tfoot>
+                        <tr className="bg-slate-900/90 font-bold border-t-2 border-slate-700 border-b-4 border-double border-slate-600 text-xs">
+                          <td className="py-3 px-3 text-center bg-slate-950 border-r border-slate-700 text-emerald-400 font-mono">
+                            Σ
+                          </td>
+                          <td colSpan={4} className="py-3 px-4 border-r border-slate-700 text-slate-200 uppercase tracking-wider text-[11px]">
+                            Total Self Expenses ({filteredSelfExpenses.length} entries)
+                          </td>
+                          <td className="py-3 px-4 border-r border-slate-700 text-right font-mono text-emerald-400 text-sm">
+                            ₹{filteredSelfTotal.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-3 px-3"></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+
+                  {/* Bottom Sheet Tab & Status Bar */}
+                  <div className="bg-slate-900 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-[11px] text-slate-400 select-none">
+                    <div className="flex items-center gap-1">
+                      <span className="px-3 py-1 bg-slate-950 text-emerald-400 font-semibold rounded-t border-t-2 border-emerald-500 border-x border-slate-800 flex items-center gap-1.5">
+                        <FileSpreadsheet className="w-3 h-3 text-emerald-400" />
+                        Sheet1 - Self Expenses
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 font-mono text-[10px]">
+                      <span>READY</span>
+                      <span className="border-l border-slate-700 pl-3">COUNT: {filteredSelfExpenses.length}</span>
+                      <span className="border-l border-slate-700 pl-3 text-emerald-400 font-bold">
+                        SUM: ₹{filteredSelfTotal.toLocaleString("en-IN")}
+                      </span>
+                      {filteredSelfExpenses.length > 0 && (
+                        <span className="border-l border-slate-700 pl-3 text-slate-300 hidden sm:inline">
+                          AVERAGE: ₹{Math.round(filteredSelfTotal / filteredSelfExpenses.length).toLocaleString("en-IN")}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-          </>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Record Expense Modal */}
       <RecordExpenseModal
         isOpen={isModalOpen}
+        defaultExpenseType={modalDefaultType}
         onClose={() => setIsModalOpen(false)}
         onSuccess={() => loadExpenses()}
       />

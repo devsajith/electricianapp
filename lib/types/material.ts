@@ -6,7 +6,13 @@ export type MaterialCategory =
   | "Conduit & Fittings"
   | "Tools & Accessories";
 
-export type MaterialUnit = "meter" | "nos" | "box" | "roll" | "set" | "kg" | "sqft";
+export type MaterialUnit =
+  | "Meter"
+  | "No"
+  | "Bottle"
+  | "Length"
+  | "Kg"
+  | "Pkt";
 
 export interface Material {
   id: string;
@@ -32,13 +38,12 @@ export const MATERIAL_CATEGORIES: MaterialCategory[] = [
 ];
 
 export const MATERIAL_UNITS: MaterialUnit[] = [
-  "meter",
-  "nos",
-  "box",
-  "roll",
-  "set",
-  "kg",
-  "sqft",
+  "Meter",
+  "No",
+  "Bottle",
+  "Length",
+  "Kg",
+  "Pkt",
 ];
 
 export const initialSampleMaterials: Material[] = [

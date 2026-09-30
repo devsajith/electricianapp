@@ -33,6 +33,12 @@ export interface Estimate {
   estimate_number: string;
   project_id?: string;
   project_name?: string;
+  client_name?: string;
+  client_phone?: string;
+  client_place?: string;
+  quotation_unit?: "Meter" | "Squarefeet" | string;
+  rate?: number;
+  measurement_qty?: number;
   description?: string;
   terms_conditions?: string;
   items: EstimateItem[];

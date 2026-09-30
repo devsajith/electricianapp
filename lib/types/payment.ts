@@ -1,6 +1,8 @@
 export type PaymentMethod =
-  | "UPI"
   | "Cash"
+  | "GPay"
+  | "Account Transfer"
+  | "UPI"
   | "Bank Transfer"
   | "Cheque"
   | "Card"
@@ -11,7 +13,8 @@ export type PaymentType =
   | "Milestone"
   | "Final Settlement"
   | "Retention"
-  | "Full Payment";
+  | "Full Payment"
+  | string;
 
 export interface PaymentProjectSummary {
   id?: string;
@@ -26,7 +29,7 @@ export interface Payment {
   amount: number;
   payment_date: string;
   payment_method: PaymentMethod | string;
-  payment_type: PaymentType | string;
+  payment_type: string;
   reference_number?: string | null;
   notes?: string | null;
   receipt_url?: string | null;
@@ -40,27 +43,24 @@ export interface CreatePaymentDTO {
   amount: number;
   payment_date: string;
   payment_method: PaymentMethod | string;
-  payment_type: PaymentType | string;
+  payment_type: string;
   reference_number?: string;
   notes?: string;
   receipt_url?: string;
 }
 
-export const PAYMENT_TYPES: { id: PaymentType; label: string; description: string }[] = [
-  { id: "Advance", label: "Advance Deposit", description: "Initial booking / material advance" },
-  { id: "Milestone", label: "Milestone Stage", description: "Progress payment for completed stage" },
-  { id: "Final Settlement", label: "Final Settlement", description: "Handover & final bill clearance" },
-  { id: "Retention", label: "Retention / Warranty", description: "Defect liability / retention release" },
-  { id: "Full Payment", label: "Full Payment", description: "Single full payment for project" },
-];
+export const STANDARD_PAYMENT_METHODS = [
+  "Cash",
+  "GPay",
+  "Account Transfer",
+] as const;
+
+export type StandardPaymentMethod = (typeof STANDARD_PAYMENT_METHODS)[number];
 
 export const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: string; description: string }[] = [
-  { id: "UPI", label: "UPI / GPay / PhonePe", icon: "Smartphone", description: "Instant digital payment" },
   { id: "Cash", label: "Cash", icon: "Banknote", description: "Direct cash payment" },
-  { id: "Bank Transfer", label: "Bank Transfer (NEFT/IMPS)", icon: "Building2", description: "Direct account wire" },
-  { id: "Cheque", label: "Cheque", icon: "FileText", description: "Bank cheque clearance" },
-  { id: "Card", label: "Credit / Debit Card", icon: "CreditCard", description: "Card swipe / POS" },
-  { id: "Other", label: "Other", icon: "MoreHorizontal", description: "Other custom arrangement" },
+  { id: "GPay", label: "GPay", icon: "Smartphone", description: "Google Pay / UPI digital payment" },
+  { id: "Account Transfer", label: "Account Transfer", icon: "Building2", description: "Direct bank account wire / NEFT / IMPS" },
 ];
 
 export const PAYMENT_MILESTONES = [

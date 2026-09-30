@@ -50,6 +50,7 @@ export async function createEstimateAction(input: CreateEstimateDTO) {
     const { data, error } = await createEstimateService(input);
     if (error) return { error };
     revalidatePath("/dashboard/estimates");
+    revalidatePath("/dashboard/projects");
     return { success: true, data };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to create estimate in database.";
