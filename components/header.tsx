@@ -50,7 +50,7 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
-            placeholder="Search projects, estimates..."
+            placeholder="Search projects, quotations..."
             className="w-full pl-9 pr-4 py-1.5 bg-slate-950/60 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500/40 transition-all"
           />
         </div>

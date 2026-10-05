@@ -37,7 +37,7 @@ export async function createLabourAction(input: CreateLabourDTO) {
 
 export async function deleteLabourAction(id: string) {
   try {
-    const { success, error } = await deleteLabourService(id);
+    const { error } = await deleteLabourService(id);
     if (error) return { error };
     revalidatePath("/dashboard/labour");
     return { success: true };
@@ -64,6 +64,9 @@ export async function createLabourEntryAction(input: CreateLabourEntryDTO) {
       return { error: error || "Failed to save work entry." };
     }
     revalidatePath("/dashboard/labour");
+    revalidatePath("/dashboard/expenses");
+    revalidatePath("/dashboard/projects");
+    revalidatePath("/dashboard/reports");
     return { success: true, data };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to save work entry.";
@@ -73,9 +76,12 @@ export async function createLabourEntryAction(input: CreateLabourEntryDTO) {
 
 export async function deleteLabourEntryAction(id: string) {
   try {
-    const { success, error } = await deleteLabourEntryService(id);
+    const { error } = await deleteLabourEntryService(id);
     if (error) return { error };
     revalidatePath("/dashboard/labour");
+    revalidatePath("/dashboard/expenses");
+    revalidatePath("/dashboard/projects");
+    revalidatePath("/dashboard/reports");
     return { success: true };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to delete work entry.";

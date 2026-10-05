@@ -31,20 +31,26 @@ const PAYMENT_METHODS_OPTIONS = [
   { id: "Account Transfer", label: "Account Transfer", icon: Building2, color: "text-blue-400" },
 ] as const;
 
-export function RecordPaymentModal({
-  isOpen,
+export function RecordPaymentModal(props: RecordPaymentModalProps) {
+  if (!props.isOpen) return null;
+  return <RecordPaymentModalContent {...props} />;
+}
+
+function RecordPaymentModalContent({
   onClose,
   defaultProjectId,
   onSuccess,
 }: RecordPaymentModalProps) {
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
-  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [loadingProjects, setLoadingProjects] = useState(true);
 
   const [projectId, setProjectId] = useState<string>(defaultProjectId || "");
   const [amount, setAmount] = useState<string>("");
   const [paymentType, setPaymentType] = useState<string>("Advance");
   const [paymentMethod, setPaymentMethod] = useState<"Cash" | "GPay" | "Account Transfer">("Cash");
-  const [paymentDate, setPaymentDate] = useState<string>("");
+  const [paymentDate, setPaymentDate] = useState<string>(
+    () => new Date().toISOString().split("T")[0]
+  );
 
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -54,26 +60,19 @@ export function RecordPaymentModal({
   const [, startTransition] = useTransition();
 
   useEffect(() => {
-    if (isOpen) {
-      setErrorMessage(null);
-      setSuccessMessage(null);
-      setPaymentDate(new Date().toISOString().split("T")[0]);
-      if (defaultProjectId) {
-        setProjectId(defaultProjectId);
+    let isMounted = true;
+    getProjectsAction().then((data) => {
+      if (!isMounted) return;
+      setProjects(data || []);
+      if (!defaultProjectId && data && data.length > 0 && data[0].id) {
+        setProjectId(data[0].id);
       }
-
-      setLoadingProjects(true);
-      getProjectsAction().then((data) => {
-        setProjects(data || []);
-        if (!defaultProjectId && data && data.length > 0 && data[0].id) {
-          setProjectId(data[0].id);
-        }
-        setLoadingProjects(false);
-      });
-    }
-  }, [isOpen, defaultProjectId]);
-
-  if (!isOpen) return null;
+      setLoadingProjects(false);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [defaultProjectId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,8 +106,8 @@ export function RecordPaymentModal({
           project_id: projectId,
           amount: numAmount,
           payment_date: paymentDate,
-          payment_method: paymentMethod,
-          payment_type: paymentType.trim(),
+          method: paymentMethod,
+          payment_info: paymentType.trim(),
         });
 
         if (res.error) {
@@ -195,14 +194,14 @@ export function RecordPaymentModal({
                 <option value="">-- Choose Project --</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.customer_name} — {p.project_number} ({p.project_type})
+                    {p.name} — {p.project_number} ({p.type})
                   </option>
                 ))}
               </select>
             )}
             {selectedProj && (
               <p className="mt-1 text-[11px] text-slate-500">
-                Client: <span className="text-slate-300 font-medium">{selectedProj.customer_name}</span> • Place: {selectedProj.place || selectedProj.address || "N/A"}
+                Client: <span className="text-slate-300 font-medium">{selectedProj.name}</span> • Place: {selectedProj.place || "N/A"}
               </p>
             )}
           </div>
@@ -294,10 +293,7 @@ export function RecordPaymentModal({
                 Today
               </button>
             </div>
-            <div
-              onClick={() => dateInputRef.current?.showPicker?.()}
-              className="relative cursor-pointer group"
-            >
+            <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-amber-400">
                 <Calendar className="w-4 h-4" />
               </div>
@@ -308,7 +304,12 @@ export function RecordPaymentModal({
                 required
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 cursor-pointer"
+                onClick={(e) => {
+                  try {
+                    e.currentTarget.showPicker?.();
+                  } catch {}
+                }}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 cursor-pointer [color-scheme:dark]"
               />
             </div>
           </div>

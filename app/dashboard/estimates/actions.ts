@@ -2,58 +2,70 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  getEstimatesService,
-  getEstimateByIdService,
-  updateEstimateStatusService,
-  createEstimateService,
-  CreateEstimateDTO,
-} from "@/services/estimate.service";
-import { Estimate, initialSampleEstimates } from "@/lib/types/estimate";
+  getQuotationsService,
+  getQuotationByIdService,
+  updateQuotationService,
+  createQuotationService,
+  deleteQuotationService,
+} from "@/services/quotation.service";
+import { Quotation, CreateQuotationDTO } from "@/lib/types/quotation";
 
-export async function getEstimatesAction(): Promise<Estimate[]> {
+export async function getQuotationsAction(): Promise<Quotation[]> {
   try {
-    const { data, error } = await getEstimatesService();
+    const { data, error } = await getQuotationsService();
     if (error || !data || data.length === 0) {
-      return initialSampleEstimates;
+      return [];
     }
     return data;
   } catch (e) {
-    console.error("Error in getEstimatesAction:", e);
-    return initialSampleEstimates;
+    console.error("Error in getQuotationsAction:", e);
+    return [];
   }
 }
 
-export async function getEstimateByIdAction(id: string): Promise<Estimate | null> {
+export async function getQuotationByIdAction(id: string): Promise<Quotation | null> {
   try {
-    const { data } = await getEstimateByIdService(id);
+    const { data } = await getQuotationByIdService(id);
     return data || null;
   } catch (e) {
-    console.error(`Error in getEstimateByIdAction (${id}):`, e);
+    console.error(`Error in getQuotationByIdAction (${id}):`, e);
     return null;
   }
 }
 
-export async function updateEstimateStatusAction(id: string, status: string) {
+export async function updateQuotationStatusAction(id: string, status: string) {
   try {
-    const { success, error } = await updateEstimateStatusService(id, status);
+    const { error } = await updateQuotationService(id, { status });
     if (error) return { error };
     revalidatePath("/dashboard/estimates");
     return { success: true };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Failed to update estimate status.";
+    const message = err instanceof Error ? err.message : "Failed to update quotation status.";
     return { error: message };
   }
 }
 
-export async function createEstimateAction(input: CreateEstimateDTO) {
+export async function createQuotationAction(input: CreateQuotationDTO) {
   try {
-    const { data, error } = await createEstimateService(input);
+    const { data, error } = await createQuotationService(input);
     if (error) return { error };
     revalidatePath("/dashboard/estimates");
     revalidatePath("/dashboard/projects");
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Failed to create estimate in database.";
+    const message = err instanceof Error ? err.message : "Failed to create quotation in database.";
+    return { error: message };
+  }
+}
+
+export async function deleteQuotationAction(id: string) {
+  try {
+    const { error } = await deleteQuotationService(id);
+    if (error) return { error };
+    revalidatePath("/dashboard/estimates");
+    return { success: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to delete quotation.";
     return { error: message };
   }
 }

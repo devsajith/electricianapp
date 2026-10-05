@@ -1,285 +1,202 @@
 import { createClient } from "@/lib/supabase/server";
-import { Expense, CreateExpenseDTO, initialSampleExpenses } from "@/lib/types/expense";
+import { Expense, CreateExpenseDTO } from "@/lib/types/expense";
 import { withTimeout } from "@/lib/timeout";
 
-/**
- * Helper to validate UUID syntax for PostgreSQL uuid columns
- */
-const isValidUUID = (id?: string | null): boolean =>
-  typeof id === "string" &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim());
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * Service: Fetch all expenses from Supabase
- */
+export const isValidUUID = (id?: string | null): boolean =>
+  typeof id === "string" && UUID_REGEX.test(id.trim());
+
+interface ExpenseDbRow {
+  id: string | number;
+  type: Expense["type"];
+  project_id?: string | null;
+  projects?: {
+    project_number?: string;
+    name?: string;
+  } | null;
+  amount: number | string;
+  description: string;
+  date: string;
+  labour_log_id?: string | null;
+  created_at?: string;
+}
+
+// Columns guaranteed to exist in the database
+const EXPENSE_WITH_PROJECT_COLUMNS =
+  "id, type, project_id, amount, description, date, created_at, projects(project_number, name)";
+
+const EXPENSE_SIMPLE_COLUMNS =
+  "id, type, project_id, amount, description, date, created_at";
+
 export async function getExpensesService(): Promise<{ data: Expense[]; error?: string }> {
   return withTimeout(
     (async () => {
       try {
         const supabase = await createClient();
 
-        // Query expenses and join with projects
-        let { data, error } = await supabase
+        const { data, error } = await supabase
           .from("expenses")
-          .select("*, projects(project_number, customer_name, project_type)")
-          .order("expense_date", { ascending: false });
-
-        // Fallback if projects relationship isn't registered in PostgREST schema cache
-        if (error && (error.code === "PGRST200" || error.code === "PGRST100")) {
-          const fallback = await supabase
-            .from("expenses")
-            .select("*")
-            .order("expense_date", { ascending: false });
-          data = fallback.data;
-          error = fallback.error;
-        }
+          .select(EXPENSE_WITH_PROJECT_COLUMNS)
+          .order("date", { ascending: false });
 
         if (error) {
-          console.error("[ExpenseService] Error fetching expenses:", error);
-          return { data: initialSampleExpenses, error: error.message };
+          console.error("Error fetching expenses:", error.message || error);
+          return { data: [], error: error.message };
         }
 
-        if (!data || data.length === 0) {
-          return { data: [] };
-        }
+        const formattedData: Expense[] = ((data as unknown as ExpenseDbRow[]) || []).map((row) => ({
+          id: String(row.id),
+          type: row.type,
+          project_id: row.project_id,
+          project_number: row.projects?.project_number,
+          name: row.projects?.name,
+          amount: Number(row.amount) || 0,
+          description: row.description,
+          date: row.date,
+          labour_log_id: row.labour_log_id || null,
+          created_at: row.created_at,
+        }));
 
-        const rows = data as Record<string, unknown>[];
-        const items: Expense[] = rows.map((row) => {
-          const proj = row.projects as { project_number?: string; customer_name?: string; project_type?: string } | null;
-          const rawDesc = String(row.description || "");
-          const rawReceipt = row.receipt_url ? String(row.receipt_url) : "";
-
-          // Determine scope: self vs project
-          let expType: "project" | "self" = "project";
-          if (row.expense_type === "self" || row.expense_type === "project") {
-            expType = row.expense_type;
-          } else if (!row.project_id || String(row.project_id) === "null" || String(row.project_id).trim() === "") {
-            expType = "self";
-          } else if (rawDesc.includes("[Scope: Self]") || rawReceipt.includes("[Scope: Self]")) {
-            expType = "self";
-          }
-
-          const cleanDesc = rawDesc.replace(/\[Scope:\s*Self\]\s*/g, "").trim();
-          const cleanReceipt = rawReceipt ? rawReceipt.replace(/\[Scope:\s*Self\]\s*/g, "").trim() || null : null;
-
-          return {
-            id: String(row.id || `exp-${Date.now()}`),
-            expense_type: expType,
-            project_id: expType === "self" ? null : (row.project_id ? String(row.project_id) : null),
-            project_number: expType === "project" ? (proj?.project_number || undefined) : undefined,
-            customer_name: expType === "project" ? (proj?.customer_name || undefined) : undefined,
-            project_type: expType === "project" ? (proj?.project_type || undefined) : undefined,
-            category: String(row.category || "Miscellaneous"),
-            description: cleanDesc,
-            amount: Number(row.amount) || 0,
-            expense_date: String(row.expense_date || new Date().toISOString().split("T")[0]),
-            receipt_url: cleanReceipt,
-            created_at: String(row.created_at || new Date().toISOString()),
-            updated_at: row.updated_at ? String(row.updated_at) : undefined,
-          };
-        });
-
-        return { data: items };
-      } catch (err: unknown) {
-        console.error("[ExpenseService] Exception in getExpensesService:", err);
-        return { data: initialSampleExpenses, error: err instanceof Error ? err.message : "Error fetching expenses" };
+        return { data: formattedData };
+      } catch (error) {
+        console.error("Service error (getExpenses):", error);
+        return { data: [], error: error instanceof Error ? error.message : "Internal server error" };
       }
     })(),
-    { data: initialSampleExpenses, error: "timeout" },
+    { data: [], error: "timeout" },
     2500
   );
 }
 
-/**
- * Service: Fetch expenses for a specific project
- */
 export async function getExpensesByProjectIdService(
   projectId: string
 ): Promise<{ data: Expense[]; error?: string }> {
   try {
-    const supabase = await createClient();
-
     if (!isValidUUID(projectId)) {
-      // Return sample matches for non-UUID sample projects (filtering out self expenses)
-      const sampleMatches = initialSampleExpenses.filter(
-        (e) => e.project_id === projectId && e.expense_type !== "self"
-      );
-      return { data: sampleMatches };
+      return { data: [], error: "Invalid project ID format." };
     }
+
+    const supabase = await createClient();
 
     const { data, error } = await supabase
       .from("expenses")
-      .select("*")
+      .select(EXPENSE_SIMPLE_COLUMNS)
       .eq("project_id", projectId)
-      .order("expense_date", { ascending: false });
+      .order("date", { ascending: false });
 
     if (error) {
-      console.error(`[ExpenseService] Error fetching expenses for project ${projectId}:`, error);
-      return { data: [] };
+      console.error("Error fetching project expenses:", error);
+      return { data: [], error: error.message };
     }
 
-    const rows = (data || []) as Record<string, unknown>[];
-    const items: Expense[] = rows
-      .filter((row) => {
-        // Exclude self expenses that were assigned a dummy project_id for legacy constraints
-        if (row.expense_type === "self") return false;
-        if (String(row.description || "").includes("[Scope: Self]")) return false;
-        return true;
-      })
-      .map((row) => ({
-        id: String(row.id),
-        expense_type: "project",
-        project_id: String(row.project_id),
-        category: String(row.category || "Miscellaneous"),
-        description: String(row.description || "").replace(/\[Scope:\s*Self\]\s*/g, ""),
-        amount: Number(row.amount) || 0,
-        expense_date: String(row.expense_date || new Date().toISOString().split("T")[0]),
-        receipt_url: row.receipt_url ? String(row.receipt_url) : null,
-        created_at: String(row.created_at || new Date().toISOString()),
-        updated_at: row.updated_at ? String(row.updated_at) : undefined,
-      }));
+    const formattedData: Expense[] = ((data as unknown as ExpenseDbRow[]) || []).map((row) => ({
+      id: String(row.id),
+      type: row.type,
+      project_id: row.project_id,
+      amount: Number(row.amount) || 0,
+      description: row.description,
+      date: row.date,
+      labour_log_id: row.labour_log_id || null,
+      created_at: row.created_at,
+    }));
 
-    return { data: items };
-  } catch (err: unknown) {
-    console.error(`[ExpenseService] Exception fetching project expenses (${projectId}):`, err);
-    return { data: [] };
+    return { data: formattedData };
+  } catch (error) {
+    console.error("Service error (getExpensesByProjectId):", error);
+    return { data: [], error: error instanceof Error ? error.message : "Internal server error" };
   }
 }
 
-/**
- * Service: Create a new expense (Self or Project-based)
- */
 export async function createExpenseService(
   input: CreateExpenseDTO
 ): Promise<{ data?: Expense; error?: string }> {
   try {
     const supabase = await createClient();
 
+    const isSelf = input.type === "self" || !input.project_id;
     const today = new Date().toISOString().split("T")[0];
-    const expenseDate = input.expense_date || today;
-    const isSelf = input.expense_type === "self" || !input.project_id;
-    let targetProjectId = isSelf ? null : (input.project_id || null);
 
-    // If it's a project expense, ensure valid UUID
-    if (!isSelf && !isValidUUID(targetProjectId)) {
-      const { data: firstProj } = await supabase.from("projects").select("id").limit(1).maybeSingle();
-      if (!firstProj?.id) {
-        // Return dummy created for sample projects
-        return {
-          data: {
-            id: `exp-${Date.now()}`,
-            expense_type: "project",
-            project_id: input.project_id || null,
-            category: input.category,
-            description: input.description,
-            amount: Number(input.amount) || 0,
-            expense_date: expenseDate,
-            receipt_url: input.receipt_url || null,
-            created_at: new Date().toISOString(),
-          },
-        };
-      }
-      targetProjectId = firstProj.id;
-    }
-
-    // Try payload with expense_type column
-    const payloadWithScope: Record<string, unknown> = {
-      project_id: targetProjectId,
-      expense_type: isSelf ? "self" : "project",
-      category: input.category || "Miscellaneous",
-      description: input.description.trim(),
+    const payload: Record<string, unknown> = {
+      type: isSelf ? "self" : "project",
+      project_id: isSelf ? null : input.project_id,
       amount: Number(input.amount) || 0,
-      expense_date: expenseDate,
-      receipt_url: input.receipt_url || null,
+      description: input.description,
+      date: input.date || today,
     };
+
+    if (input.labour_log_id) {
+      payload.labour_log_id = input.labour_log_id;
+    }
 
     let { data, error } = await supabase
       .from("expenses")
-      .insert([payloadWithScope])
-      .select()
+      .insert(payload)
+      .select(EXPENSE_WITH_PROJECT_COLUMNS)
       .single();
 
-    // Fallback if expense_type column is not present in PostgREST schema cache
-    if (error && (error.code === "PGRST204" || error.message.includes("expense_type"))) {
-      const fallbackPayload: Record<string, unknown> = {
-        project_id: targetProjectId,
-        category: input.category || "Miscellaneous",
-        description: isSelf ? `[Scope: Self] ${input.description.trim()}` : input.description.trim(),
-        amount: Number(input.amount) || 0,
-        expense_date: expenseDate,
-        receipt_url: input.receipt_url || null,
+    // Fallback if labour_log_id column doesn't exist in DB
+    if (error && (error.message?.includes("labour_log_id") || error.code === "42703")) {
+      delete payload.labour_log_id;
+      const retry = await supabase
+        .from("expenses")
+        .insert(payload)
+        .select(EXPENSE_WITH_PROJECT_COLUMNS)
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
+
+    if (error) {
+      console.error("Error creating expense:", error);
+      return { error: error.message };
+    }
+
+    if (data) {
+      const row = data as unknown as ExpenseDbRow;
+      return {
+        data: {
+          id: String(row.id),
+          type: row.type,
+          project_id: row.project_id,
+          project_number: row.projects?.project_number,
+          name: row.projects?.name,
+          amount: Number(row.amount) || 0,
+          description: row.description,
+          date: row.date,
+          labour_log_id: row.labour_log_id || input.labour_log_id || null,
+          created_at: row.created_at,
+        },
       };
-
-      if (isSelf && !targetProjectId) {
-        const res = await supabase.from("expenses").insert([fallbackPayload]).select().single();
-        if (res.error && res.error.code === "23502") {
-          // If project_id has a NOT NULL constraint, assign first project with [Scope: Self] tag
-          const { data: anyProj } = await supabase.from("projects").select("id").limit(1).maybeSingle();
-          if (anyProj?.id) {
-            fallbackPayload.project_id = anyProj.id;
-            const retryRes = await supabase.from("expenses").insert([fallbackPayload]).select().single();
-            data = retryRes.data;
-            error = retryRes.error;
-          } else {
-            data = res.data;
-            error = res.error;
-          }
-        } else {
-          data = res.data;
-          error = res.error;
-        }
-      } else {
-        const res = await supabase.from("expenses").insert([fallbackPayload]).select().single();
-        data = res.data;
-        error = res.error;
-      }
     }
 
-    if (error || !data) {
-      console.error("[ExpenseService] Error creating expense in Supabase:", error);
-      return { error: error?.message || "Failed to create expense." };
-    }
-
-    const row = data as Record<string, unknown>;
-    return {
-      data: {
-        id: String(row.id),
-        expense_type: isSelf ? "self" : "project",
-        project_id: isSelf ? null : (row.project_id ? String(row.project_id) : null),
-        category: String(row.category),
-        description: input.description.trim(),
-        amount: Number(row.amount),
-        expense_date: String(row.expense_date),
-        receipt_url: row.receipt_url ? String(row.receipt_url).replace(/\[Scope:\s*Self\]\s*/g, "") : null,
-        created_at: String(row.created_at || new Date().toISOString()),
-      },
-    };
-  } catch (err: unknown) {
-    console.error("[ExpenseService] Exception in createExpenseService:", err);
-    return { error: err instanceof Error ? err.message : "Error creating expense." };
+    return { error: "Failed to return created expense" };
+  } catch (error) {
+    console.error("Service error (createExpense):", error);
+    return { error: error instanceof Error ? error.message : "Internal server error" };
   }
 }
 
-/**
- * Service: Delete an expense record
- */
-export async function deleteExpenseService(id: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteExpenseService(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
-
     if (!isValidUUID(id)) {
-      return { success: true };
+      return { success: false, error: "Invalid expense ID format." };
     }
 
+    const supabase = await createClient();
+
     const { error } = await supabase.from("expenses").delete().eq("id", id);
+
     if (error) {
-      console.error(`[ExpenseService] Error deleting expense ${id}:`, error);
+      console.error("Error deleting expense:", error);
       return { success: false, error: error.message };
     }
 
     return { success: true };
-  } catch (err: unknown) {
-    console.error(`[ExpenseService] Exception deleting expense ${id}:`, err);
-    return { success: false, error: err instanceof Error ? err.message : "Failed to delete expense." };
+  } catch (error) {
+    console.error("Service error (deleteExpense):", error);
+    return { success: false, error: error instanceof Error ? error.message : "Internal server error" };
   }
 }

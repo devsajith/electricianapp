@@ -1,11 +1,3 @@
-export type MaterialCategory =
-  | "Wiring & Cable"
-  | "Panels & Breakers"
-  | "Switches & Outlets"
-  | "Lighting"
-  | "Conduit & Fittings"
-  | "Tools & Accessories";
-
 export type MaterialUnit =
   | "Meter"
   | "No"
@@ -16,26 +8,18 @@ export type MaterialUnit =
 
 export interface Material {
   id: string;
-  item_name: string;
-  category: MaterialCategory | string;
+  name: string;
   brand?: string | null;
   unit: string;
-  default_price: number; // numeric in ₹
-  supplier?: string | null;
-  notes?: string | null;
-  is_active: boolean; // boolean status
   created_at?: string;
   updated_at?: string;
 }
 
-export const MATERIAL_CATEGORIES: MaterialCategory[] = [
-  "Wiring & Cable",
-  "Panels & Breakers",
-  "Switches & Outlets",
-  "Lighting",
-  "Conduit & Fittings",
-  "Tools & Accessories",
-];
+export interface CreateMaterialDTO {
+  name: string;
+  brand?: string | null;
+  unit?: string;
+}
 
 export const MATERIAL_UNITS: MaterialUnit[] = [
   "Meter",
@@ -46,529 +30,63 @@ export const MATERIAL_UNITS: MaterialUnit[] = [
   "Pkt",
 ];
 
+export interface MaterialList {
+  id: string;
+  project_id?: string | null;
+  project_number?: string;
+  project_name?: string;
+  title: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface MaterialListItem {
+  id: string;
+  list_id: string;
+  material_id: string;
+  material_name?: string;
+  material_brand?: string | null;
+  material_unit?: string;
+  qty: number;
+  rate: number;
+  amount: number;
+  created_at: string;
+}
+
+export interface CreateMaterialListDTO {
+  project_id?: string | null;
+  title: string;
+}
+
+export interface CreateMaterialListItemDTO {
+  list_id: string;
+  material_id: string;
+  qty: number;
+  rate: number;
+  amount: number;
+}
+
 export const initialSampleMaterials: Material[] = [
-  // Wiring & Cable
-  {
-    id: "mat-w1",
-    item_name: "1.0 sq mm FR Copper Wire (90m Roll)",
-    category: "Wiring & Cable",
-    brand: "Polycab",
-    unit: "roll",
-    default_price: 1850,
-    is_active: true,
-  },
-  {
-    id: "mat-w2",
-    item_name: "1.5 sq mm FR Copper Wire (90m Roll)",
-    category: "Wiring & Cable",
-    brand: "Polycab",
-    unit: "roll",
-    default_price: 2450,
-    is_active: true,
-  },
-  {
-    id: "mat-w3",
-    item_name: "2.5 sq mm FR Copper Wire (90m Roll)",
-    category: "Wiring & Cable",
-    brand: "Polycab",
-    unit: "roll",
-    default_price: 3850,
-    is_active: true,
-  },
-  {
-    id: "mat-w4",
-    item_name: "4.0 sq mm FR Copper Wire (90m Roll)",
-    category: "Wiring & Cable",
-    brand: "Finolex",
-    unit: "roll",
-    default_price: 5900,
-    is_active: true,
-  },
-  {
-    id: "mat-w5",
-    item_name: "6.0 sq mm FR Copper Wire (90m Roll)",
-    category: "Wiring & Cable",
-    brand: "Finolex",
-    unit: "roll",
-    default_price: 8600,
-    is_active: true,
-  },
-  {
-    id: "mat-w6",
-    item_name: "10 sq mm 4-Core Copper Armoured Cable",
-    category: "Wiring & Cable",
-    brand: "Havells",
-    unit: "meter",
-    default_price: 420,
-    is_active: true,
-  },
-  {
-    id: "mat-w7",
-    item_name: "RG-6 Coaxial TV Cable (100m Roll)",
-    category: "Wiring & Cable",
-    brand: "Finolex",
-    unit: "roll",
-    default_price: 1650,
-    is_active: true,
-  },
-  {
-    id: "mat-w8",
-    item_name: "Cat-6 UTP Internet Network Cable (305m Box)",
-    category: "Wiring & Cable",
-    brand: "D-Link",
-    unit: "box",
-    default_price: 6800,
-    is_active: true,
-  },
-
-  // Conduit & Fittings
-  {
-    id: "mat-c1",
-    item_name: "20mm Rigid PVC Conduit Pipe (Heavy 3m)",
-    category: "Conduit & Fittings",
-    brand: "Precision",
-    unit: "nos",
-    default_price: 85,
-    is_active: true,
-  },
-  {
-    id: "mat-c2",
-    item_name: "25mm Rigid PVC Conduit Pipe (Heavy 3m)",
-    category: "Conduit & Fittings",
-    brand: "Precision",
-    unit: "nos",
-    default_price: 110,
-    is_active: true,
-  },
-  {
-    id: "mat-c3",
-    item_name: "20mm PVC Circular Junction Box (4-Way)",
-    category: "Conduit & Fittings",
-    brand: "Precision",
-    unit: "nos",
-    default_price: 25,
-    is_active: true,
-  },
-  {
-    id: "mat-c4",
-    item_name: "25mm PVC Circular Junction Box (4-Way)",
-    category: "Conduit & Fittings",
-    brand: "Precision",
-    unit: "nos",
-    default_price: 32,
-    is_active: true,
-  },
-  {
-    id: "mat-c5",
-    item_name: "20mm PVC Normal Bends",
-    category: "Conduit & Fittings",
-    brand: "Precision",
-    unit: "nos",
-    default_price: 12,
-    is_active: true,
-  },
-  {
-    id: "mat-c6",
-    item_name: "25mm PVC Normal Bends",
-    category: "Conduit & Fittings",
-    brand: "Precision",
-    unit: "nos",
-    default_price: 16,
-    is_active: true,
-  },
-  {
-    id: "mat-c7",
-    item_name: "25mm Flexible PVC Corrugated Pipe (25m Coil)",
-    category: "Conduit & Fittings",
-    brand: "Standard",
-    unit: "coil",
-    default_price: 450,
-    is_active: true,
-  },
-  {
-    id: "mat-c8",
-    item_name: "PVC Solvent Cement (100ml)",
-    category: "Conduit & Fittings",
-    brand: "Finolex",
-    unit: "nos",
-    default_price: 75,
-    is_active: true,
-  },
-
-  // Switches & Outlets
-  {
-    id: "mat-s1",
-    item_name: "6A 1-Way Modular Switch",
-    category: "Switches & Outlets",
-    brand: "Anchor Roma",
-    unit: "nos",
-    default_price: 45,
-    is_active: true,
-  },
-  {
-    id: "mat-s2",
-    item_name: "6A 2-Way Modular Switch",
-    category: "Switches & Outlets",
-    brand: "Anchor Roma",
-    unit: "nos",
-    default_price: 85,
-    is_active: true,
-  },
-  {
-    id: "mat-s3",
-    item_name: "16A 1-Way Power Switch",
-    category: "Switches & Outlets",
-    brand: "Anchor Roma",
-    unit: "nos",
-    default_price: 130,
-    is_active: true,
-  },
-  {
-    id: "mat-s4",
-    item_name: "6A 3-Pin Modular Socket",
-    category: "Switches & Outlets",
-    brand: "Anchor Roma",
-    unit: "nos",
-    default_price: 90,
-    is_active: true,
-  },
-  {
-    id: "mat-s5",
-    item_name: "16A 6-Pin Multi Socket",
-    category: "Switches & Outlets",
-    brand: "Anchor Roma",
-    unit: "nos",
-    default_price: 165,
-    is_active: true,
-  },
-  {
-    id: "mat-s6",
-    item_name: "Stepped Rotary Fan Regulator (100W)",
-    category: "Switches & Outlets",
-    brand: "Anchor Roma",
-    unit: "nos",
-    default_price: 320,
-    is_active: true,
-  },
-  {
-    id: "mat-s7",
-    item_name: "RJ-11 Telephone Socket",
-    category: "Switches & Outlets",
-    brand: "Anchor Roma",
-    unit: "nos",
-    default_price: 110,
-    is_active: true,
-  },
-  {
-    id: "mat-s8",
-    item_name: "RJ-45 Computer Data Socket (Cat-6)",
-    category: "Switches & Outlets",
-    brand: "Anchor Roma",
-    unit: "nos",
-    default_price: 240,
-    is_active: true,
-  },
-  {
-    id: "mat-s9",
-    item_name: "2-Module Concealed GI Metal Box",
-    category: "Switches & Outlets",
-    brand: "Goldmedal",
-    unit: "nos",
-    default_price: 65,
-    is_active: true,
-  },
-  {
-    id: "mat-s10",
-    item_name: "4-Module Concealed GI Metal Box",
-    category: "Switches & Outlets",
-    brand: "Goldmedal",
-    unit: "nos",
-    default_price: 95,
-    is_active: true,
-  },
-  {
-    id: "mat-s11",
-    item_name: "6-Module Concealed GI Metal Box",
-    category: "Switches & Outlets",
-    brand: "Goldmedal",
-    unit: "nos",
-    default_price: 125,
-    is_active: true,
-  },
-  {
-    id: "mat-s12",
-    item_name: "8-Module Concealed GI Metal Box",
-    category: "Switches & Outlets",
-    brand: "Goldmedal",
-    unit: "nos",
-    default_price: 160,
-    is_active: true,
-  },
-  {
-    id: "mat-s13",
-    item_name: "12-Module Concealed GI Metal Box",
-    category: "Switches & Outlets",
-    brand: "Goldmedal",
-    unit: "nos",
-    default_price: 210,
-    is_active: true,
-  },
-  {
-    id: "mat-s14",
-    item_name: "2-Module Cover Plate with Grid Frame",
-    category: "Switches & Outlets",
-    brand: "Anchor Roma",
-    unit: "nos",
-    default_price: 75,
-    is_active: true,
-  },
-  {
-    id: "mat-s15",
-    item_name: "4-Module Cover Plate with Grid Frame",
-    category: "Switches & Outlets",
-    brand: "Anchor Roma",
-    unit: "nos",
-    default_price: 110,
-    is_active: true,
-  },
-  {
-    id: "mat-s16",
-    item_name: "6-Module Cover Plate with Grid Frame",
-    category: "Switches & Outlets",
-    brand: "Anchor Roma",
-    unit: "nos",
-    default_price: 145,
-    is_active: true,
-  },
-  {
-    id: "mat-s17",
-    item_name: "8-Module Cover Plate with Grid Frame",
-    category: "Switches & Outlets",
-    brand: "Anchor Roma",
-    unit: "nos",
-    default_price: 180,
-    is_active: true,
-  },
-  {
-    id: "mat-s18",
-    item_name: "12-Module Cover Plate with Grid Frame",
-    category: "Switches & Outlets",
-    brand: "Anchor Roma",
-    unit: "nos",
-    default_price: 250,
-    is_active: true,
-  },
-
-  // Panels & Breakers
-  {
-    id: "mat-b1",
-    item_name: "10A Single Pole MCB C-Curve",
-    category: "Panels & Breakers",
-    brand: "Schneider",
-    unit: "nos",
-    default_price: 185,
-    is_active: true,
-  },
-  {
-    id: "mat-b2",
-    item_name: "16A Single Pole MCB C-Curve",
-    category: "Panels & Breakers",
-    brand: "Schneider",
-    unit: "nos",
-    default_price: 195,
-    is_active: true,
-  },
-  {
-    id: "mat-b3",
-    item_name: "20A Single Pole MCB C-Curve",
-    category: "Panels & Breakers",
-    brand: "Schneider",
-    unit: "nos",
-    default_price: 210,
-    is_active: true,
-  },
-  {
-    id: "mat-b4",
-    item_name: "32A Single Pole MCB C-Curve",
-    category: "Panels & Breakers",
-    brand: "Schneider",
-    unit: "nos",
-    default_price: 240,
-    is_active: true,
-  },
-  {
-    id: "mat-b5",
-    item_name: "40A Double Pole (DP) MCB",
-    category: "Panels & Breakers",
-    brand: "Legrand",
-    unit: "nos",
-    default_price: 680,
-    is_active: true,
-  },
-  {
-    id: "mat-b6",
-    item_name: "63A Double Pole (DP) Isolator",
-    category: "Panels & Breakers",
-    brand: "Legrand",
-    unit: "nos",
-    default_price: 520,
-    is_active: true,
-  },
-  {
-    id: "mat-b7",
-    item_name: "40A 30mA 2-Pole RCCB / ELCB",
-    category: "Panels & Breakers",
-    brand: "Schneider",
-    unit: "nos",
-    default_price: 1850,
-    is_active: true,
-  },
-  {
-    id: "mat-b8",
-    item_name: "8-Way SPN Distribution Board (Double Door)",
-    category: "Panels & Breakers",
-    brand: "Havells",
-    unit: "nos",
-    default_price: 1450,
-    is_active: true,
-  },
-  {
-    id: "mat-b9",
-    item_name: "12-Way SPN Distribution Board (Double Door)",
-    category: "Panels & Breakers",
-    brand: "Havells",
-    unit: "nos",
-    default_price: 1850,
-    is_active: true,
-  },
-  {
-    id: "mat-b10",
-    item_name: "4-Way TPN 3-Phase Distribution Board",
-    category: "Panels & Breakers",
-    brand: "Havells",
-    unit: "nos",
-    default_price: 3600,
-    is_active: true,
-  },
-
-  // Lighting
-  {
-    id: "mat-l1",
-    item_name: "12W Round LED Concealed Downlight (Cool White)",
-    category: "Lighting",
-    brand: "Philips",
-    unit: "nos",
-    default_price: 450,
-    is_active: true,
-  },
-  {
-    id: "mat-l2",
-    item_name: "18W LED Surface Panel Light (Cool White)",
-    category: "Lighting",
-    brand: "Philips",
-    unit: "nos",
-    default_price: 650,
-    is_active: true,
-  },
-  {
-    id: "mat-l3",
-    item_name: "9W LED Bulb B22",
-    category: "Lighting",
-    brand: "Havells",
-    unit: "nos",
-    default_price: 90,
-    is_active: true,
-  },
-  {
-    id: "mat-l4",
-    item_name: "20W LED Batten Tube Light 4ft",
-    category: "Lighting",
-    brand: "Wipro",
-    unit: "nos",
-    default_price: 280,
-    is_active: true,
-  },
-  {
-    id: "mat-l5",
-    item_name: "Batten Lamp Holder (Angle / Straight)",
-    category: "Lighting",
-    brand: "Anchor",
-    unit: "nos",
-    default_price: 35,
-    is_active: true,
-  },
-  {
-    id: "mat-l6",
-    item_name: "Ceiling Rose 3-Plate (6A)",
-    category: "Lighting",
-    brand: "Anchor",
-    unit: "nos",
-    default_price: 30,
-    is_active: true,
-  },
-
-  // Tools & Accessories
-  {
-    id: "mat-a1",
-    item_name: "Pure Copper Earth Rod (3m, 14mm dia)",
-    category: "Tools & Accessories",
-    brand: "Standard",
-    unit: "nos",
-    default_price: 1250,
-    is_active: true,
-  },
-  {
-    id: "mat-a2",
-    item_name: "8 SWG Bare Copper Earth Wire",
-    category: "Tools & Accessories",
-    brand: "Standard",
-    unit: "kg",
-    default_price: 950,
-    is_active: true,
-  },
-  {
-    id: "mat-a3",
-    item_name: "Chemical Earthing Compound (25kg Bag)",
-    category: "Tools & Accessories",
-    brand: "Standard",
-    unit: "bag",
-    default_price: 850,
-    is_active: true,
-  },
-  {
-    id: "mat-a4",
-    item_name: "PVC Electrical Insulation Tape (Pack of 5)",
-    category: "Tools & Accessories",
-    brand: "Steelgrip",
-    unit: "pkt",
-    default_price: 75,
-    is_active: true,
-  },
-  {
-    id: "mat-a5",
-    item_name: "Plastic Rawl Plugs / Gitti (Box of 100)",
-    category: "Tools & Accessories",
-    brand: "Standard",
-    unit: "box",
-    default_price: 60,
-    is_active: true,
-  },
-  {
-    id: "mat-a6",
-    item_name: "Drywall Screws 1.5 inch (Box of 100)",
-    category: "Tools & Accessories",
-    brand: "Standard",
-    unit: "box",
-    default_price: 90,
-    is_active: true,
-  },
-  {
-    id: "mat-a7",
-    item_name: "Heavy Duty Cable Ties 200mm (Pack of 100)",
-    category: "Tools & Accessories",
-    brand: "Standard",
-    unit: "pkt",
-    default_price: 110,
-    is_active: true,
-  },
+  { id: "mat-w1", name: "1.0 sq mm FR Copper Wire (90m Roll)", brand: "Polycab", unit: "roll" },
+  { id: "mat-w2", name: "1.5 sq mm FR Copper Wire (90m Roll)", brand: "Polycab", unit: "roll" },
+  { id: "mat-w3", name: "2.5 sq mm FR Copper Wire (90m Roll)", brand: "Polycab", unit: "roll" },
+  { id: "mat-w4", name: "4.0 sq mm FR Copper Wire (90m Roll)", brand: "Finolex", unit: "roll" },
+  { id: "mat-w5", name: "6.0 sq mm FR Copper Wire (90m Roll)", brand: "Finolex", unit: "roll" },
+  { id: "mat-w6", name: "10 sq mm 4-Core Copper Armoured Cable", brand: "Havells", unit: "meter" },
+  { id: "mat-c1", name: "20mm Rigid PVC Conduit Pipe (Heavy 3m)", brand: "Precision", unit: "nos" },
+  { id: "mat-c2", name: "25mm Rigid PVC Conduit Pipe (Heavy 3m)", brand: "Precision", unit: "nos" },
+  { id: "mat-c3", name: "20mm PVC Circular Junction Box (4-Way)", brand: "Precision", unit: "nos" },
+  { id: "mat-s1", name: "6A 1-Way Modular Switch", brand: "Anchor Roma", unit: "nos" },
+  { id: "mat-s2", name: "6A 2-Way Modular Switch", brand: "Anchor Roma", unit: "nos" },
+  { id: "mat-s3", name: "16A 1-Way Power Switch", brand: "Anchor Roma", unit: "nos" },
+  { id: "mat-s4", name: "6A 3-Pin Modular Socket", brand: "Anchor Roma", unit: "nos" },
+  { id: "mat-b1", name: "10A Single Pole MCB C-Curve", brand: "Schneider", unit: "nos" },
+  { id: "mat-b2", name: "16A Single Pole MCB C-Curve", brand: "Schneider", unit: "nos" },
+  { id: "mat-b7", name: "40A 30mA 2-Pole RCCB / ELCB", brand: "Schneider", unit: "nos" },
+  { id: "mat-b8", name: "8-Way SPN Distribution Board (Double Door)", brand: "Havells", unit: "nos" },
+  { id: "mat-l1", name: "12W Round LED Concealed Downlight (Cool White)", brand: "Philips", unit: "nos" },
+  { id: "mat-l3", name: "9W LED Bulb B22", brand: "Havells", unit: "nos" },
+  { id: "mat-l4", name: "20W LED Batten Tube Light 4ft", brand: "Wipro", unit: "nos" },
+  { id: "mat-a1", name: "Pure Copper Earth Rod (3m, 14mm dia)", brand: "Standard", unit: "nos" },
+  { id: "mat-a4", name: "PVC Electrical Insulation Tape (Pack of 5)", brand: "Steelgrip", unit: "pkt" },
 ];

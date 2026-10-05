@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import {
   Plus,
   Search,
@@ -180,6 +179,7 @@ export default function LabourClient({
         project_name: projectName,
         tach: entryTach.trim() || "1",
         ot: entryOt.trim() || "0",
+        amount_paid: numAmount,
         amount: numAmount,
       });
 
@@ -866,18 +866,29 @@ export default function LabourClient({
                       </div>
                     </td>
 
-                    {/* Actions: Details only */}
+                    {/* Actions: Details & Delete */}
                     <td className="py-2.5 px-4 text-center whitespace-nowrap font-sans">
-                      <Button
-                        onClick={() => setSelectedLabour(item)}
-                        variant="ghost"
-                        size="xs"
-                        className="text-slate-300 hover:text-emerald-400 hover:bg-slate-800 h-7 px-2.5 font-medium"
-                        title="View Details"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span className="text-[11px] ml-1">Details</span>
-                      </Button>
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          onClick={() => setSelectedLabour(item)}
+                          variant="ghost"
+                          size="xs"
+                          className="text-slate-300 hover:text-emerald-400 hover:bg-slate-800 h-7 px-2.5 font-medium"
+                          title="View Details"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span className="text-[11px] ml-1">Details</span>
+                        </Button>
+                        <Button
+                          onClick={() => handleDeleteLabour(item.id, item.name)}
+                          variant="ghost"
+                          size="xs"
+                          className="text-slate-400 hover:text-rose-400 hover:bg-slate-800 h-7 px-2"
+                          title="Delete Worker"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

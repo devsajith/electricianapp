@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useCallback } from "react";
 import Link from "next/link";
 import {
   FileText,
@@ -12,60 +12,65 @@ import {
   AlertCircle,
   Eye,
   RefreshCw,
-  IndianRupee,
   MapPin,
   FileSpreadsheet,
   Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Estimate, EstimateStatus } from "@/lib/types/estimate";
-import { getEstimates, updateEstimateStatus } from "@/lib/estimate-store";
-import { getEstimatesAction, updateEstimateStatusAction } from "./actions";
+import { Quotation, QuotationStatus } from "@/lib/types/quotation";
+import { getQuotationsAction, updateQuotationStatusAction } from "./actions";
 
 export default function EstimatesPage() {
-  const [estimates, setEstimates] = useState<Estimate[]>(() => getEstimates());
+  const [estimates, setEstimates] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("All");
   const [, startTransition] = useTransition();
 
-  const loadEstimates = async () => {
+  const loadEstimates = useCallback(async () => {
     setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 2500);
-
     try {
-      const dbData = await getEstimatesAction();
-      clearTimeout(timer);
-      if (dbData && dbData.length > 0) {
-        setEstimates(dbData);
-      } else {
-        setEstimates(getEstimates());
-      }
+      const dbData = await getQuotationsAction();
+      setEstimates(dbData || []);
     } catch {
-      clearTimeout(timer);
-      setEstimates(getEstimates());
+      setEstimates([]);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadEstimates();
   }, []);
 
-  const handleStatusChange = (id: string, status: EstimateStatus) => {
+  useEffect(() => {
+    let isMounted = true;
+    getQuotationsAction()
+      .then((dbData) => {
+        if (isMounted) {
+          setEstimates(dbData || []);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setEstimates([]);
+          setLoading(false);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleStatusChange = (id: string, status: QuotationStatus) => {
     startTransition(async () => {
-      updateEstimateStatus(id, status);
       setEstimates((prev) =>
         prev.map((est) => (est.id === id ? { ...est, status } : est))
       );
       if (id && !id.startsWith("est-1")) {
-        await updateEstimateStatusAction(id, status);
+        await updateQuotationStatusAction(id, status);
       }
     });
   };
 
-  const getStatusBadgeClass = (status: EstimateStatus) => {
+  const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case "Approved":
         return "bg-emerald-950/80 text-emerald-400 border-emerald-500/40";
@@ -80,8 +85,6 @@ export default function EstimatesPage() {
     }
   };
 
-  const getAmount = (est: Estimate) => est.total ?? (est as { grand_total?: number }).grand_total ?? 0;
-
   // Filtered estimates list
   const filteredEstimates = estimates.filter((est) => {
     const matchesStatus =
@@ -90,33 +93,30 @@ export default function EstimatesPage() {
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       !q ||
-      est.estimate_number.toLowerCase().includes(q) ||
-      (est.project_name && est.project_name.toLowerCase().includes(q)) ||
+      est.quotation_number.toLowerCase().includes(q) ||
+      (est.client_name && est.client_name.toLowerCase().includes(q)) ||
       (est.description && est.description.toLowerCase().includes(q));
 
     return matchesStatus && matchesSearch;
   });
 
   // KPI Statistics
-  const totalValue = estimates.reduce((acc, curr) => acc + getAmount(curr), 0);
-  const approvedTotal = estimates
-    .filter((e) => e.status === "Approved")
-    .reduce((acc, curr) => acc + getAmount(curr), 0);
   const pendingCount = estimates.filter((e) => e.status === "Sent").length;
   const draftCount = estimates.filter((e) => e.status === "Draft").length;
+  const approvedCount = estimates.filter((e) => e.status === "Approved").length;
 
   const exportToCsv = () => {
     if (filteredEstimates.length === 0) return;
     const headers = ["Row", "Quote #", "Date", "Client", "Place", "Phone", "Quoted Rate", "Unit", "Status"];
     const rows = filteredEstimates.map((est, idx) => {
-      const client = est.client_name || est.project_name?.replace(/ \([^)]*\)/, "") || "Client";
+      const client = est.client_name || "Client";
       const place = est.client_place || "—";
-      const unitStr = est.quotation_unit || est.items?.[0]?.unit || "Squarefeet";
-      const rateVal = est.rate || est.items?.[0]?.rate || 0;
+      const unitStr = est.unit || "Squarefeet";
+      const rateVal = est.rate || 0;
       const dateStr = est.created_at ? new Date(est.created_at).toLocaleDateString() : "N/A";
       return [
         idx + 1,
-        `"${est.estimate_number}"`,
+        `"${est.quotation_number}"`,
         `"${dateStr}"`,
         `"${client.replace(/"/g, '""')}"`,
         `"${place.replace(/"/g, '""')}"`,
@@ -146,11 +146,11 @@ export default function EstimatesPage() {
               <FileText className="w-5 h-5" />
             </span>
             <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-              Estimates & Quotations
+              Quotations
             </h1>
           </div>
           <p className="text-xs text-slate-400">
-            Draft, track, send, and convert itemized electrical project proposals.
+            Draft, track, send, and convert electrical project proposals.
           </p>
         </div>
 
@@ -171,7 +171,7 @@ export default function EstimatesPage() {
           <Link href="/dashboard/estimates/new">
             <Button className="h-10 sm:h-9 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 shadow-sm">
               <Plus className="w-4 h-4" />
-              <span>Create Estimate</span>
+              <span>Create Quotation</span>
             </Button>
           </Link>
         </div>
@@ -184,25 +184,25 @@ export default function EstimatesPage() {
             <span className="text-[11px] font-medium uppercase tracking-wider">
               Total Quotes
             </span>
-            <IndianRupee className="w-4 h-4 text-amber-400" />
+            <FileText className="w-4 h-4 text-amber-400" />
           </div>
           <div className="text-lg sm:text-xl font-extrabold text-white">
-            ₹{totalValue.toLocaleString("en-IN")}
+            {estimates.length}
           </div>
           <div className="text-[10px] text-slate-500">
-            {estimates.length} total generated
+            total generated
           </div>
         </div>
 
         <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[11px] font-medium uppercase tracking-wider">
-              Approved Total
+              Approved
             </span>
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-lg sm:text-xl font-extrabold text-emerald-400">
-            ₹{approvedTotal.toLocaleString("en-IN")}
+            {approvedCount}
           </div>
           <div className="text-[10px] text-slate-500">Ready for scheduling</div>
         </div>
@@ -215,7 +215,7 @@ export default function EstimatesPage() {
             <Clock className="w-4 h-4 text-amber-400" />
           </div>
           <div className="text-lg sm:text-xl font-extrabold text-white">
-            {pendingCount} Sent
+            {pendingCount}
           </div>
           <div className="text-[10px] text-slate-500">Sent to clients</div>
         </div>
@@ -228,7 +228,7 @@ export default function EstimatesPage() {
             <AlertCircle className="w-4 h-4 text-slate-400" />
           </div>
           <div className="text-lg sm:text-xl font-extrabold text-slate-200">
-            {draftCount} Drafts
+            {draftCount}
           </div>
           <div className="text-[10px] text-slate-500">Unsent proposals</div>
         </div>
@@ -244,7 +244,7 @@ export default function EstimatesPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by Estimate Number or Project..."
+              placeholder="Search by Quote Number or Client..."
               className="w-full pl-10 pr-4 py-2.5 sm:py-2 bg-slate-950/60 border border-slate-800 rounded-xl text-base sm:text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
             />
           </div>
@@ -332,32 +332,27 @@ export default function EstimatesPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-800 text-xs font-mono">
                   {filteredEstimates.map((est, idx) => {
-                    const client = est.client_name || est.project_name?.replace(/ \([^)]*\)/, "") || "Client";
+                    const client = est.client_name || "Client";
                     const place = est.client_place || "—";
-                    const unitStr = est.quotation_unit || est.items?.[0]?.unit || "Squarefeet";
-                    const rateVal = est.rate || est.items?.[0]?.rate || 0;
+                    const unitStr = est.unit || "Sq.Ft";
+                    const rateVal = est.rate || 0;
 
                     return (
                       <tr
                         key={est.id}
                         className="hover:bg-emerald-500/10 transition-colors group border-b border-slate-800/80"
                       >
-                        {/* Row Index */}
                         <td className="py-2.5 px-3 text-center bg-slate-900/70 border-r border-slate-800 text-slate-400 select-none text-[11px] font-mono group-hover:text-emerald-400 group-hover:bg-emerald-950/30">
                           {idx + 1}
                         </td>
-
-                        {/* Quote Number & Date */}
                         <td className="py-2.5 px-4 border-r border-slate-800">
                           <div className="font-mono font-bold text-emerald-400">
-                            {est.estimate_number}
+                            {est.quotation_number}
                           </div>
                           <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                             {est.created_at ? new Date(est.created_at).toLocaleDateString() : "N/A"}
                           </div>
                         </td>
-
-                        {/* Client & Place */}
                         <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
                           <div className="font-bold text-slate-100">
                             {client}
@@ -367,8 +362,6 @@ export default function EstimatesPage() {
                             <span className="truncate max-w-[240px]">{place}</span>
                           </div>
                         </td>
-
-                        {/* Quoted Rate */}
                         <td className="py-2.5 px-4 border-r border-slate-800">
                           {rateVal > 0 ? (
                             <div>
@@ -383,37 +376,25 @@ export default function EstimatesPage() {
                             <span className="text-slate-500 font-sans">Custom</span>
                           )}
                         </td>
-
-                        {/* Status */}
                         <td className="py-2.5 px-4 border-r border-slate-800 text-center font-sans">
                           <select
                             value={est.status}
                             onChange={(e) =>
                               handleStatusChange(
                                 est.id,
-                                e.target.value as EstimateStatus
+                                e.target.value as QuotationStatus
                               )
                             }
                             className={`px-3 py-1 rounded text-xs font-bold border focus:outline-none cursor-pointer ${getStatusBadgeClass(
                               est.status
                             )}`}
                           >
-                            <option value="Draft" className="bg-slate-900 text-slate-200">
-                              Draft
-                            </option>
-                            <option value="Sent" className="bg-slate-900 text-slate-200">
-                              Sent
-                            </option>
-                            <option value="Approved" className="bg-slate-900 text-slate-200">
-                              Approved
-                            </option>
-                            <option value="Rejected" className="bg-slate-900 text-slate-200">
-                              Rejected
-                            </option>
+                            <option value="Draft" className="bg-slate-900 text-slate-200">Draft</option>
+                            <option value="Sent" className="bg-slate-900 text-slate-200">Sent</option>
+                            <option value="Approved" className="bg-slate-900 text-slate-200">Approved</option>
+                            <option value="Rejected" className="bg-slate-900 text-slate-200">Rejected</option>
                           </select>
                         </td>
-
-                        {/* Actions */}
                         <td className="py-2.5 px-4 text-center font-sans">
                           <Link href={`/dashboard/estimates/${est.id}`}>
                             <Button
@@ -421,7 +402,7 @@ export default function EstimatesPage() {
                               className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1 rounded px-2.5 shadow-sm"
                             >
                               <Eye className="w-3.5 h-3.5" />
-                              <span>PDF</span>
+                              <span>View</span>
                             </Button>
                           </Link>
                         </td>
@@ -432,23 +413,6 @@ export default function EstimatesPage() {
               </table>
             </div>
           )}
-
-          {/* Bottom Sheet Tab & Status Bar */}
-          <div className="bg-slate-900 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-[11px] text-slate-400 select-none">
-            <div className="flex items-center gap-1">
-              <span className="px-3 py-1 bg-slate-950 text-emerald-400 font-semibold rounded-t border-t-2 border-emerald-500 border-x border-slate-800 flex items-center gap-1.5">
-                <FileSpreadsheet className="w-3 h-3 text-emerald-400" />
-                Sheet1 - Quotations Register
-              </span>
-            </div>
-            <div className="flex items-center gap-4 font-mono text-[10px]">
-              <span>READY</span>
-              <span className="border-l border-slate-700 pl-3">COUNT: {filteredEstimates.length}</span>
-              <span className="border-l border-slate-700 pl-3 text-emerald-400">APPROVED: {approvedTotal > 0 ? `₹${approvedTotal.toLocaleString("en-IN")}` : "0"}</span>
-              <span className="border-l border-slate-700 pl-3 text-slate-400">PENDING: {pendingCount}</span>
-              <span className="border-l border-slate-700 pl-3 text-slate-400">DRAFT: {draftCount}</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>

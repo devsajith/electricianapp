@@ -1,33 +1,27 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useCallback } from "react";
 import Link from "next/link";
 import {
   Receipt,
   Plus,
   Search,
-  Filter,
   RefreshCw,
   IndianRupee,
-  FolderKanban,
   Trash2,
-  Calendar,
-  AlertCircle,
   TrendingDown,
-  Layers,
-  Zap,
   FileSpreadsheet,
   Download,
   Briefcase,
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Expense, EXPENSE_CATEGORIES, initialSampleExpenses, ExpenseType } from "@/lib/types/expense";
+import { Expense, ExpenseType } from "@/lib/types/expense";
 import { getExpensesAction, deleteExpenseAction } from "./actions";
 import { RecordExpenseModal } from "@/components/record-expense-modal";
 
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState<Expense[]>(initialSampleExpenses);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "project" | "self">("all");
@@ -35,7 +29,7 @@ export default function ExpensesPage() {
   const [modalDefaultType, setModalDefaultType] = useState<ExpenseType>("project");
   const [, startTransition] = useTransition();
 
-  const loadExpenses = async () => {
+  const loadExpenses = useCallback(async () => {
     setLoading(true);
     const timer = setTimeout(() => setLoading(false), 2500);
 
@@ -44,6 +38,8 @@ export default function ExpensesPage() {
       clearTimeout(timer);
       if (res.data && res.data.length > 0) {
         setExpenses(res.data);
+      } else {
+        setExpenses([]);
       }
     } catch (e) {
       console.error("Error loading expenses:", e);
@@ -51,10 +47,35 @@ export default function ExpensesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadExpenses();
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 2500);
+
+    getExpensesAction()
+      .then((res) => {
+        clearTimeout(timer);
+        if (isMounted) {
+          setExpenses(res.data || []);
+          setLoading(false);
+        }
+      })
+      .catch((e) => {
+        console.error("Error loading expenses:", e);
+        clearTimeout(timer);
+        if (isMounted) {
+          setExpenses([]);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   const handleDeleteExpense = (id: string, description: string) => {
@@ -72,10 +93,10 @@ export default function ExpensesPage() {
 
   // Separate expenses into Project Expenses vs Self Expenses
   const projectExpenses = expenses.filter(
-    (e) => e.expense_type === "project" || (e.expense_type !== "self" && (e.project_id || e.customer_name))
+    (e) => e.type === "project" || (e.type !== "self" && (e.project_id || e.name))
   );
   const selfExpenses = expenses.filter(
-    (e) => e.expense_type === "self" || (!e.project_id && !e.customer_name)
+    (e) => e.type === "self" || (!e.project_id && !e.name)
   );
 
   // Overall KPI Calculations
@@ -89,9 +110,8 @@ export default function ExpensesPage() {
   const filteredProjectExpenses = projectExpenses.filter((exp) => {
     return (
       !q ||
-      exp.description.toLowerCase().includes(q) ||
-      exp.category.toLowerCase().includes(q) ||
-      (exp.customer_name && exp.customer_name.toLowerCase().includes(q)) ||
+      exp.description?.toLowerCase().includes(q) ||
+      (exp.name && exp.name.toLowerCase().includes(q)) ||
       (exp.project_number && exp.project_number.toLowerCase().includes(q))
     );
   });
@@ -101,9 +121,7 @@ export default function ExpensesPage() {
   const filteredSelfExpenses = selfExpenses.filter((exp) => {
     return (
       !q ||
-      exp.description.toLowerCase().includes(q) ||
-      exp.category.toLowerCase().includes(q) ||
-      (exp.receipt_url && exp.receipt_url.toLowerCase().includes(q))
+      exp.description?.toLowerCase().includes(q)
     );
   });
   const filteredSelfTotal = filteredSelfExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
@@ -111,15 +129,13 @@ export default function ExpensesPage() {
   // Export Project Expenses CSV
   const exportProjectCsv = () => {
     if (filteredProjectExpenses.length === 0) return;
-    const headers = ["Row", "Expense Date", "Project", "Project Number", "Category", "Description", "Receipt Ref", "Amount (INR)"];
+    const headers = ["Row", "Expense Date", "Project", "Project Number", "Description", "Amount (INR)"];
     const rows = filteredProjectExpenses.map((exp, idx) => [
       idx + 1,
-      `"${exp.expense_date}"`,
-      `"${(exp.customer_name || "Project").replace(/"/g, '""')}"`,
+      `"${exp.date}"`,
+      `"${(exp.name || "Project").replace(/"/g, '""')}"`,
       `"${exp.project_number || ""}"`,
-      `"${exp.category.replace(/"/g, '""')}"`,
-      `"${exp.description.replace(/"/g, '""')}"`,
-      `"${exp.receipt_url || ""}"`,
+      `"${(exp.description || "").replace(/"/g, '""')}"`,
       exp.amount || 0,
     ]);
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -134,13 +150,11 @@ export default function ExpensesPage() {
   // Export Self Expenses CSV
   const exportSelfCsv = () => {
     if (filteredSelfExpenses.length === 0) return;
-    const headers = ["Row", "Expense Date", "Category", "Description", "Receipt / Bill Ref", "Amount (INR)"];
+    const headers = ["Row", "Expense Date", "Description", "Amount (INR)"];
     const rows = filteredSelfExpenses.map((exp, idx) => [
       idx + 1,
-      `"${exp.expense_date}"`,
-      `"${exp.category.replace(/"/g, '""')}"`,
-      `"${exp.description.replace(/"/g, '""')}"`,
-      `"${exp.receipt_url || ""}"`,
+      `"${exp.date}"`,
+      `"${(exp.description || "").replace(/"/g, '""')}"`,
       exp.amount || 0,
     ]);
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -150,32 +164,6 @@ export default function ExpensesPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  // Category badge style
-  const getCategoryBadge = (cat: string) => {
-    switch (cat) {
-      case "Emergency Material":
-        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
-      case "Travel & Fuel":
-        return "bg-slate-800 text-slate-200 border-slate-700";
-      case "Equipment & Tools":
-        return "bg-amber-500/10 text-amber-300 border-amber-500/30";
-      case "Food & Refreshment":
-        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-      case "Office & Shop":
-        return "bg-blue-500/10 text-blue-400 border-blue-500/30";
-      case "Vehicle & Maintenance":
-        return "bg-purple-500/10 text-purple-400 border-purple-500/30";
-      case "Personal / Self Draw":
-        return "bg-teal-500/10 text-teal-400 border-teal-500/30";
-      case "Permits & Fees":
-        return "bg-rose-500/10 text-rose-400 border-rose-500/30";
-      case "Labour / Helper":
-        return "bg-slate-800 text-slate-200 border-slate-700";
-      default:
-        return "bg-slate-800 text-slate-300 border-slate-700";
-    }
   };
 
   return (
@@ -467,20 +455,16 @@ export default function ExpensesPage() {
                             <div className="text-[10px] text-emerald-400 font-mono">B</div>
                             PROJECT & CUSTOMER
                           </th>
-                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-40">
-                            <div className="text-[10px] text-emerald-400 font-mono">C</div>
-                            CATEGORY
-                          </th>
                           <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
-                            <div className="text-[10px] text-emerald-400 font-mono">D</div>
+                            <div className="text-[10px] text-emerald-400 font-mono">C</div>
                             DESCRIPTION / PURPOSE
                           </th>
                           <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-right w-36">
-                            <div className="text-[10px] text-emerald-400 font-mono">E</div>
+                            <div className="text-[10px] text-emerald-400 font-mono">D</div>
                             AMOUNT (₹)
                           </th>
                           <th className="py-2.5 px-3 font-bold text-center w-16">
-                            <div className="text-[10px] text-emerald-400 font-mono">F</div>
+                            <div className="text-[10px] text-emerald-400 font-mono">E</div>
                             ACTION
                           </th>
                         </tr>
@@ -496,7 +480,7 @@ export default function ExpensesPage() {
                             </td>
 
                             <td className="py-2.5 px-4 border-r border-slate-800 text-slate-300">
-                              {exp.expense_date}
+                              {exp.date}
                             </td>
 
                             <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
@@ -504,7 +488,7 @@ export default function ExpensesPage() {
                                 href="/dashboard/projects"
                                 className="font-bold text-white hover:text-emerald-400 transition-colors block"
                               >
-                                {exp.customer_name || "Project"}
+                                {exp.name || "Project"}
                               </Link>
                               {exp.project_number && (
                                 <span className="text-[10px] text-amber-400 font-mono font-semibold">
@@ -513,23 +497,8 @@ export default function ExpensesPage() {
                               )}
                             </td>
 
-                            <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
-                              <span
-                                className={`inline-block px-2.5 py-0.5 rounded text-[11px] font-bold border ${getCategoryBadge(
-                                  exp.category
-                                )}`}
-                              >
-                                {exp.category}
-                              </span>
-                            </td>
-
                             <td className="py-2.5 px-4 border-r border-slate-800 text-slate-200 font-sans">
                               <span className="font-medium">{exp.description}</span>
-                              {exp.receipt_url && (
-                                <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">
-                                  Ref: {exp.receipt_url}
-                                </span>
-                              )}
                             </td>
 
                             <td className="py-2.5 px-4 border-r border-slate-800 text-right font-mono font-bold text-sm text-amber-400">
@@ -538,7 +507,7 @@ export default function ExpensesPage() {
 
                             <td className="py-2.5 px-3 text-center">
                               <button
-                                onClick={() => handleDeleteExpense(exp.id, exp.description)}
+                                onClick={() => handleDeleteExpense(exp.id, exp.description || "Expense")}
                                 className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                                 title="Delete expense"
                               >
@@ -555,7 +524,7 @@ export default function ExpensesPage() {
                           <td className="py-3 px-3 text-center bg-slate-950 border-r border-slate-700 text-emerald-400 font-mono">
                             Σ
                           </td>
-                          <td colSpan={4} className="py-3 px-4 border-r border-slate-700 text-slate-200 uppercase tracking-wider text-[11px]">
+                          <td colSpan={3} className="py-3 px-4 border-r border-slate-700 text-slate-200 uppercase tracking-wider text-[11px]">
                             Total Project Expenses ({filteredProjectExpenses.length} entries)
                           </td>
                           <td className="py-3 px-4 border-r border-slate-700 text-right font-mono text-amber-400 text-sm">
@@ -672,24 +641,16 @@ export default function ExpensesPage() {
                             <div className="text-[10px] text-emerald-400 font-mono">A</div>
                             DATE
                           </th>
-                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-44">
-                            <div className="text-[10px] text-emerald-400 font-mono">B</div>
-                            EXPENSE CATEGORY
-                          </th>
                           <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
-                            <div className="text-[10px] text-emerald-400 font-mono">C</div>
+                            <div className="text-[10px] text-emerald-400 font-mono">B</div>
                             DESCRIPTION / PURPOSE
                           </th>
-                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-44">
-                            <div className="text-[10px] text-emerald-400 font-mono">D</div>
-                            RECEIPT / MEMO REF
-                          </th>
                           <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-right w-36">
-                            <div className="text-[10px] text-emerald-400 font-mono">E</div>
+                            <div className="text-[10px] text-emerald-400 font-mono">C</div>
                             AMOUNT (₹)
                           </th>
                           <th className="py-2.5 px-3 font-bold text-center w-16">
-                            <div className="text-[10px] text-emerald-400 font-mono">F</div>
+                            <div className="text-[10px] text-emerald-400 font-mono">D</div>
                             ACTION
                           </th>
                         </tr>
@@ -705,25 +666,11 @@ export default function ExpensesPage() {
                             </td>
 
                             <td className="py-2.5 px-4 border-r border-slate-800 text-slate-300">
-                              {exp.expense_date}
-                            </td>
-
-                            <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
-                              <span
-                                className={`inline-block px-2.5 py-0.5 rounded text-[11px] font-bold border ${getCategoryBadge(
-                                  exp.category
-                                )}`}
-                              >
-                                {exp.category}
-                              </span>
+                              {exp.date}
                             </td>
 
                             <td className="py-2.5 px-4 border-r border-slate-800 text-slate-200 font-sans">
                               <span className="font-medium">{exp.description}</span>
-                            </td>
-
-                            <td className="py-2.5 px-4 border-r border-slate-800 font-mono text-[11px] text-slate-400">
-                              {exp.receipt_url || <span className="text-slate-600">—</span>}
                             </td>
 
                             <td className="py-2.5 px-4 border-r border-slate-800 text-right font-mono font-bold text-sm text-emerald-400">
@@ -732,7 +679,7 @@ export default function ExpensesPage() {
 
                             <td className="py-2.5 px-3 text-center">
                               <button
-                                onClick={() => handleDeleteExpense(exp.id, exp.description)}
+                                onClick={() => handleDeleteExpense(exp.id, exp.description || "Expense")}
                                 className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                                 title="Delete expense"
                               >
@@ -749,7 +696,7 @@ export default function ExpensesPage() {
                           <td className="py-3 px-3 text-center bg-slate-950 border-r border-slate-700 text-emerald-400 font-mono">
                             Σ
                           </td>
-                          <td colSpan={4} className="py-3 px-4 border-r border-slate-700 text-slate-200 uppercase tracking-wider text-[11px]">
+                          <td colSpan={2} className="py-3 px-4 border-r border-slate-700 text-slate-200 uppercase tracking-wider text-[11px]">
                             Total Self Expenses ({filteredSelfExpenses.length} entries)
                           </td>
                           <td className="py-3 px-4 border-r border-slate-700 text-right font-mono text-emerald-400 text-sm">

@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import Link from "next/link";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   BarChart3,
   Calendar,
@@ -13,8 +12,6 @@ import {
   Receipt,
   IndianRupee,
   Search,
-  Filter,
-  ArrowUpRight,
   Smartphone,
   Banknote,
   Building2,
@@ -24,8 +21,6 @@ import {
   CheckCircle2,
   Clock,
   Briefcase,
-  Layers,
-  ChevronRight,
   X,
   FileSpreadsheet,
   AlertCircle,
@@ -34,13 +29,13 @@ import { Button } from "@/components/ui/button";
 import { Payment } from "@/lib/types/payment";
 import { Expense } from "@/lib/types/expense";
 import { Project } from "@/services/project.service";
-import { Estimate } from "@/lib/types/estimate";
+import { Quotation } from "@/lib/types/quotation";
 
 interface ReportsClientProps {
   initialPayments: Payment[];
   initialProjects: Project[];
   initialExpenses: Expense[];
-  initialEstimates: Estimate[];
+  initialEstimates: Quotation[];
 }
 
 type TabType = "revenue" | "payments" | "pnl";
@@ -123,24 +118,27 @@ export function ReportsClient({
   };
 
   // Helper date checker
-  const isDateInRange = (dateStr?: string | null) => {
-    if (!dateStr) return false;
-    const cleanDate = dateStr.slice(0, 10);
-    if (startDate && cleanDate < startDate) return false;
-    if (endDate && cleanDate > endDate) return false;
-    return true;
-  };
+  const isDateInRange = useCallback(
+    (dateStr?: string | null) => {
+      if (!dateStr) return false;
+      const cleanDate = dateStr.slice(0, 10);
+      if (startDate && cleanDate < startDate) return false;
+      if (endDate && cleanDate > endDate) return false;
+      return true;
+    },
+    [startDate, endDate]
+  );
 
   // ===================== REVENUE DATA COMPUTATIONS =====================
   // Filter payments within chosen date range
   const periodPayments = useMemo(() => {
     return initialPayments.filter((p) => isDateInRange(p.payment_date));
-  }, [initialPayments, startDate, endDate]);
+  }, [initialPayments, isDateInRange]);
 
   // Filter expenses within chosen date range
   const periodExpenses = useMemo(() => {
-    return initialExpenses.filter((e) => isDateInRange(e.expense_date));
-  }, [initialExpenses, startDate, endDate]);
+    return initialExpenses.filter((e) => isDateInRange(e.date));
+  }, [initialExpenses, isDateInRange]);
 
   const totalPeriodRevenue = useMemo(() => {
     return periodPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -155,11 +153,6 @@ export function ReportsClient({
     totalPeriodRevenue > 0
       ? ((netPeriodProfit / totalPeriodRevenue) * 100).toFixed(1)
       : "0.0";
-
-  const avgPeriodTransaction =
-    periodPayments.length > 0
-      ? Math.round(totalPeriodRevenue / periodPayments.length)
-      : 0;
 
   // Project-wise revenue breakdown
   const projectRevenueMap = useMemo(() => {
@@ -178,9 +171,9 @@ export function ReportsClient({
       const pid = prj.id || prj.project_number;
       // Find estimate if any
       const est = initialEstimates.find(
-        (e) => e.project_id === prj.id || e.project_name?.includes(prj.customer_name)
+        (e) => e.client_name && e.client_name.toLowerCase().includes(prj.name.toLowerCase())
       );
-      const estTotal = est ? Number(est.total) || 0 : 0;
+      const estTotal = est ? Number(est.rate || 0) : 0;
 
       map[pid] = {
         project: prj,
@@ -198,9 +191,9 @@ export function ReportsClient({
         const fallbackProject: Project = {
           id: pid,
           project_number: p.projects?.project_number || "PRJ-GEN",
-          customer_name: p.projects?.customer_name || "General Client",
-          project_type: "Electrical Service",
-          status: "In Progress",
+          name: p.projects?.name || "General Client",
+          type: "Wiring",
+          status: "Ongoing",
         };
         map[pid] = {
           project: fallbackProject,
@@ -219,7 +212,7 @@ export function ReportsClient({
     });
 
     return Object.values(map);
-  }, [initialProjects, initialPayments, initialEstimates, startDate, endDate]);
+  }, [initialProjects, initialPayments, initialEstimates, isDateInRange]);
 
   // Revenue by Category / Project Type
   const revenueByType = useMemo(() => {
@@ -229,7 +222,7 @@ export function ReportsClient({
       const proj = initialProjects.find(
         (pr) => pr.id === p.project_id || pr.project_number === p.projects?.project_number
       );
-      const type = proj?.project_type || "General Electrical";
+      const type = proj?.type || "General Electrical";
       typeTotals[type] = (typeTotals[type] || 0) + (Number(p.amount) || 0);
     });
 
@@ -256,8 +249,8 @@ export function ReportsClient({
       }
       timelineMap[d].amount += Number(p.amount) || 0;
       timelineMap[d].count += 1;
-      if (p.projects?.customer_name) {
-        timelineMap[d].clients.add(p.projects.customer_name);
+      if (p.projects?.name) {
+        timelineMap[d].clients.add(p.projects.name);
       }
     });
 
@@ -272,19 +265,18 @@ export function ReportsClient({
 
       const matchesSearch =
         !searchQuery ||
-        (p.projects?.customer_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.projects?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (p.projects?.project_number || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.reference_number || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.notes || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.payment_method || "").toLowerCase().includes(searchQuery.toLowerCase());
+        (p.payment_info || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.method || "").toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesMethod =
         selectedMethod === "ALL" ||
-        p.payment_method?.toLowerCase() === selectedMethod.toLowerCase();
+        p.method?.toLowerCase() === selectedMethod.toLowerCase();
 
       const matchesType =
         selectedType === "ALL" ||
-        p.payment_type?.toLowerCase() === selectedType.toLowerCase();
+        (p.payment_info || "").toLowerCase().includes(selectedType.toLowerCase());
 
       const matchesProject =
         selectedProjectId === "ALL" ||
@@ -295,8 +287,7 @@ export function ReportsClient({
     });
   }, [
     initialPayments,
-    startDate,
-    endDate,
+    isDateInRange,
     searchQuery,
     selectedMethod,
     selectedType,
@@ -311,7 +302,7 @@ export function ReportsClient({
   const methodDistribution = useMemo(() => {
     const dist: Record<string, { count: number; total: number }> = {};
     filteredPayments.forEach((p) => {
-      const m = p.payment_method || "Other";
+      const m = p.method || "Other";
       if (!dist[m]) dist[m] = { count: 0, total: 0 };
       dist[m].count += 1;
       dist[m].total += Number(p.amount) || 0;
@@ -334,7 +325,7 @@ export function ReportsClient({
   const pnlExpensesByCategory = useMemo(() => {
     const catMap: Record<string, number> = {};
     periodExpenses.forEach((e) => {
-      const cat = e.category || "Miscellaneous";
+      const cat = e.type === "self" ? "Self Expense" : "Project Expense";
       catMap[cat] = (catMap[cat] || 0) + (Number(e.amount) || 0);
     });
 
@@ -372,8 +363,8 @@ export function ReportsClient({
         );
         return [
           `"${item.project.project_number}"`,
-          `"${item.project.customer_name}"`,
-          `"${item.project.project_type || ""}"`,
+          `"${item.project.name}"`,
+          `"${item.project.type || ""}"`,
           `"${item.project.status || ""}"`,
           item.periodRevenue,
           item.lifetimeRevenue,
@@ -409,12 +400,12 @@ export function ReportsClient({
       const rows = filteredPayments.map((p) => [
         `"${p.payment_date || ""}"`,
         `"${p.projects?.project_number || ""}"`,
-        `"${p.projects?.customer_name || ""}"`,
-        `"${p.payment_type || ""}"`,
-        `"${p.payment_method || ""}"`,
-        `"${p.reference_number || ""}"`,
+        `"${p.projects?.name || ""}"`,
+        `"${p.payment_info || "Payment"}"`,
+        `"${p.method || ""}"`,
+        `"${p.payment_info || ""}"`,
         p.amount,
-        `"${(p.notes || "").replace(/"/g, '""')}"`,
+        `""`,
       ].join(","));
 
       const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
@@ -815,7 +806,7 @@ export function ReportsClient({
 
                           <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
                             <div className="font-semibold text-slate-200">
-                              {item.project.customer_name}
+                              {item.project.name}
                             </div>
                             <div className="text-[11px] text-emerald-400 font-mono">
                               {item.project.project_number}
@@ -824,7 +815,7 @@ export function ReportsClient({
 
                           <td className="py-2.5 px-4 border-r border-slate-800 text-slate-400 font-sans">
                             <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
-                              {item.project.project_type || "Wiring"}
+                              {item.project.type || "Wiring"}
                             </span>
                           </td>
 
@@ -1071,7 +1062,7 @@ export function ReportsClient({
                 <option value="ALL">All Projects</option>
                 {initialProjects.map((p) => (
                   <option key={p.id || p.project_number} value={p.id || p.project_number}>
-                    {p.project_number} - {p.customer_name}
+                    {p.project_number} - {p.name}
                   </option>
                 ))}
               </select>
@@ -1259,7 +1250,7 @@ export function ReportsClient({
 
                         <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
                           <div className="font-semibold text-slate-200">
-                            {p.projects?.customer_name || "Client"}
+                            {p.projects?.name || "Client"}
                           </div>
                           <div className="text-[11px] text-emerald-400 font-mono">
                             {p.projects?.project_number || "PRJ"}
@@ -1269,18 +1260,18 @@ export function ReportsClient({
                         <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
                           <div className="flex flex-col gap-1 items-start">
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                              {p.payment_type || "Advance"}
+                              {p.payment_info || "Payment"}
                             </span>
-                            {getMethodBadge(p.payment_method)}
+                            {getMethodBadge(p.method)}
                           </div>
                         </td>
 
                         <td className="py-2.5 px-4 border-r border-slate-800 text-slate-300">
-                          {p.reference_number || <span className="text-slate-600">-</span>}
+                          {p.payment_info || <span className="text-slate-600">-</span>}
                         </td>
 
                         <td className="py-2.5 px-4 border-r border-slate-800 text-slate-400 max-w-xs truncate font-sans">
-                          {p.notes || <span className="text-slate-600 italic">No notes</span>}
+                          {p.payment_info || <span className="text-slate-600 italic">No notes</span>}
                         </td>
 
                         <td className="py-2.5 px-4 border-r border-slate-800 text-right font-black text-emerald-400 text-sm whitespace-nowrap">
@@ -1514,7 +1505,7 @@ export function ReportsClient({
                 <div className="flex justify-between py-1 border-b border-slate-800/60">
                   <span className="text-slate-400">Client / Customer</span>
                   <span className="font-semibold text-white">
-                    {voucherPayment.projects?.customer_name || "Valued Client"}
+                    {voucherPayment.projects?.name || "Valued Client"}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-800/60">
@@ -1524,29 +1515,21 @@ export function ReportsClient({
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-800/60">
-                  <span className="text-slate-400">Payment Type</span>
+                  <span className="text-slate-400">Payment Info</span>
                   <span className="font-semibold text-amber-400">
-                    {voucherPayment.payment_type || "Advance"}
+                    {voucherPayment.payment_info || "Payment"}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-800/60">
                   <span className="text-slate-400">Payment Mode</span>
-                  <span className="font-semibold text-white">{voucherPayment.payment_method}</span>
+                  <span className="font-semibold text-white">{voucherPayment.method}</span>
                 </div>
-                {voucherPayment.reference_number && (
+                {voucherPayment.payment_info && (
                   <div className="flex justify-between py-1 border-b border-slate-800/60">
-                    <span className="text-slate-400">Transaction ID / UTR</span>
+                    <span className="text-slate-400">Reference / Info</span>
                     <span className="font-mono font-semibold text-slate-300">
-                      {voucherPayment.reference_number}
+                      {voucherPayment.payment_info}
                     </span>
-                  </div>
-                )}
-                {voucherPayment.notes && (
-                  <div className="py-2">
-                    <span className="text-slate-400 block mb-1">Remarks:</span>
-                    <p className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-slate-300 italic">
-                      &ldquo;{voucherPayment.notes}&rdquo;
-                    </p>
                   </div>
                 )}
               </div>

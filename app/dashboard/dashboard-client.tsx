@@ -16,15 +16,12 @@ import {
   IndianRupee,
   ArrowRight,
   Zap,
-  MapPin,
   ChevronRight,
-  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProjectRecord } from "@/app/dashboard/projects/actions";
 import { Payment } from "@/lib/types/payment";
 import { Expense } from "@/lib/types/expense";
-import { Estimate } from "@/lib/types/estimate";
 import { RecordPaymentModal } from "@/components/record-payment-modal";
 import { RecordExpenseModal } from "@/components/record-expense-modal";
 import { CreateProjectModal } from "@/app/dashboard/projects/create-project-modal";
@@ -33,7 +30,6 @@ interface DashboardClientProps {
   initialProjects: ProjectRecord[];
   initialPayments: Payment[];
   initialExpenses: Expense[];
-  initialEstimates: Estimate[];
   userEmail?: string | null;
 }
 
@@ -41,7 +37,6 @@ export function DashboardClient({
   initialProjects,
   initialPayments,
   initialExpenses,
-  initialEstimates,
   userEmail,
 }: DashboardClientProps) {
   // Modals state
@@ -70,7 +65,7 @@ export function DashboardClient({
 
   // Total Expenses this month
   const thisMonthExpenses = initialExpenses.filter((e) =>
-    (e.expense_date || "").startsWith(currentMonthPrefix)
+    (e.date || "").startsWith(currentMonthPrefix)
   );
   const totalMoneyOutMonth = thisMonthExpenses.reduce(
     (sum, e) => sum + (Number(e.amount) || 0),
@@ -85,35 +80,27 @@ export function DashboardClient({
       p.status.toLowerCase().includes("pending")
   );
 
-  // Total Pending Receivables: Estimated project values minus cumulative payments
-  const totalReceivables = initialProjects.reduce((sum, p) => {
-    const est = initialEstimates.find(
-      (e) => e.project_id === p.id || e.project_name?.includes(p.customer_name)
-    );
-    const estTotal = est ? Number(est.total) || 0 : 0;
-    const paid = initialPayments
-      .filter((pay) => pay.project_id === p.id)
-      .reduce((s, pay) => s + (Number(pay.amount) || 0), 0);
-    return sum + (estTotal > paid ? estTotal - paid : 0);
-  }, 0);
+  // Since Quotations no longer track total_amount or project_id, 
+  // set totalReceivables to 0 for now until business logic is redefined.
+  const totalReceivables = 0;
 
   // Recent combined transactions (Payments + Expenses) sorted by date
   const recentMovements = [
     ...initialPayments.map((p) => ({
       id: p.id,
       type: "INCOME" as const,
-      title: p.projects?.customer_name || "Client Payment",
-      sub: p.payment_method + (p.payment_type ? ` • ${p.payment_type}` : ""),
+      title: p.projects?.name || "Client Payment",
+      sub: p.method || "Cash",
       amount: Number(p.amount) || 0,
       date: p.payment_date,
     })),
     ...initialExpenses.map((e) => ({
       id: e.id,
       type: "EXPENSE" as const,
-      title: e.description || e.category,
-      sub: e.customer_name ? `Job: ${e.customer_name}` : e.category,
+      title: e.description || e.type,
+      sub: e.name ? `Job: ${e.name}` : e.type,
       amount: Number(e.amount) || 0,
-      date: e.expense_date,
+      date: e.date,
     })),
   ]
     .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
@@ -397,22 +384,22 @@ export function DashboardClient({
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm sm:text-base font-bold text-white">
-                          {p.customer_name}
+                          {p.name}
                         </h3>
                         <span className="font-mono text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
                           {p.project_number}
                         </span>
                       </div>
                       <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
-                        <span className="font-medium text-slate-300">{p.project_type}</span>
-                        {p.customer_phone && (
+                        <span className="font-medium text-slate-300">{p.type}</span>
+                        {p.phone && (
                           <span className="text-slate-400 font-mono">
-                            • {p.customer_phone}
+                            • {p.phone}
                           </span>
                         )}
-                        {p.address && (
+                        {p.place && (
                           <span className="hidden sm:inline text-slate-500 truncate max-w-xs">
-                            • {p.address}
+                            • {p.place}
                           </span>
                         )}
                       </div>
@@ -430,9 +417,9 @@ export function DashboardClient({
                       </span>
                     </div>
 
-                    {p.work_description && (
+                    {p.description && (
                       <span className="text-[11px] text-slate-400 truncate max-w-[200px] hidden sm:inline">
-                        &ldquo;{p.work_description}&rdquo;
+                        &ldquo;{p.description}&rdquo;
                       </span>
                     )}
                   </div>

@@ -15,25 +15,25 @@ export type ProjectRecord = Project;
 
 export async function createProjectAction(prevState: unknown, formData: FormData) {
   try {
-    const customer_name = (formData.get("customer_name") as string)?.trim();
-    const customer_phone = (formData.get("customer_phone") as string)?.trim() || null;
-    const place = (formData.get("place") as string)?.trim() || (formData.get("address") as string)?.trim() || null;
-    const project_type = (formData.get("project_type") as string)?.trim() || "Wiring";
+    const name = (formData.get("name") as string)?.trim();
+    const phone = (formData.get("phone") as string)?.trim() || null;
+    const place = (formData.get("place") as string)?.trim() || null;
+    const type = (formData.get("type") as string)?.trim() || "Wiring";
     const status = (formData.get("status") as string)?.trim() || "Ongoing";
     const start_date = (formData.get("start_date") as string)?.trim() || null;
-    const end_date = (formData.get("end_date") as string)?.trim() || (formData.get("expected_completion_date") as string)?.trim() || null;
-    const work_description = (formData.get("work_description") as string)?.trim() || null;
+    const end_date = (formData.get("end_date") as string)?.trim() || null;
+    const description = (formData.get("description") as string)?.trim() || null;
 
     // Field Validations
-    if (!customer_name) {
+    if (!name) {
       return { error: "Name of the client is required." };
     }
 
-    if (!customer_phone) {
+    if (!phone) {
       return { error: "Phone number is required." };
     }
 
-    const phoneValidation = validateIndianPhone(customer_phone);
+    const phoneValidation = validateIndianPhone(phone);
     if (!phoneValidation.isValid) {
       return { error: phoneValidation.error || "Please enter a valid 10-digit Indian phone number." };
     }
@@ -42,7 +42,7 @@ export async function createProjectAction(prevState: unknown, formData: FormData
       return { error: "Place is required." };
     }
 
-    if (!PROJECT_TYPES.includes(project_type as (typeof PROJECT_TYPES)[number])) {
+    if (!PROJECT_TYPES.includes(type as (typeof PROJECT_TYPES)[number])) {
       return { error: `Invalid project type. Must be one of: ${PROJECT_TYPES.join(", ")}.` };
     }
 
@@ -60,16 +60,13 @@ export async function createProjectAction(prevState: unknown, formData: FormData
     }
 
     const { data, error } = await createProjectService({
-      customer_name,
-      customer_phone,
+      name,
+      phone,
       place,
-      project_address: place,
-      address: place,
-      project_type,
-      work_description,
+      type,
+      description,
       start_date,
       end_date,
-      expected_completion_date: end_date,
       status: normalizedStatus,
     });
 
@@ -94,55 +91,9 @@ export async function getProjectsAction(): Promise<ProjectRecord[]> {
   return data;
 }
 
-const sampleFallbackProjects: Record<string, ProjectRecord> = {
-  "sample-1": {
-    id: "sample-1",
-    project_number: "PRJ-918234",
-    customer_name: "Apex Commercial Plaza",
-    customer_phone: "9845012345",
-    place: "Kaloor, Kochi",
-    address: "Kaloor, Kochi",
-    project_type: "Maintenance",
-    work_description: "Quarterly electrical maintenance and main distribution board check.",
-    start_date: "2026-09-10",
-    end_date: "2026-09-22",
-    status: "Ongoing",
-  },
-  "sample-2": {
-    id: "sample-2",
-    project_number: "PRJ-482019",
-    customer_name: "Sarah George",
-    customer_phone: "9895123456",
-    place: "Palarivattom, Ernakulam",
-    address: "Palarivattom, Ernakulam",
-    project_type: "Wiring & Plumbing",
-    work_description: "Complete concealed wiring and pipe fittings for new villa.",
-    start_date: "2026-09-01",
-    end_date: "2026-09-15",
-    status: "Completed",
-  },
-  "sample-3": {
-    id: "sample-3",
-    project_number: "PRJ-631940",
-    customer_name: "Rahul Varma",
-    customer_phone: "9744112233",
-    place: "Marine Drive, Kochi",
-    address: "Marine Drive, Kochi",
-    project_type: "Wiring",
-    work_description: "Living room lighting fixtures and false ceiling electrical work.",
-    start_date: "2026-09-18",
-    end_date: "2026-09-25",
-    status: "Pending",
-  },
-};
-
 export async function getProjectByIdAction(id: string): Promise<ProjectRecord | null> {
-  if (id.startsWith("sample-") && sampleFallbackProjects[id]) {
-    return sampleFallbackProjects[id];
-  }
   const { data, error } = await getProjectByIdService(id);
   if (error || !data) {
-    if (sampleFallbackProjects[id]) return sampleFallbackProjects[id];
     return null;
   }
   return data;

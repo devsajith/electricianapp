@@ -1,17 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
-import {
-  Labour,
-  CreateLabourDTO,
-  LabourEntry,
-  CreateLabourEntryDTO,
-  initialSampleLabours,
-  initialSampleLabourEntries,
-} from "@/lib/types/labour";
+import { Labour, CreateLabourDTO, LabourEntry, CreateLabourEntryDTO } from "@/lib/types/labour";
 import { withTimeout } from "@/lib/timeout";
+import { createExpenseService } from "@/services/expense.service";
 
-/**
- * Service: Fetch all labours / workers from Supabase
- */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidUUID(id?: string | null): boolean {
+  return typeof id === "string" && UUID_REGEX.test(id.trim());
+}
+
+const WORKER_COLUMNS = "id, name, phone, place, created_at, updated_at";
+const LABOUR_LOG_COLUMNS =
+  "id, worker_id, project_id, work_date, day, tach, ot, amount_paid, created_at, projects(id, name, place)";
+
 export async function getLaboursService(): Promise<{ data: Labour[]; error?: string }> {
   return withTimeout(
     (async () => {
@@ -20,274 +21,375 @@ export async function getLaboursService(): Promise<{ data: Labour[]; error?: str
 
         const { data, error } = await supabase
           .from("workers")
-          .select("*")
+          .select(WORKER_COLUMNS)
           .order("created_at", { ascending: false });
 
         if (error) {
-          console.warn("[LabourService] Error fetching workers from Supabase:", error.message);
-          return { data: initialSampleLabours };
+          console.error("Error fetching workers:", error.message || error);
+          return { data: [], error: error.message };
         }
 
-        if (!data || data.length === 0) {
-          return { data: initialSampleLabours };
-        }
-
-        const rows = data as Record<string, unknown>[];
-        const labours: Labour[] = rows.map((row) => ({
-          id: String(row.id),
-          name: String(row.name || "Unnamed Worker"),
-          phone: String(row.phone || row.phone_no || row.phone_number || "—"),
-          place: String(row.place || row.notes || row.address || row.location || "—"),
-          created_at: String(row.created_at || new Date().toISOString()),
-          updated_at: row.updated_at ? String(row.updated_at) : undefined,
+        const formattedData: Labour[] = ((data as unknown as Labour[]) || []).map((row) => ({
+          id: row.id,
+          name: row.name,
+          phone: row.phone,
+          place: row.place,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
         }));
 
-        return { data: labours };
-      } catch (err: unknown) {
-        console.error("[LabourService] Exception fetching labours:", err);
-        return { data: initialSampleLabours };
+        return { data: formattedData };
+      } catch (error) {
+        console.error("Service error (getLabours):", error);
+        return { data: [], error: error instanceof Error ? error.message : "Internal server error" };
       }
     })(),
-    { data: initialSampleLabours },
+    { data: [], error: "timeout" },
     3000
   );
 }
 
-/**
- * Service: Create a new labour / worker record
- */
-export async function createLabourService(
-  input: CreateLabourDTO
-): Promise<{ data?: Labour; error?: string }> {
+export async function createLabourService(input: CreateLabourDTO): Promise<{ data?: Labour; error?: string }> {
   try {
     const supabase = await createClient();
 
-    const name = input.name.trim();
-    const phone = input.phone.trim();
-    const place = input.place.trim();
-
-    if (!name) {
-      return { error: "Name is required." };
-    }
-
-    const basePayload: Record<string, unknown> = {
-      name,
-      phone,
-      daily_rate: 0,
-      hourly_rate: 0,
-      is_active: true,
-    };
-
-    // First attempt: try inserting with 'place' column directly
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from("workers")
-      .insert({ ...basePayload, place })
-      .select()
-      .maybeSingle();
+      .insert({
+        name: input.name,
+        phone: input.phone,
+        place: input.place,
+      })
+      .select(WORKER_COLUMNS)
+      .single();
 
-    // Fallback: if 'place' column does not exist in workers table, store in 'notes'
-    if (error && (error.code === "PGRST204" || error.message.includes("'place'") || error.message.includes("does not exist"))) {
-      console.warn("[LabourService] 'place' column not found, storing place in 'notes' column.");
-      const retry = await supabase
-        .from("workers")
-        .insert({ ...basePayload, notes: place })
-        .select()
-        .maybeSingle();
-      data = retry.data;
-      error = retry.error;
-    }
-
-    // In case RLS blocks direct anon/demo insert or offline
     if (error) {
-      console.warn("[LabourService] Insert error in Supabase workers table:", error.message);
-      // Fallback local memory return for demo/resilience
-      const fallbackLabour: Labour = {
-        id: `lab-${Date.now()}`,
-        name,
-        phone,
-        place,
-        created_at: new Date().toISOString(),
-      };
-      return { data: fallbackLabour };
+      console.error("Error creating worker:", error.message || error);
+      return { error: "Failed to create worker" };
     }
 
-    const row = data as Record<string, unknown>;
-    const createdLabour: Labour = {
-      id: String(row.id),
-      name: String(row.name),
-      phone: String(row.phone || phone),
-      place: String(row.place || row.notes || place),
-      created_at: String(row.created_at || new Date().toISOString()),
-      updated_at: row.updated_at ? String(row.updated_at) : undefined,
-    };
+    if (data) {
+      return {
+        data: {
+          id: data.id,
+          name: data.name,
+          phone: data.phone,
+          place: data.place,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+        },
+      };
+    }
 
-    return { data: createdLabour };
-  } catch (err: unknown) {
-    console.error("[LabourService] Exception creating labour:", err);
-    const message = err instanceof Error ? err.message : "Failed to add labour.";
-    return { error: message };
+    return { error: "Failed to return created worker" };
+  } catch (error) {
+    console.error("Service error (createLabour):", error);
+    return { error: "Internal server error" };
   }
 }
 
-/**
- * Service: Delete a labour record
- */
 export async function deleteLabourService(id: string): Promise<{ success: boolean; error?: string }> {
+  if (!isValidUUID(id)) {
+    return { success: false, error: "Invalid worker ID format." };
+  }
+
   try {
     const supabase = await createClient();
 
-    const { error } = await supabase.from("workers").delete().eq("id", id);
+    const { error } = await supabase
+      .from("workers")
+      .delete()
+      .eq("id", id);
+
     if (error) {
-      console.warn(`[LabourService] Delete error for id ${id}:`, error.message);
-      return { success: true };
+      console.error("Error deleting worker:", error.message || error);
+      return { success: false, error: "Failed to delete worker" };
     }
 
     return { success: true };
-  } catch (err: unknown) {
-    console.error(`[LabourService] Exception deleting labour ${id}:`, err);
-    return { success: true };
+  } catch (error) {
+    console.error("Service error (deleteLabour):", error);
+    return { success: false, error: "Internal server error" };
   }
 }
 
-/**
- * Service: Fetch labour work entries for a worker or all workers
- */
-export async function getLabourEntriesService(
-  workerId?: string
-): Promise<{ data: LabourEntry[]; error?: string }> {
+export async function getLabourEntriesService(workerId?: string): Promise<{ data: LabourEntry[]; error?: string }> {
   try {
+    if (workerId && !isValidUUID(workerId)) {
+      return { data: [] };
+    }
+
     const supabase = await createClient();
 
     let query = supabase
-      .from("labour_entries")
-      .select("*, projects(id, customer_name, place)")
+      .from("labour_logs")
+      .select(LABOUR_LOG_COLUMNS)
       .order("work_date", { ascending: false });
 
     if (workerId) {
       query = query.eq("worker_id", workerId);
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
 
-    if (error) {
-      console.warn("[LabourService] Error fetching labour_entries:", error.message);
-      const filtered = workerId
-        ? initialSampleLabourEntries.filter((e) => e.worker_id === workerId)
-        : initialSampleLabourEntries;
-      return { data: filtered };
-    }
+    // Graceful fallback to labour_entries if table hasn't been renamed yet
+    if (error && (error.code === "PGRST205" || error.message?.includes("labour_logs"))) {
+      let fallbackQuery = supabase
+        .from("labour_entries")
+        .select("*, projects(id, name, place)")
+        .order("work_date", { ascending: false });
 
-    if (!data || data.length === 0) {
-      const filtered = workerId
-        ? initialSampleLabourEntries.filter((e) => e.worker_id === workerId)
-        : initialSampleLabourEntries;
-      return { data: filtered };
-    }
-
-    const rows = data as Record<string, unknown>[];
-    const entries: LabourEntry[] = rows.map((row) => {
-      const proj = row.projects as { customer_name?: string; place?: string } | null;
-      const dateStr = String(row.work_date || new Date().toISOString().split("T")[0]);
-      let dayName = "";
-      try {
-        const d = new Date(dateStr);
-        dayName = d.toLocaleDateString("en-US", { weekday: "long" });
-      } catch {
-        dayName = "—";
+      if (workerId) {
+        fallbackQuery = fallbackQuery.eq("worker_id", workerId);
       }
 
+      const fb = await fallbackQuery;
+      if (!fb.error) {
+        data = fb.data;
+        error = null;
+      }
+    }
+
+    if (error) {
+      console.error("Error fetching labour logs:", error.message || error);
+      return { data: [], error: error.message || "Failed to fetch labour logs" };
+    }
+
+    interface LabourEntryDbRow {
+      id: string;
+      worker_id: string;
+      work_date?: string;
+      day?: string;
+      project_id?: string | null;
+      projects?: {
+        name?: string;
+        place?: string;
+      } | null;
+      tach?: string | number;
+      ot?: string | number;
+      amount_paid?: number | string;
+      amount?: number | string;
+      total_amount?: number | string;
+      created_at?: string;
+    }
+
+    const formattedData: LabourEntry[] = ((data as unknown as LabourEntryDbRow[]) || []).map((row) => {
+      const proj = row.projects;
+      const projectName = proj?.name ? `${proj.name}${proj.place ? ` (${proj.place})` : ""}` : "Site";
+      const workDate = row.work_date ? new Date(row.work_date) : new Date();
+      const day = row.day || workDate.toLocaleDateString("en-US", { weekday: "short" });
+
+      const paid = Number(row.amount_paid ?? row.amount ?? row.total_amount) || 0;
+
       return {
-        id: String(row.id),
-        worker_id: String(row.worker_id),
-        date: dateStr,
-        day: dayName,
-        project_id: String(row.project_id || ""),
-        project_name: proj?.customer_name
-          ? `${proj.customer_name}${proj.place ? ` (${proj.place})` : ""}`
-          : "Site",
-        tach: "1",
-        ot: "0",
-        amount: Number(row.total_amount ?? 0),
-        created_at: String(row.created_at || new Date().toISOString()),
+        id: row.id,
+        worker_id: row.worker_id,
+        date: row.work_date || "",
+        day,
+        project_id: row.project_id || "",
+        project_name: projectName,
+        tach: String(row.tach ?? "1"),
+        ot: String(row.ot ?? "0"),
+        amount_paid: paid,
+        amount: paid,
+        created_at: row.created_at,
       };
     });
 
-    return { data: entries };
-  } catch (err: unknown) {
-    console.error("[LabourService] Exception in getLabourEntriesService:", err);
-    return { data: initialSampleLabourEntries };
+    return { data: formattedData };
+  } catch (error) {
+    console.error("Service error (getLabourEntries):", error);
+    return { data: [], error: "Internal server error" };
   }
 }
 
-/**
- * Service: Create a new labour work entry
- */
-export async function createLabourEntryService(
-  input: CreateLabourEntryDTO
-): Promise<{ data?: LabourEntry; error?: string }> {
+export async function createLabourEntryService(input: CreateLabourEntryDTO): Promise<{ data?: LabourEntry; error?: string }> {
   try {
     const supabase = await createClient();
 
-    const dateStr = input.date;
-    let dayName = input.day;
-    if (!dayName) {
-      try {
-        const d = new Date(dateStr);
-        dayName = d.toLocaleDateString("en-US", { weekday: "long" });
-      } catch {
-        dayName = "—";
+    const workDate = new Date(input.date);
+    const day = input.day || workDate.toLocaleDateString("en-US", { weekday: "short" });
+    const paidAmount = Number(input.amount_paid ?? input.amount) || 0;
+
+    let { data, error } = await supabase
+      .from("labour_logs")
+      .insert({
+        worker_id: input.worker_id,
+        project_id: input.project_id,
+        work_date: input.date,
+        day: day,
+        tach: Number(input.tach) || 1,
+        ot: Number(input.ot) || 0,
+        amount_paid: paidAmount,
+      })
+      .select(LABOUR_LOG_COLUMNS)
+      .single();
+
+    // Fallback: If amount_paid column doesn't exist yet, retry with amount
+    if (error && (error.message?.includes("amount_paid") || error.code === "42703")) {
+      const fbAmount = await supabase
+        .from("labour_logs")
+        .insert({
+          worker_id: input.worker_id,
+          project_id: input.project_id,
+          work_date: input.date,
+          day: day,
+          tach: Number(input.tach) || 1,
+          ot: Number(input.ot) || 0,
+          amount: paidAmount,
+        })
+        .select("*, projects(id, name, place)")
+        .single();
+
+      if (!fbAmount.error && fbAmount.data) {
+        data = fbAmount.data;
+        error = null;
       }
     }
 
-    // Try inserting into labour_entries table
-    const payload = {
-      worker_id: input.worker_id,
-      project_id: input.project_id || null,
-      work_date: dateStr,
-      total_amount: Number(input.amount) || 0,
-    };
+    // Fallback if labour_logs table hasn't been renamed yet
+    if (error && (error.code === "PGRST205" || error.message?.includes("labour_logs"))) {
+      const fb = await supabase
+        .from("labour_entries")
+        .insert({
+          worker_id: input.worker_id,
+          project_id: input.project_id,
+          work_date: input.date,
+          total_amount: paidAmount,
+        })
+        .select("*, projects(id, name, place)")
+        .single();
 
-    const { data, error } = await supabase
-      .from("labour_entries")
-      .insert(payload)
-      .select()
-      .maybeSingle();
-
-    if (error) {
-      console.warn("[LabourService] Error creating labour entry in Supabase:", error.message);
+      if (!fb.error && fb.data) {
+        data = fb.data;
+        error = null;
+      }
     }
 
-    const created: LabourEntry = {
-      id: data?.id ? String(data.id) : `ent-${Date.now()}`,
-      worker_id: input.worker_id,
-      date: dateStr,
-      day: dayName,
-      project_id: input.project_id,
-      project_name: input.project_name || "Selected Site",
-      tach: input.tach || "1",
-      ot: input.ot || "0",
-      amount: Number(input.amount) || 0,
-      created_at: new Date().toISOString(),
-    };
+    if (error) {
+      console.error("Error creating labour log:", error.message || error);
+      return { error: "Failed to create labour log" };
+    }
 
-    return { data: created };
-  } catch (err: unknown) {
-    console.error("[LabourService] Exception creating labour entry:", err);
-    const message = err instanceof Error ? err.message : "Failed to save work entry.";
-    return { error: message };
+    if (data) {
+      interface LabourLogSingleResult {
+        id: string;
+        worker_id: string;
+        work_date?: string;
+        day?: string;
+        project_id?: string | null;
+        projects?: {
+          name?: string;
+          place?: string;
+        } | { name?: string; place?: string }[] | null;
+        tach?: string | number;
+        ot?: string | number;
+        amount_paid?: number | string;
+        amount?: number | string;
+        total_amount?: number | string;
+        created_at?: string;
+      }
+
+      const row = data as unknown as LabourLogSingleResult;
+      const proj = Array.isArray(row.projects) ? row.projects[0] : row.projects;
+      const projectName = proj?.name ? `${proj.name}${proj.place ? ` (${proj.place})` : ""}` : "Site";
+      const returnPaid = Number(row.amount_paid ?? row.amount ?? row.total_amount ?? paidAmount) || 0;
+
+      // Automatically create an expense entry for the project if associated with a project and amount paid > 0
+      if (row.project_id && returnPaid > 0) {
+        try {
+          let workerName = "";
+          if (row.worker_id) {
+            const { data: workerData } = await supabase
+              .from("workers")
+              .select("name")
+              .eq("id", row.worker_id)
+              .maybeSingle();
+            if (workerData?.name) {
+              workerName = workerData.name;
+            }
+          }
+
+          const tachVal = row.tach ?? input.tach ?? "1";
+          const otVal = row.ot ?? input.ot ?? "0";
+          const entryDay = row.day || day;
+          const desc = workerName
+            ? `Labour: ${workerName} (${entryDay} - Tach: ${tachVal}, OT: ${otVal}h)`
+            : `Labour (${entryDay} - Tach: ${tachVal}, OT: ${otVal}h)`;
+
+          await createExpenseService({
+            type: "project",
+            project_id: row.project_id,
+            amount: returnPaid,
+            description: desc,
+            date: row.work_date || input.date,
+            labour_log_id: row.id,
+          });
+        } catch (expErr) {
+          console.error("Failed to automatically create expense for labour log:", expErr);
+        }
+      }
+
+      return {
+        data: {
+          id: row.id,
+          worker_id: row.worker_id,
+          date: row.work_date || input.date,
+          day: row.day || day,
+          project_id: row.project_id || "",
+          project_name: projectName,
+          tach: String(row.tach ?? input.tach ?? "1"),
+          ot: String(row.ot ?? input.ot ?? "0"),
+          amount_paid: returnPaid,
+          amount: returnPaid,
+          created_at: row.created_at || new Date().toISOString(),
+        },
+      };
+    }
+
+    return { error: "Failed to return created log" };
+  } catch (error) {
+    console.error("Service error (createLabourEntry):", error);
+    return { error: "Internal server error" };
   }
 }
 
-/**
- * Service: Delete a labour work entry
- */
 export async function deleteLabourEntryService(id: string): Promise<{ success: boolean; error?: string }> {
+  if (!isValidUUID(id)) {
+    return { success: false, error: "Invalid labour log ID format." };
+  }
+
   try {
     const supabase = await createClient();
-    await supabase.from("labour_entries").delete().eq("id", id);
+
+    // Delete associated expense if it exists
+    try {
+      await supabase.from("expenses").delete().eq("labour_log_id", id);
+    } catch {
+      // Ignore if labour_log_id column doesn't exist
+    }
+
+    let { error } = await supabase
+      .from("labour_logs")
+      .delete()
+      .eq("id", id);
+
+    if (error && (error.code === "PGRST205" || error.message?.includes("labour_logs"))) {
+      const fb = await supabase
+        .from("labour_entries")
+        .delete()
+        .eq("id", id);
+      error = fb.error;
+    }
+
+    if (error) {
+      console.error("Error deleting labour log:", error.message || error);
+      return { success: false, error: "Failed to delete labour log" };
+    }
+
     return { success: true };
-  } catch (err) {
-    console.error("[LabourService] Exception deleting entry:", err);
-    return { success: true };
+  } catch (error) {
+    console.error("Service error (deleteLabourEntry):", error);
+    return { success: false, error: "Internal server error" };
   }
 }

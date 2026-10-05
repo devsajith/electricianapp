@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, User, Phone, MapPin, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, User, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createLabourAction } from "../actions";
 
@@ -12,7 +12,6 @@ export default function NewLabourPage() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // Form states: Name, Phone No, Place only
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [place, setPlace] = useState("");
@@ -21,18 +20,8 @@ export default function NewLabourPage() {
     e.preventDefault();
     setError(null);
 
-    if (!name.trim()) {
-      setError("Name is required.");
-      return;
-    }
-
-    if (!phone.trim()) {
-      setError("Phone number is required.");
-      return;
-    }
-
-    if (!place.trim()) {
-      setError("Place is required.");
+    if (!name.trim() || !phone.trim() || !place.trim()) {
+      setError("All fields are required.");
       return;
     }
 
@@ -53,15 +42,10 @@ export default function NewLabourPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* Back Button */}
       <div className="flex items-center gap-3">
         <Link href="/dashboard/labour">
-          <Button
-            variant="outline"
-            size="xs"
-            className="border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+          <Button variant="outline" size="sm" className="border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800">
+            <ArrowLeft className="w-4 h-4 mr-1" />
             Back to Labour List
           </Button>
         </Link>
@@ -69,106 +53,51 @@ export default function NewLabourPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Add Labour
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Register a new worker with Name, Phone No, and Place.
-          </p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Add Labour</h1>
+          <p className="text-xs text-slate-400 mt-1">Register a new worker with Name, Phone No, and Place.</p>
         </div>
       </div>
 
-      {/* Error Alert */}
-      {error && (
-        <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 flex items-center gap-3 text-rose-400 text-xs">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* Main Add Labour Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6 shadow-sm">
-          <div className="border-b border-slate-800/80 pb-4">
-            <h2 className="text-sm font-semibold text-amber-400 flex items-center gap-2">
-              <User className="w-4 h-4" /> Worker Details
-            </h2>
+        {error && (
+          <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs">
+            {error}
           </div>
+        )}
 
-          <div className="space-y-5">
-            {/* 1. Name * */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+          <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Name <span className="text-rose-400">*</span>
-              </label>
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">Worker Name <span className="text-rose-400">*</span></label>
               <div className="relative">
                 <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Ramesh Kumar"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                  required
-                  autoFocus
-                />
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Suresh Kumar" className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500" required />
               </div>
             </div>
 
-            {/* 2. Phone No * */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Phone No <span className="text-rose-400">*</span>
-              </label>
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">Phone Number <span className="text-rose-400">*</span></label>
               <div className="relative">
                 <Phone className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. 9876543210"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                  required
-                />
+                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 9876543210" className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500" required />
               </div>
             </div>
 
-            {/* 3. Place * */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Place <span className="text-rose-400">*</span>
-              </label>
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">Place <span className="text-rose-400">*</span></label>
               <div className="relative">
                 <MapPin className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
-                  type="text"
-                  value={place}
-                  onChange={(e) => setPlace(e.target.value)}
-                  placeholder="e.g. Kochi / Aluva"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                  required
-                />
+                <input type="text" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="e.g. Kochi / Aluva" className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500" required />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Submit / Save Buttons */}
         <div className="flex items-center justify-end gap-3">
           <Link href="/dashboard/labour">
-            <Button
-              type="button"
-              variant="outline"
-              className="border-slate-800 text-slate-300 hover:bg-slate-800 text-xs"
-            >
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" className="border-slate-800 text-slate-300 hover:bg-slate-800 text-xs">Cancel</Button>
           </Link>
-          <Button
-            type="submit"
-            disabled={isPending}
-            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-2 shadow-md"
-          >
+          <Button type="submit" disabled={isPending} className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-2 shadow-md">
             <Save className="w-4 h-4" />
             <span>{isPending ? "Saving..." : "Save Labour"}</span>
           </Button>

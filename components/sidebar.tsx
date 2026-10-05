@@ -23,7 +23,7 @@ import { logout } from "@/app/login/actions";
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Projects", href: "/dashboard/projects", icon: FolderKanban },
-  { name: "Estimates", href: "/dashboard/estimates", icon: FileSpreadsheet },
+  { name: "Quotations", href: "/dashboard/estimates", icon: FileSpreadsheet },
   { name: "Payments", href: "/dashboard/payments", icon: Wallet },
   { name: "Expenses", href: "/dashboard/expenses", icon: Receipt },
   { name: "Rates Catalog", href: "/dashboard/item-list", icon: ListChecks },

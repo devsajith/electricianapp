@@ -37,9 +37,6 @@ export async function recordPaymentAction(
     if (!dto.amount || Number(dto.amount) <= 0) {
       return { error: "Please enter a valid payment amount greater than zero." };
     }
-    if (!dto.payment_type) {
-      dto.payment_type = "Advance";
-    }
 
     const res = await createPaymentService(dto);
 

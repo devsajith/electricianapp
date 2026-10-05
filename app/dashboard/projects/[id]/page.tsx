@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition, use } from "react";
+import { useEffect, useState, useTransition, use, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  Zap,
   MapPin,
   Calendar,
   Phone,
@@ -14,14 +13,11 @@ import {
   Receipt,
   ListChecks,
   Trash2,
-  CheckCircle2,
   FileText,
-  Clock,
   Layers,
   Plus,
   AlertTriangle,
   FileSpreadsheet,
-  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,9 +26,9 @@ import {
   deleteProjectAction,
   ProjectRecord,
 } from "../actions";
-import { getExpensesAction, deleteExpenseAction } from "@/app/dashboard/expenses/actions";
+import { getExpensesByProjectIdAction, deleteExpenseAction } from "@/app/dashboard/expenses/actions";
 import { Expense } from "@/lib/types/expense";
-import { getPaymentsAction, deletePaymentAction } from "@/app/dashboard/payments/actions";
+import { getProjectPaymentsAction, deletePaymentAction } from "@/app/dashboard/payments/actions";
 import { Payment } from "@/lib/types/payment";
 import { RecordExpenseModal } from "@/components/record-expense-modal";
 import { RecordPaymentModal } from "@/components/record-payment-modal";
@@ -61,15 +57,15 @@ export default function ProjectDetailPage({
 
   const [isPending, startTransition] = useTransition();
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     const timer = setTimeout(() => setLoading(false), 2500);
 
     try {
       const [projData, expRes, payRes] = await Promise.all([
         getProjectByIdAction(id),
-        getExpensesAction(),
-        getPaymentsAction(),
+        getExpensesByProjectIdAction(id),
+        getProjectPaymentsAction(id),
       ]);
       clearTimeout(timer);
       if (projData) {
@@ -77,12 +73,8 @@ export default function ProjectDetailPage({
       } else {
         setErrorMsg("Project not found.");
       }
-      if (expRes.data) {
-        setExpenses(expRes.data.filter((e) => e.project_id === id));
-      }
-      if (payRes.data) {
-        setPayments(payRes.data.filter((p) => p.project_id === id));
-      }
+      setExpenses(expRes.data || []);
+      setPayments(payRes.data || []);
     } catch (err) {
       console.error("Error loading project detail:", err);
       clearTimeout(timer);
@@ -90,10 +82,44 @@ export default function ProjectDetailPage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
-    loadData();
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 2500);
+
+    Promise.all([
+      getProjectByIdAction(id),
+      getExpensesByProjectIdAction(id),
+      getProjectPaymentsAction(id),
+    ])
+      .then(([projData, expRes, payRes]) => {
+        clearTimeout(timer);
+        if (!isMounted) return;
+        if (projData) {
+          setProject(projData);
+        } else {
+          setErrorMsg("Project not found.");
+        }
+        setExpenses(expRes.data || []);
+        setPayments(payRes.data || []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error loading project detail:", err);
+        clearTimeout(timer);
+        if (isMounted) {
+          setErrorMsg("Failed to load project details.");
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, [id]);
 
   const handleStatusChange = (newStatus: string) => {
@@ -106,7 +132,7 @@ export default function ProjectDetailPage({
 
   const handleDelete = () => {
     if (!project) return;
-    if (!confirm(`Are you sure you want to delete project for "${project.customer_name}"?`)) return;
+    if (!confirm(`Are you sure you want to delete project for "${project.name}"?`)) return;
 
     startTransition(async () => {
       const res = await deleteProjectAction(id);
@@ -164,7 +190,7 @@ export default function ProjectDetailPage({
   const projExpenseTotal = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   const projPaymentTotal = payments.reduce((sum, pay) => sum + (Number(pay.amount) || 0), 0);
   const netBalance = projPaymentTotal - projExpenseTotal;
-  const phoneDigits = getIndianPhoneDigits(project.customer_phone);
+  const phoneDigits = getIndianPhoneDigits(project.phone || "");
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -221,13 +247,13 @@ export default function ProjectDetailPage({
                 {project.project_number}
               </span>
               <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
-                {project.project_type}
+                {project.type}
               </span>
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">{project.customer_name}</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight">{project.name}</h1>
             <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-1">
               <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span>{project.place || project.address || "No place specified"}</span>
+              <span>{project.place || "No place specified"}</span>
             </p>
           </div>
 
@@ -266,7 +292,7 @@ export default function ProjectDetailPage({
               Phone Number
             </span>
             <span className="text-sm font-bold text-white font-mono">
-              {formatPhoneNumber(project.customer_phone)}
+              {formatPhoneNumber(project.phone || "")}
             </span>
           </div>
 
@@ -300,7 +326,7 @@ export default function ProjectDetailPage({
               Project Type
             </span>
             <span className="text-sm font-bold text-slate-200 mt-1 block">
-              {project.project_type}
+              {project.type}
             </span>
           </div>
 
@@ -310,7 +336,7 @@ export default function ProjectDetailPage({
               Place
             </span>
             <span className="text-sm font-bold text-slate-200 mt-1 block truncate">
-              {project.place || project.address || "—"}
+              {project.place || "—"}
             </span>
           </div>
 
@@ -330,21 +356,21 @@ export default function ProjectDetailPage({
               End Date
             </span>
             <span className="text-sm font-bold text-slate-200 mt-1 block">
-              {project.end_date || project.expected_completion_date || "Not set"}
+              {project.end_date || "Not set"}
             </span>
           </div>
         </div>
       </div>
 
       {/* Description */}
-      {project.work_description && (
+      {project.description && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-2 text-xs">
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
             <FileText className="w-4 h-4 text-amber-400" />
             Work Description
           </h2>
           <p className="text-slate-300 leading-relaxed bg-slate-950 border border-slate-800 rounded-xl p-4">
-            {project.work_description}
+            {project.description}
           </p>
         </div>
       )}
@@ -470,24 +496,18 @@ export default function ProjectDetailPage({
                     <th className="py-2 px-3 border-r border-slate-700/80 font-bold tracking-wider">
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400 font-normal mr-1">B</span>
-                        <span className="text-white font-bold">TYPE</span>
-                      </div>
-                    </th>
-                    <th className="py-2 px-3 border-r border-slate-700/80 font-bold tracking-wider">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400 font-normal mr-1">C</span>
                         <span className="text-white font-bold">METHOD</span>
                       </div>
                     </th>
                     <th className="py-2 px-3 border-r border-slate-700/80 font-bold tracking-wider text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <span className="text-slate-400 font-normal mr-1">D</span>
+                        <span className="text-slate-400 font-normal mr-1">C</span>
                         <span className="text-white font-bold">AMOUNT (₹)</span>
                       </div>
                     </th>
                     <th className="w-20 py-2 px-2 text-center font-bold tracking-wider">
                       <div className="flex items-center justify-center gap-1">
-                        <span className="text-slate-400 font-normal mr-1">E</span>
+                        <span className="text-slate-400 font-normal mr-1">D</span>
                         <span className="text-white font-bold">ACTION</span>
                       </div>
                     </th>
@@ -502,13 +522,8 @@ export default function ProjectDetailPage({
                       <td className="py-2.5 px-3 text-slate-300 font-mono border-r border-slate-800 whitespace-nowrap">
                         {pay.payment_date || "—"}
                       </td>
-                      <td className="py-2.5 px-3 border-r border-slate-800">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                          {pay.payment_type || "Advance"}
-                        </span>
-                      </td>
                       <td className="py-2.5 px-3 text-emerald-400 font-semibold border-r border-slate-800">
-                        {pay.payment_method || "—"}
+                        {pay.method || "—"}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400 text-sm border-r border-slate-800 whitespace-nowrap">
                         ₹{Number(pay.amount).toLocaleString("en-IN")}
@@ -517,7 +532,7 @@ export default function ProjectDetailPage({
                         <button
                           type="button"
                           onClick={() =>
-                            handleDeletePayment(pay.id, `${pay.payment_type || "Payment"} - ₹${pay.amount}`)
+                            handleDeletePayment(pay.id, `Payment - ₹${pay.amount}`)
                           }
                           className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors"
                           title="Delete payment"
@@ -533,7 +548,7 @@ export default function ProjectDetailPage({
                     <td className="py-3 px-2 text-center text-emerald-400 bg-slate-900 border-r border-slate-700/80 font-bold text-sm">
                       Σ
                     </td>
-                    <td colSpan={3} className="py-3 px-4 text-slate-300 text-right uppercase tracking-wider text-[11px] border-r border-slate-700/80">
+                    <td colSpan={2} className="py-3 px-4 text-slate-300 text-right uppercase tracking-wider text-[11px] border-r border-slate-700/80">
                       Total Payments Received:
                     </td>
                     <td className="py-3 px-3 text-right font-mono font-black text-emerald-400 text-sm whitespace-nowrap border-r border-slate-700/80 bg-emerald-500/10 border-b-4 border-double border-emerald-500">
@@ -635,7 +650,7 @@ export default function ProjectDetailPage({
                     <th className="py-2 px-3 border-r border-slate-700/80 font-bold tracking-wider">
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400 font-normal mr-1">B</span>
-                        <span className="text-white font-bold">CATEGORY</span>
+                        <span className="text-white font-bold">TYPE</span>
                       </div>
                     </th>
                     <th className="py-2 px-3 border-r border-slate-700/80 font-bold tracking-wider">
@@ -665,11 +680,11 @@ export default function ProjectDetailPage({
                         {idx + 1}
                       </td>
                       <td className="py-2.5 px-3 text-slate-300 font-mono border-r border-slate-800 whitespace-nowrap">
-                        {exp.expense_date || "—"}
+                        {exp.date || "—"}
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-800">
                         <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
-                          {exp.category}
+                          {exp.type || "—"}
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-slate-200 border-r border-slate-800">
@@ -683,7 +698,7 @@ export default function ProjectDetailPage({
                       <td className="py-2.5 px-2 text-center whitespace-nowrap">
                         <button
                           type="button"
-                          onClick={() => handleDeleteExpense(exp.id, exp.description)}
+                          onClick={() => handleDeleteExpense(exp.id, exp.description || "Expense")}
                           className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors"
                           title="Delete expense"
                         >

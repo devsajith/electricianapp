@@ -29,7 +29,7 @@ export default async function LabourPage() {
         .filter((p) => p && p.id)
         .map((p) => ({
           id: String(p.id ?? ""),
-          name: `${p.customer_name || "Project"}${p.place ? ` (${p.place})` : ""}`,
+          name: `${p.name || "Project"}${p.place ? ` (${p.place})` : ""}`,
         }));
     }
   } catch (err) {
@@ -48,7 +48,7 @@ export default async function LabourPage() {
     ];
   }
 
-  const safeLabours = (labours || []).map((item) => ({
+  const safeLabours: Labour[] = (labours || []).map((item) => ({
     id: String(item.id ?? ""),
     name: String(item.name ?? "Unnamed Worker"),
     phone: String(item.phone ?? "—"),

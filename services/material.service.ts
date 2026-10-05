@@ -1,298 +1,417 @@
 import { createClient } from "@/lib/supabase/server";
-import { Material, initialSampleMaterials } from "@/lib/types/material";
+import {
+  Material,
+  MaterialList,
+  MaterialListItem,
+  CreateMaterialDTO,
+  CreateMaterialListDTO,
+  CreateMaterialListItemDTO,
+} from "@/lib/types/material";
 import { withTimeout } from "@/lib/timeout";
 
-export interface CreateMaterialDTO {
-  item_name: string;
-  category: string;
-  brand?: string | null;
-  unit: string;
-  default_price: number;
-  supplier?: string | null;
-  notes?: string | null;
-  is_active?: boolean;
+export type { CreateMaterialDTO };
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidUUID(id?: string | null): boolean {
+  return typeof id === "string" && UUID_REGEX.test(id.trim());
 }
 
-export interface UpdateMaterialDTO {
-  item_name?: string;
-  category?: string;
-  brand?: string | null;
-  unit?: string;
-  default_price?: number;
-  supplier?: string | null;
-  notes?: string | null;
-  is_active?: boolean;
+const MATERIAL_COLUMNS = "id, name, brand, unit, created_at, updated_at";
+const MATERIAL_LIST_COLUMNS =
+  "id, project_id, title, created_at, updated_at, projects(project_number, name)";
+const MATERIAL_LIST_ITEM_COLUMNS =
+  "id, list_id, material_id, qty, rate, amount, created_at, materials(name, brand, unit)";
+
+interface MaterialListDbRow {
+  id: string;
+  project_id: string;
+  projects?: {
+    project_number?: string;
+    name?: string;
+  } | null;
+  title: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
-/**
- * Service: Fetch all material records from Supabase material_catalogue table
- */
+interface MaterialListItemDbRow {
+  id: string;
+  list_id: string;
+  material_id: string;
+  materials?: {
+    name?: string;
+    brand?: string | null;
+    unit?: string;
+  } | null;
+  qty: number | string;
+  rate?: number | string;
+  amount?: number | string;
+  created_at?: string;
+}
+
 export async function getMaterialsService(): Promise<{ data: Material[]; error?: string }> {
   return withTimeout(
     (async () => {
       try {
         const supabase = await createClient();
 
-        // Query the exact Supabase table: material_catalogue
-        let { data, error } = await supabase
-          .from("material_catalogue")
-          .select("*")
+        const { data, error } = await supabase
+          .from("materials")
+          .select(MATERIAL_COLUMNS)
           .order("created_at", { ascending: false });
 
-        // Fallback if table name is plural materials
-        if (error && (error.code === "PGRST205" || error.message.includes("does not exist"))) {
-          console.warn("[MaterialService] material_catalogue table not found, trying materials fallback table");
-          const fallback = await supabase
-            .from("materials")
-            .select("*")
-            .order("created_at", { ascending: false });
-          data = fallback.data;
-          error = fallback.error;
-        }
-
         if (error) {
-          console.error("[MaterialService] Supabase materials query error:", error.message);
-          return { data: initialSampleMaterials };
+          console.error("Error fetching materials:", error.message || error);
+          return { data: [], error: error.message };
         }
 
-        if (!data || data.length === 0) {
-          return { data: initialSampleMaterials };
-        }
+        const formattedData: Material[] = ((data as unknown as Material[]) || []).map((row) => ({
+          id: row.id,
+          name: row.name,
+          brand: row.brand || null,
+          unit: row.unit,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+        }));
 
-        const rows = data as Record<string, unknown>[];
-        const items: Material[] = rows.map((row) => {
-          const price = Number(row.default_price ?? row.unit_price ?? row.price ?? 0);
-          return {
-            id: String(row.id || `mat-${Date.now()}`),
-            item_name: String(row.item_name || row.name || "Electrical Material"),
-            category: String(row.category || "General"),
-            brand: row.brand ? String(row.brand) : null,
-            unit: String(row.unit || "nos"),
-            default_price: price,
-            supplier: row.supplier ? String(row.supplier) : null,
-            notes: row.notes ? String(row.notes) : (row.description ? String(row.description) : null),
-            is_active: typeof row.is_active === "boolean" ? row.is_active : row.status !== "Inactive",
-            created_at: String(row.created_at || new Date().toISOString()),
-            updated_at: row.updated_at ? String(row.updated_at) : undefined,
-          };
-        });
-
-        return { data: items };
-      } catch (err) {
-        console.error("[MaterialService] Exception fetching materials:", err);
-        return { data: initialSampleMaterials };
+        return { data: formattedData };
+      } catch (error) {
+        console.error("Service error (getMaterials):", error);
+        return { data: [], error: error instanceof Error ? error.message : "Internal server error" };
       }
     })(),
-    { data: initialSampleMaterials },
+    { data: [], error: "timeout" },
     2500
   );
 }
 
-/**
- * Service: Fetch a single material by ID from material_catalogue
- */
-export async function getMaterialByIdService(
-  id: string
-): Promise<{ data?: Material; error?: string }> {
-  const fallbackSample = initialSampleMaterials.find((m) => m.id === id);
-  return withTimeout(
-    (async () => {
-      try {
-        const supabase = await createClient();
+export async function getMaterialByIdService(id: string): Promise<{ data?: Material; error?: string }> {
+  if (!isValidUUID(id)) {
+    return { error: "Invalid material ID format." };
+  }
 
-        let { data, error } = await supabase
-          .from("material_catalogue")
-          .select("*")
-          .eq("id", id)
-          .maybeSingle();
+  try {
+    const supabase = await createClient();
 
-        if (error && (error.code === "PGRST205" || error.message.includes("does not exist"))) {
-          const fallback = await supabase
-            .from("materials")
-            .select("*")
-            .eq("id", id)
-            .maybeSingle();
-          data = fallback.data;
-          error = fallback.error;
-        }
+    const { data, error } = await supabase
+      .from("materials")
+      .select(MATERIAL_COLUMNS)
+      .eq("id", id)
+      .single();
 
-        if (!error && data) {
-          const row = data as Record<string, unknown>;
-          const price = Number(row.default_price ?? row.unit_price ?? 0);
-          const material: Material = {
-            id: String(row.id),
-            item_name: String(row.item_name || row.name),
-            category: String(row.category),
-            brand: row.brand ? String(row.brand) : null,
-            unit: String(row.unit),
-            default_price: price,
-            supplier: row.supplier ? String(row.supplier) : null,
-            notes: row.notes ? String(row.notes) : (row.description ? String(row.description) : null),
-            is_active: typeof row.is_active === "boolean" ? row.is_active : row.status !== "Inactive",
-            created_at: String(row.created_at || new Date().toISOString()),
-            updated_at: row.updated_at ? String(row.updated_at) : undefined,
-          };
-          return { data: material };
-        }
+    if (error) {
+      console.error("Error fetching material:", error);
+      return { error: "Failed to fetch material" };
+    }
 
-        if (fallbackSample) {
-          return { data: fallbackSample };
-        }
-
-        return { error: "Material not found" };
-      } catch (err) {
-        console.error(`[MaterialService] Exception fetching material ${id}:`, err);
-        if (fallbackSample) return { data: fallbackSample };
-        return { error: "Failed to fetch material details" };
-      }
-    })(),
-    fallbackSample ? { data: fallbackSample } : { error: "Material not found" },
-    2500
-  );
+    return { data: data as Material };
+  } catch (error) {
+    console.error("Service error (getMaterialById):", error);
+    return { error: "Internal server error" };
+  }
 }
 
-/**
- * Service: Create a new material record directly in Supabase material_catalogue table
- */
 export async function createMaterialService(
   input: CreateMaterialDTO
 ): Promise<{ data?: Material; error?: string }> {
   try {
     const supabase = await createClient();
 
-    // Exact columns for material_catalogue table:
-    // item_name, category, brand, unit, default_price, supplier, notes, is_active
-    const payload = {
-      item_name: (input.item_name ?? "").trim(),
-      category: (input.category ?? "").trim(),
-      brand: input.brand ? String(input.brand).trim() : null,
-      unit: (input.unit ?? "").trim(),
-      default_price: Number(input.default_price) || 0,
-      supplier: input.supplier ? String(input.supplier).trim() : null,
-      notes: input.notes ? String(input.notes).trim() : null,
-      is_active: input.is_active ?? true,
-    };
-
-    let { data, error } = await supabase
-      .from("material_catalogue")
-      .insert(payload)
-      .select()
-      .maybeSingle();
-
-    // Fallback to materials table if material_catalogue table name differs
-    if (error && (error.code === "PGRST205" || error.message.includes("does not exist"))) {
-      console.warn("[MaterialService] material_catalogue table missing, inserting into materials fallback table");
-      const fallbackPayload = {
-        name: input.item_name.trim(),
-        item_name: input.item_name.trim(),
-        category: input.category.trim(),
-        brand: input.brand ? input.brand.trim() : null,
-        unit: input.unit.trim(),
-        unit_price: Number(input.default_price) || 0,
-        default_price: Number(input.default_price) || 0,
-        supplier: input.supplier ? input.supplier.trim() : null,
-        description: input.notes ? input.notes.trim() : null,
-        notes: input.notes ? input.notes.trim() : null,
-        is_active: input.is_active ?? true,
-      };
-
-      const fallbackRes = await supabase
-        .from("materials")
-        .insert(fallbackPayload)
-        .select()
-        .maybeSingle();
-
-      data = fallbackRes.data;
-      error = fallbackRes.error;
-    }
+    const { data, error } = await supabase
+      .from("materials")
+      .insert({
+        name: input.name,
+        brand: input.brand || null,
+        unit: input.unit || "nos",
+      })
+      .select(MATERIAL_COLUMNS)
+      .single();
 
     if (error) {
-      console.error("[MaterialService] Supabase insert error:", error);
-      return { error: `Supabase database error: ${error.message}` };
+      console.error("Error creating material:", error);
+      return { error: "Failed to create material" };
     }
 
-    const row = (data || {}) as Record<string, unknown>;
-    const createdPrice = Number(row.default_price ?? input.default_price);
-    const createdMaterial: Material = {
-      id: String(row.id || `mat-${Date.now()}`),
-      item_name: String(row.item_name || input.item_name),
-      category: String(row.category || input.category),
-      brand: row.brand ? String(row.brand) : (input.brand || null),
-      unit: String(row.unit || input.unit),
-      default_price: createdPrice,
-      supplier: row.supplier ? String(row.supplier) : (input.supplier || null),
-      notes: row.notes ? String(row.notes) : (input.notes || null),
-      is_active: typeof row.is_active === "boolean" ? row.is_active : (input.is_active ?? true),
-      created_at: String(row.created_at || new Date().toISOString()),
-    };
-
-    return { data: createdMaterial };
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Failed to create material in Supabase";
-    console.error("[MaterialService] Exception in createMaterialService:", err);
-    return { error: message };
+    return { data: data as Material };
+  } catch (error) {
+    console.error("Service error (createMaterial):", error);
+    return { error: "Internal server error" };
   }
 }
 
-/**
- * Service: Toggle or update material is_active status
- */
-export async function updateMaterialStatusService(
+export async function updateMaterialService(
   id: string,
-  is_active: boolean
-): Promise<{ success: boolean; error?: string }> {
+  input: Partial<{ name: string; brand: string; unit: string }>
+): Promise<{ data?: Material; error?: string }> {
+  if (!isValidUUID(id)) {
+    return { error: "Invalid material ID format." };
+  }
+
   try {
     const supabase = await createClient();
 
-    let { error } = await supabase
-      .from("material_catalogue")
-      .update({ is_active, updated_at: new Date().toISOString() })
+    const { data, error } = await supabase
+      .from("materials")
+      .update(input)
+      .eq("id", id)
+      .select(MATERIAL_COLUMNS)
+      .single();
+
+    if (error) {
+      console.error("Error updating material:", error);
+      return { error: "Failed to update material" };
+    }
+
+    return { data: data as Material };
+  } catch (error) {
+    console.error("Service error (updateMaterial):", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function deleteMaterialService(id: string): Promise<{ success: boolean; error?: string }> {
+  if (!isValidUUID(id)) {
+    return { success: false, error: "Invalid material ID format." };
+  }
+
+  try {
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("materials")
+      .delete()
       .eq("id", id);
 
-    if (error && (error.code === "PGRST205" || error.message.includes("does not exist"))) {
-      const fallback = await supabase
-        .from("materials")
-        .update({ is_active, status: is_active ? "Active" : "Inactive", updated_at: new Date().toISOString() })
-        .eq("id", id);
-      error = fallback.error;
-    }
-
     if (error) {
-      console.error(`[MaterialService] Update status DB error: ${error.message}`);
-      return { success: false, error: error.message };
+      console.error("Error deleting material:", error);
+      return { success: false, error: "Failed to delete material" };
     }
 
     return { success: true };
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Failed to update material status";
-    return { success: false, error: message };
+  } catch (error) {
+    console.error("Service error (deleteMaterial):", error);
+    return { success: false, error: "Internal server error" };
+  }
+}
+
+export async function getMaterialListsService(): Promise<{ data: MaterialList[]; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("material_lists")
+      .select(MATERIAL_LIST_COLUMNS)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching material lists:", error);
+      return { data: [], error: "Failed to fetch material lists" };
+    }
+
+    const formattedData: MaterialList[] = ((data as unknown as MaterialListDbRow[]) || []).map((row) => ({
+      id: row.id,
+      project_id: row.project_id,
+      project_number: row.projects?.project_number,
+      project_name: row.projects?.name,
+      title: row.title,
+      created_at: row.created_at || new Date().toISOString(),
+      updated_at: row.updated_at,
+    }));
+
+    return { data: formattedData };
+  } catch (error) {
+    console.error("Service error (getMaterialLists):", error);
+    return { data: [], error: "Internal server error" };
   }
 }
 
 /**
- * Service: Delete material record
+ * Service: Fetch material list and its items in PARALLEL via Promise.all
+ * Eliminates sequential query waterfall
  */
-export async function deleteMaterialService(
+export async function getMaterialListByIdService(
   id: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ data?: { list: MaterialList; items: MaterialListItem[] }; error?: string }> {
+  if (!isValidUUID(id)) {
+    return { error: "Invalid material list ID format." };
+  }
+
   try {
     const supabase = await createClient();
 
-    let { error } = await supabase.from("material_catalogue").delete().eq("id", id);
+    // Parallelize list metadata and list items fetching
+    const [listRes, itemsRes] = await Promise.all([
+      supabase
+        .from("material_lists")
+        .select(MATERIAL_LIST_COLUMNS)
+        .eq("id", id)
+        .single(),
+      supabase
+        .from("material_list_items")
+        .select(MATERIAL_LIST_ITEM_COLUMNS)
+        .eq("list_id", id)
+        .order("created_at", { ascending: true }),
+    ]);
 
-    if (error && (error.code === "PGRST205" || error.message.includes("does not exist"))) {
-      const fallback = await supabase.from("materials").delete().eq("id", id);
-      error = fallback.error;
+    if (listRes.error) {
+      console.error("Error fetching material list:", listRes.error);
+      return { error: "Failed to fetch material list" };
     }
 
+    if (itemsRes.error) {
+      console.error("Error fetching material list items:", itemsRes.error);
+      return { error: "Failed to fetch material list items" };
+    }
+
+    const listRow = listRes.data as unknown as MaterialListDbRow;
+    const formattedList: MaterialList = {
+      id: listRow.id,
+      project_id: listRow.project_id,
+      project_number: listRow.projects?.project_number,
+      project_name: listRow.projects?.name,
+      title: listRow.title,
+      created_at: listRow.created_at || new Date().toISOString(),
+      updated_at: listRow.updated_at,
+    };
+
+    const formattedItems: MaterialListItem[] = ((itemsRes.data as unknown as MaterialListItemDbRow[]) || []).map((row) => ({
+      id: row.id,
+      list_id: row.list_id,
+      material_id: row.material_id,
+      material_name: row.materials?.name,
+      material_brand: row.materials?.brand,
+      material_unit: row.materials?.unit,
+      qty: Number(row.qty),
+      rate: Number(row.rate) || 0,
+      amount: Number(row.amount) || 0,
+      created_at: row.created_at || new Date().toISOString(),
+    }));
+
+    return { data: { list: formattedList, items: formattedItems } };
+  } catch (error) {
+    console.error("Service error (getMaterialListById):", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function createMaterialListService(
+  input: CreateMaterialListDTO
+): Promise<{ data?: MaterialList; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("material_lists")
+      .insert({
+        project_id: input.project_id,
+        title: input.title,
+      })
+      .select(MATERIAL_LIST_COLUMNS)
+      .single();
+
     if (error) {
-      console.error(`[MaterialService] Delete DB error: ${error.message}`);
-      return { success: false, error: error.message };
+      console.error("Error creating material list:", error);
+      return { error: "Failed to create material list" };
+    }
+
+    return { data: data as MaterialList };
+  } catch (error) {
+    console.error("Service error (createMaterialList):", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function addMaterialListItemService(
+  input: CreateMaterialListItemDTO
+): Promise<{ data?: MaterialListItem; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("material_list_items")
+      .insert({
+        list_id: input.list_id,
+        material_id: input.material_id,
+        qty: Number(input.qty),
+        rate: Number(input.rate) || 0,
+        amount: Number(input.amount) || 0,
+      })
+      .select(MATERIAL_LIST_ITEM_COLUMNS)
+      .single();
+
+    if (error) {
+      console.error("Error adding material list item:", error);
+      return { error: "Failed to add material list item" };
+    }
+
+    const row = data as unknown as MaterialListItemDbRow;
+    return {
+      data: {
+        id: row.id,
+        list_id: row.list_id,
+        material_id: row.material_id,
+        material_name: row.materials?.name,
+        material_brand: row.materials?.brand,
+        material_unit: row.materials?.unit,
+        qty: Number(row.qty),
+        rate: Number(row.rate) || 0,
+        amount: Number(row.amount) || 0,
+        created_at: row.created_at || new Date().toISOString(),
+      },
+    };
+  } catch (error) {
+    console.error("Service error (addMaterialListItem):", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function deleteMaterialListItemService(id: string): Promise<{ success: boolean; error?: string }> {
+  if (!isValidUUID(id)) {
+    return { success: false, error: "Invalid material list item ID format." };
+  }
+
+  try {
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("material_list_items")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deleting material list item:", error);
+      return { success: false, error: "Failed to delete material list item" };
     }
 
     return { success: true };
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Failed to delete material";
-    return { success: false, error: message };
+  } catch (error) {
+    console.error("Service error (deleteMaterialListItem):", error);
+    return { success: false, error: "Internal server error" };
+  }
+}
+
+export async function deleteMaterialListService(id: string): Promise<{ success: boolean; error?: string }> {
+  if (!isValidUUID(id)) {
+    return { success: false, error: "Invalid material list ID format." };
+  }
+
+  try {
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("material_lists")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deleting material list:", error);
+      return { success: false, error: "Failed to delete material list" };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Service error (deleteMaterialList):", error);
+    return { success: false, error: "Internal server error" };
   }
 }

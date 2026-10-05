@@ -8,8 +8,6 @@ import {
   Laptop,
   Check,
   Building2,
-  FileBadge,
-  IndianRupee,
   Palette,
   ShieldCheck,
 } from "lucide-react";
@@ -24,7 +22,6 @@ export function SettingsClient() {
   const [licenseNumber, setLicenseNumber] = useState("ME-894102-TX");
   const [phone, setPhone] = useState("+91 98450 11223");
   const [hourlyRate, setHourlyRate] = useState("500");
-  const [currency, setCurrency] = useState("INR (₹)");
   const [saved, setSaved] = useState(false);
 
   const handleSave = (e: React.FormEvent) => {

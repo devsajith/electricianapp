@@ -4,12 +4,10 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
-  X,
   Wallet,
   Receipt,
   FolderKanban,
   FileSpreadsheet,
-  Zap,
 } from "lucide-react";
 import { RecordPaymentModal } from "@/components/record-payment-modal";
 import { RecordExpenseModal } from "@/components/record-expense-modal";
@@ -77,7 +75,7 @@ export function QuickActionFAB() {
               </div>
             </button>
 
-            {/* Action 4: New Estimate */}
+            {/* Action 4: New Quotation */}
             <button
               type="button"
               onClick={() => {
@@ -86,7 +84,7 @@ export function QuickActionFAB() {
               }}
               className="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sky-400 shadow-lg hover:bg-slate-800 active:scale-95 transition-all text-xs font-bold"
             >
-              <span className="text-white text-xs">Create Estimate</span>
+              <span className="text-white text-xs">Create Quotation</span>
               <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400">
                 <FileSpreadsheet className="w-4 h-4" />
               </div>

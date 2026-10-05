@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useTransition, useCallback } from "react";
 import Link from "next/link";
 import {
   Wallet,
@@ -13,7 +13,6 @@ import {
   Calendar,
   IndianRupee,
   FolderKanban,
-  CheckCircle2,
   TrendingUp,
   Receipt,
   X,
@@ -21,12 +20,12 @@ import {
   Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Payment, PaymentMethod, initialSamplePayments } from "@/lib/types/payment";
+import { Payment } from "@/lib/types/payment";
 import { getPaymentsAction, deletePaymentAction } from "@/app/dashboard/payments/actions";
 import { RecordPaymentModal } from "@/components/record-payment-modal";
 
 export default function PaymentsPage() {
-  const [payments, setPayments] = useState<Payment[]>(initialSamplePayments);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMethod, setSelectedMethod] = useState<string>("ALL");
@@ -36,7 +35,7 @@ export default function PaymentsPage() {
 
   const [, startTransition] = useTransition();
 
-  const loadPayments = () => {
+  const loadPayments = useCallback(() => {
     setLoading(true);
     const timer = setTimeout(() => setLoading(false), 2500);
 
@@ -46,7 +45,7 @@ export default function PaymentsPage() {
         if (res.data && res.data.length > 0) {
           setPayments(res.data);
         } else {
-          setPayments(initialSamplePayments);
+          setPayments([]);
         }
         setLoading(false);
       })
@@ -54,10 +53,34 @@ export default function PaymentsPage() {
         clearTimeout(timer);
         setLoading(false);
       });
-  };
+  }, []);
 
   useEffect(() => {
-    loadPayments();
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 2500);
+
+    getPaymentsAction()
+      .then((res) => {
+        clearTimeout(timer);
+        if (isMounted) {
+          setPayments(res.data || []);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        clearTimeout(timer);
+        if (isMounted) {
+          setPayments([]);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   const handleDeletePayment = (id: string, refOrDesc: string) => {
@@ -77,14 +100,13 @@ export default function PaymentsPage() {
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       !q ||
-      (p.projects?.customer_name || "").toLowerCase().includes(q) ||
+      (p.projects?.name || "").toLowerCase().includes(q) ||
       (p.projects?.project_number || "").toLowerCase().includes(q) ||
-      (p.payment_type || "").toLowerCase().includes(q) ||
-      (p.payment_method || "").toLowerCase().includes(q);
+      (p.method || "").toLowerCase().includes(q);
 
     const matchesMethod =
       selectedMethod === "ALL" ||
-      p.payment_method?.toLowerCase() === selectedMethod.toLowerCase();
+      p.method?.toLowerCase() === selectedMethod.toLowerCase();
 
     const matchesFromDate = !fromDate || (p.payment_date || "") >= fromDate;
     const matchesToDate = !toDate || (p.payment_date || "") <= toDate;
@@ -104,20 +126,18 @@ export default function PaymentsPage() {
       "Payment Date",
       "Client Name",
       "Project Ref",
-      "Payment Type",
       "Payment Method",
       "Amount (INR)",
     ];
     const rows = filteredPayments.map((p, idx) => [
       idx + 1,
       p.payment_date || "",
-      `"${(p.projects?.customer_name || "").replace(/"/g, '""')}"`,
+      `"${(p.projects?.name || "").replace(/"/g, '""')}"`,
       `"${(p.projects?.project_number || "").replace(/"/g, '""')}"`,
-      `"${(p.payment_type || "").replace(/"/g, '""')}"`,
-      `"${(p.payment_method || "").replace(/"/g, '""')}"`,
+      `"${(p.method || "").replace(/"/g, '""')}"`,
       Number(p.amount) || 0,
     ]);
-    const totalRow = ["SUM", "", "", "", "", "", totalFilteredReceived];
+    const totalRow = ["SUM", "", "", "", "", totalFilteredReceived];
     const csvContent =
       "data:text/csv;charset=utf-8," +
       [headers.join(","), ...rows.map((r) => r.join(",")), totalRow.join(",")].join("\n");
@@ -145,7 +165,7 @@ export default function PaymentsPage() {
   // Top payment method calculation
   const methodCounts: Record<string, number> = {};
   payments.forEach((p) => {
-    const m = p.payment_method || "Cash";
+    const m = p.method || "Cash";
     methodCounts[m] = (methodCounts[m] || 0) + 1;
   });
   const topMethod = Object.entries(methodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "Cash";
@@ -266,7 +286,7 @@ export default function PaymentsPage() {
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
-            placeholder="Search by client, project number, payment type, or mode..."
+            placeholder="Search by client, project number, or mode..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
@@ -440,24 +460,18 @@ export default function PaymentsPage() {
                   <th className="py-2 px-3 border-r border-slate-700/80 font-bold tracking-wider">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-400 font-normal mr-1">D</span>
-                      <span className="text-white font-bold">PAYMENT TYPE</span>
-                    </div>
-                  </th>
-                  <th className="py-2 px-3 border-r border-slate-700/80 font-bold tracking-wider">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400 font-normal mr-1">E</span>
                       <span className="text-white font-bold">PAYMENT METHOD</span>
                     </div>
                   </th>
                   <th className="py-2 px-3 border-r border-slate-700/80 font-bold tracking-wider text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <span className="text-slate-400 font-normal mr-1">F</span>
+                      <span className="text-slate-400 font-normal mr-1">E</span>
                       <span className="text-white font-bold">AMOUNT (₹)</span>
                     </div>
                   </th>
                   <th className="w-24 py-2 px-2 text-center font-bold tracking-wider">
                     <div className="flex items-center justify-center gap-1">
-                      <span className="text-slate-400 font-normal mr-1">G</span>
+                      <span className="text-slate-400 font-normal mr-1">F</span>
                       <span className="text-white font-bold">ACTION</span>
                     </div>
                   </th>
@@ -485,11 +499,11 @@ export default function PaymentsPage() {
                     {/* Col B: Client */}
                     <td className="py-2.5 px-3 border-r border-slate-800">
                       <div className="font-semibold text-slate-100">
-                        {p.projects?.customer_name || "Unknown Client"}
+                        {p.projects?.name || "Unknown Client"}
                       </div>
-                      {p.projects?.customer_phone && (
+                      {p.projects?.phone && (
                         <div className="text-[10px] text-slate-400 font-mono">
-                          {p.projects.customer_phone}
+                          {p.projects.phone}
                         </div>
                       )}
                     </td>
@@ -511,31 +525,24 @@ export default function PaymentsPage() {
                       )}
                     </td>
 
-                    {/* Col D: Payment Type */}
+                    {/* Col D: Payment Method */}
                     <td className="py-2.5 px-3 border-r border-slate-800">
-                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                        {p.payment_type || "Payment"}
-                      </span>
+                      {getMethodBadge(p.method || "")}
                     </td>
 
-                    {/* Col E: Payment Method */}
-                    <td className="py-2.5 px-3 border-r border-slate-800">
-                      {getMethodBadge(p.payment_method)}
-                    </td>
-
-                    {/* Col F: Amount (Right aligned currency) */}
+                    {/* Col E: Amount (Right aligned currency) */}
                     <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400 border-r border-slate-800 whitespace-nowrap text-[13px]">
                       ₹{Number(p.amount).toLocaleString("en-IN")}
                     </td>
 
-                    {/* Col G: Actions */}
+                    {/* Col F: Actions */}
                     <td className="py-2.5 px-2 text-center whitespace-nowrap">
                       <button
                         type="button"
                         onClick={() =>
                           handleDeletePayment(
                             p.id,
-                            `${p.payment_type || "Payment"} - ₹${p.amount}`
+                            `Payment - ₹${p.amount}`
                           )
                         }
                         title="Delete Payment Record"
@@ -555,7 +562,7 @@ export default function PaymentsPage() {
                     Σ
                   </td>
                   <td
-                    colSpan={5}
+                    colSpan={4}
                     className="py-3 px-4 text-right uppercase tracking-wider text-slate-300 border-r border-slate-700/80"
                   >
                     <span>TOTAL RECEIVED:</span>

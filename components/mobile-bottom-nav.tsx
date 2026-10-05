@@ -17,15 +17,10 @@ import {
   LogOut,
   X,
   Zap,
-  Plus,
 } from "lucide-react";
 import { logout } from "@/app/login/actions";
 
-interface MobileBottomNavProps {
-  onQuickAction?: () => void;
-}
-
-export function MobileBottomNav({ onQuickAction }: MobileBottomNavProps) {
+export function MobileBottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -43,10 +38,10 @@ export function MobileBottomNav({ onQuickAction }: MobileBottomNavProps) {
       badge: "Projects",
     },
     {
-      name: "Estimates",
+      name: "Quotations",
       href: "/dashboard/estimates",
       icon: FileSpreadsheet,
-      badge: "Estimates",
+      badge: "Quotations",
     },
     {
       name: "Payments",

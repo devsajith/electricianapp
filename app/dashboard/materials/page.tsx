@@ -1,6 +1,6 @@
 import { getMaterialsService } from "@/services/material.service";
-import { Material, initialSampleMaterials } from "@/lib/types/material";
-import MaterialsClient from "./materials-client";
+import { Material } from "@/lib/types/material";
+import MaterialsClient, { SafeMaterial } from "./materials-client";
 import { withTimeout } from "@/lib/timeout";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export default async function MaterialsPage() {
   try {
     const result = await withTimeout(
       getMaterialsService(),
-      { data: initialSampleMaterials },
+      { data: [] },
       2500
     );
     if (result.data && Array.isArray(result.data)) {
@@ -19,22 +19,17 @@ export default async function MaterialsPage() {
     }
   } catch (err) {
     console.error("[MaterialsPage] Failed to fetch materials:", err);
-    materials = initialSampleMaterials;
+    materials = [];
   }
 
   // Sanitize every row before passing to client
-  const safeMaterials = (materials || [])
+  const safeMaterials: SafeMaterial[] = (materials || [])
     .filter((item) => item !== null && item !== undefined)
     .map((item) => ({
       id: String(item.id ?? ""),
-      item_name: String(item.item_name ?? ""),
-      category: String(item.category ?? "General"),
+      name: String(item.name ?? ""),
       brand: item.brand != null ? String(item.brand) : null,
       unit: String(item.unit ?? "No"),
-      default_price: Number(item.default_price ?? 0),
-      supplier: item.supplier != null ? String(item.supplier) : null,
-      notes: item.notes != null ? String(item.notes) : null,
-      is_active: Boolean(item.is_active),
       created_at: String(item.created_at ?? new Date().toISOString()),
     }));
 

@@ -14,16 +14,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { deleteMaterialAction } from "./actions";
 
-interface SafeMaterial {
+export interface SafeMaterial {
   id: string;
-  item_name: string;
-  category: string;
+  name: string;
   brand: string | null;
   unit: string;
-  default_price: number;
-  supplier: string | null;
-  notes: string | null;
-  is_active: boolean;
   created_at: string;
 }
 
@@ -54,7 +49,7 @@ export default function MaterialsClient({ initialMaterials }: Props) {
   const filteredMaterials = materials.filter((item) => {
     if (!q) return true;
     return (
-      item.item_name.toLowerCase().includes(q) ||
+      item.name.toLowerCase().includes(q) ||
       (item.brand ?? "").toLowerCase().includes(q)
     );
   });
@@ -63,10 +58,10 @@ export default function MaterialsClient({ initialMaterials }: Props) {
 
   const exportToCsv = () => {
     if (filteredMaterials.length === 0) return;
-    const headers = ["Row", "Item Name", "Brand", "Unit"];
+    const headers = ["Row", "Name", "Brand", "Unit"];
     const rows = filteredMaterials.map((item, idx) => [
       idx + 1,
-      `"${item.item_name.replace(/"/g, '""')}"`,
+      `"${item.name.replace(/"/g, '""')}"`,
       `"${(item.brand || "—").replace(/"/g, '""')}"`,
       `"${item.unit.replace(/"/g, '""')}"`,
     ]);
@@ -91,7 +86,7 @@ export default function MaterialsClient({ initialMaterials }: Props) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            Material Catalogue
+            Materials
           </h1>
           <p className="text-xs text-slate-400 mt-1">
             Browse and manage all electrical inventory materials.
@@ -128,7 +123,7 @@ export default function MaterialsClient({ initialMaterials }: Props) {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by item name or brand..."
+            placeholder="Search by name or brand..."
             className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
           />
         </div>
@@ -136,7 +131,6 @@ export default function MaterialsClient({ initialMaterials }: Props) {
 
       {/* Material List Table - Excel Spreadsheet Container */}
       <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950">
-        {/* Excel Green Ribbon Bar */}
         <div className="bg-[#107c41] px-4 py-2 flex flex-wrap items-center justify-between text-white border-b border-emerald-800 text-xs">
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
@@ -196,7 +190,7 @@ export default function MaterialsClient({ initialMaterials }: Props) {
                   </th>
                   <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
                     <div className="text-[10px] text-emerald-400 font-mono">A</div>
-                    ITEM NAME
+                    NAME
                   </th>
                   <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-48">
                     <div className="text-[10px] text-emerald-400 font-mono">B</div>
@@ -218,34 +212,29 @@ export default function MaterialsClient({ initialMaterials }: Props) {
                     key={item.id}
                     className="hover:bg-emerald-500/10 transition-colors group border-b border-slate-800/80"
                   >
-                    {/* Row Index */}
                     <td className="py-2.5 px-3 text-center bg-slate-900/70 border-r border-slate-800 text-slate-400 select-none text-[11px] font-mono group-hover:text-emerald-400 group-hover:bg-emerald-950/30">
                       {idx + 1}
                     </td>
 
-                    {/* Item Name */}
                     <td className="py-2.5 px-4 border-r border-slate-800 font-sans font-semibold text-slate-100">
                       <Link
                         href={`/dashboard/materials/${item.id}`}
                         className="hover:text-emerald-400 transition-colors block"
                       >
-                        {item.item_name}
+                        {item.name}
                       </Link>
                     </td>
 
-                    {/* Brand */}
                     <td className="py-2.5 px-4 border-r border-slate-800 whitespace-nowrap font-sans">
                       <span className="font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-[11px]">
                         {item.brand || "—"}
                       </span>
                     </td>
 
-                    {/* Unit */}
                     <td className="py-2.5 px-4 border-r border-slate-800 whitespace-nowrap text-slate-300 font-mono text-[11px]">
                       {item.unit}
                     </td>
 
-                    {/* Actions */}
                     <td className="py-2.5 px-4 text-center whitespace-nowrap font-sans">
                       <div className="flex items-center justify-center gap-1">
                         <Link href={`/dashboard/materials/${item.id}`}>
@@ -260,7 +249,7 @@ export default function MaterialsClient({ initialMaterials }: Props) {
                           </Button>
                         </Link>
                         <Button
-                          onClick={() => handleDelete(item.id, item.item_name)}
+                          onClick={() => handleDelete(item.id, item.name)}
                           disabled={isPending}
                           variant="ghost"
                           size="xs"
@@ -277,22 +266,6 @@ export default function MaterialsClient({ initialMaterials }: Props) {
             </table>
           </div>
         )}
-
-        {/* Bottom Sheet Tab & Status Bar */}
-        <div className="bg-slate-900 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-[11px] text-slate-400 select-none">
-          <div className="flex items-center gap-1">
-            <span className="px-3 py-1 bg-slate-950 text-emerald-400 font-semibold rounded-t border-t-2 border-emerald-500 border-x border-slate-800 flex items-center gap-1.5">
-              <FileSpreadsheet className="w-3 h-3 text-emerald-400" />
-              Sheet1 - Materials Catalog
-            </span>
-          </div>
-          <div className="flex items-center gap-4 font-mono text-[10px]">
-            <span>READY</span>
-            <span className="border-l border-slate-700 pl-3">
-              COUNT: {filteredMaterials.length}
-            </span>
-          </div>
-        </div>
       </div>
     </div>
   );

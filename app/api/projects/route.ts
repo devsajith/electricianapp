@@ -5,9 +5,15 @@ import {
   CreateProjectDTO,
 } from "@/services/project.service";
 
+export const dynamic = "force-dynamic";
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+};
+
 /**
  * GET /api/projects
- * List all projects from Supabase
+ * List all projects from Supabase with performance headers
  */
 export async function GET() {
   const { data, error } = await getProjectsService();
@@ -15,13 +21,13 @@ export async function GET() {
   if (error) {
     return NextResponse.json(
       { success: false, error },
-      { status: 500 }
+      { status: 500, headers: NO_CACHE_HEADERS }
     );
   }
 
   return NextResponse.json(
     { success: true, count: data?.length || 0, data },
-    { status: 200 }
+    { status: 200, headers: NO_CACHE_HEADERS }
   );
 }
 
@@ -33,14 +39,25 @@ export async function POST(request: NextRequest) {
   try {
     const body: CreateProjectDTO = await request.json();
 
-    if (!body.customer_name || typeof body.customer_name !== "string" || !body.customer_name.trim()) {
+    if (!body || typeof body !== "object") {
       return NextResponse.json(
-        { success: false, error: "customer_name is required." },
+        { success: false, error: "Invalid JSON payload." },
         { status: 400 }
       );
     }
 
-    const { data, error } = await createProjectService(body);
+    const trimmedName = typeof body.name === "string" ? body.name.trim() : "";
+    if (!trimmedName) {
+      return NextResponse.json(
+        { success: false, error: "name is required." },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await createProjectService({
+      ...body,
+      name: trimmedName,
+    });
 
     if (error) {
       return NextResponse.json(

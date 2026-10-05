@@ -6,16 +6,14 @@ import {
   Plus,
   Receipt,
   IndianRupee,
-  Calendar,
   FolderKanban,
   CheckCircle2,
   AlertCircle,
-  Zap,
   Briefcase,
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { EXPENSE_CATEGORIES, Expense, ExpenseType } from "@/lib/types/expense";
+import { Expense, ExpenseType } from "@/lib/types/expense";
 import { createExpenseAction } from "@/app/dashboard/expenses/actions";
 import { getProjectsAction, ProjectRecord } from "@/app/dashboard/projects/actions";
 
@@ -27,8 +25,12 @@ interface RecordExpenseModalProps {
   onSuccess?: (newExpense?: Expense) => void;
 }
 
-export function RecordExpenseModal({
-  isOpen,
+export function RecordExpenseModal(props: RecordExpenseModalProps) {
+  if (!props.isOpen) return null;
+  return <RecordExpenseModalContent {...props} />;
+}
+
+function RecordExpenseModalContent({
   onClose,
   defaultProjectId,
   defaultExpenseType,
@@ -39,41 +41,32 @@ export function RecordExpenseModal({
   );
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [projectId, setProjectId] = useState<string>(defaultProjectId || "");
-  const [category, setCategory] = useState<string>("Emergency Material");
   const [description, setDescription] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
-  const [expenseDate, setExpenseDate] = useState<string>("");
-  const [receiptUrl, setReceiptUrl] = useState<string>("");
+  const [expenseDate, setExpenseDate] = useState<string>(
+    () => new Date().toISOString().split("T")[0]
+  );
 
-  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [loadingProjects, setLoadingProjects] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
-    if (isOpen) {
-      setErrorMessage(null);
-      setSuccessMessage(null);
-      setExpenseDate(new Date().toISOString().split("T")[0]);
-      setExpenseType(defaultExpenseType || (defaultProjectId ? "project" : "project"));
-
-      if (defaultProjectId) {
-        setProjectId(defaultProjectId);
+    let isMounted = true;
+    getProjectsAction().then((data) => {
+      if (!isMounted) return;
+      setProjects(data || []);
+      if (!defaultProjectId && data && data.length > 0 && data[0].id) {
+        setProjectId(data[0].id);
       }
-
-      setLoadingProjects(true);
-      getProjectsAction().then((data) => {
-        setProjects(data || []);
-        if (!defaultProjectId && data && data.length > 0 && data[0].id) {
-          setProjectId(data[0].id);
-        }
-        setLoadingProjects(false);
-      });
-    }
-  }, [isOpen, defaultProjectId, defaultExpenseType]);
-
-  if (!isOpen) return null;
+      setLoadingProjects(false);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [defaultProjectId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,13 +92,11 @@ export function RecordExpenseModal({
     startTransition(async () => {
       try {
         const res = await createExpenseAction({
-          expense_type: expenseType,
+          type: expenseType,
           project_id: expenseType === "project" ? projectId : null,
-          category,
           description: description.trim(),
           amount: numAmount,
-          expense_date: expenseDate,
-          receipt_url: receiptUrl.trim() || null,
+          date: expenseDate,
         });
 
         if (res.error) {
@@ -116,7 +107,6 @@ export function RecordExpenseModal({
           setTimeout(() => {
             setDescription("");
             setAmount("");
-            setReceiptUrl("");
             setSaving(false);
             onSuccess?.(res.data);
             onClose();
@@ -145,7 +135,7 @@ export function RecordExpenseModal({
                 Record Expense
               </h3>
               <p className="text-[11px] text-slate-400">
-                Log project site expenses or personal & shop overhead
+                Log project site expenses or personal &amp; shop overhead
               </p>
             </div>
           </div>
@@ -221,9 +211,9 @@ export function RecordExpenseModal({
                     <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 font-mono font-bold text-[10px] mr-2">
                       {selectedProj.project_number}
                     </span>
-                    <strong className="text-white">{selectedProj.customer_name}</strong>
+                    <strong className="text-white">{selectedProj.name}</strong>
                   </div>
-                  <span className="text-[11px] text-slate-400">{selectedProj.project_type}</span>
+                  <span className="text-[11px] text-slate-400">{selectedProj.type}</span>
                 </div>
               ) : (
                 <select
@@ -234,7 +224,7 @@ export function RecordExpenseModal({
                 >
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.project_number} - {p.customer_name} ({p.project_type})
+                      {p.project_number} - {p.name} ({p.type})
                     </option>
                   ))}
                 </select>
@@ -252,31 +242,6 @@ export function RecordExpenseModal({
               </div>
             </div>
           )}
-
-          {/* Category Chips */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-              Expense Category:
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {EXPENSE_CATEGORIES.map((cat) => (
-                <button
-                  type="button"
-                  key={cat}
-                  onClick={() => setCategory(cat)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
-                    category === cat
-                      ? expenseType === "self"
-                        ? "bg-emerald-500 text-slate-950 font-bold shadow-sm"
-                        : "bg-amber-500 text-slate-950 font-bold shadow-sm"
-                      : "bg-slate-950/60 text-slate-400 hover:text-slate-200 border border-slate-800"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Description */}
           <div className="space-y-1.5">
@@ -332,20 +297,6 @@ export function RecordExpenseModal({
                 />
               </div>
             </div>
-          </div>
-
-          {/* Receipt Note / URL */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold text-slate-400 block">
-              Bill / Receipt Ref (Optional):
-            </label>
-            <input
-              type="text"
-              value={receiptUrl}
-              onChange={(e) => setReceiptUrl(e.target.value)}
-              placeholder="e.g. Cash Memo #4892 / Fuel pump receipt"
-              className="w-full px-3 py-2 bg-slate-950/70 border border-slate-800 rounded-xl text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-            />
           </div>
 
           {/* Footer Action */}

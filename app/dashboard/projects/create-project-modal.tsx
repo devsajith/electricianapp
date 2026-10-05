@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { createProjectAction, ProjectRecord } from "./actions";
-import { X, Plus, Loader2, Zap, AlertCircle, Calendar, Phone, MapPin, Layers, CheckCircle2 } from "lucide-react";
+import { X, Plus, Loader2, Zap, AlertCircle, Calendar, MapPin, Layers, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { validateIndianPhone, PROJECT_TYPES, PROJECT_STATUSES } from "@/lib/project-utils";
 
@@ -12,7 +12,12 @@ interface ModalProps {
   onSuccess?: (newProject?: ProjectRecord) => void;
 }
 
-export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
+export function CreateProjectModal(props: ModalProps) {
+  if (!props.isOpen) return null;
+  return <CreateProjectModalContent {...props} />;
+}
+
+function CreateProjectModalContent({ onClose, onSuccess }: ModalProps) {
   const [pending, setPending] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -21,62 +26,42 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
   const endDateRef = useRef<HTMLInputElement>(null);
 
   // Form field states for client-side validation
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [place, setPlace] = useState("");
-  const [projectType, setProjectType] = useState<string>("Wiring");
+  const [type, setType] = useState<string>("Wiring");
   const [status, setStatus] = useState<string>("Ongoing");
-  const [startDate, setStartDate] = useState("");
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState("");
-  const [workDescription, setWorkDescription] = useState("");
+  const [description, setDescription] = useState("");
 
   // Validation error state
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
-  // Reset form when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setCustomerName("");
-      setCustomerPhone("");
-      setPlace("");
-      setProjectType("Wiring");
-      setStatus("Ongoing");
-      setStartDate(new Date().toISOString().split("T")[0]);
-      setEndDate("");
-      setWorkDescription("");
-      setErrors({});
-      setTouched({});
-      setServerError(null);
-      setPending(false);
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
   const validateField = (field: string, value: string) => {
     const newErrors = { ...errors };
 
     switch (field) {
-      case "customer_name":
+      case "name":
         if (!value.trim()) {
-          newErrors.customer_name = "Client name is required.";
+          newErrors.name = "Client name is required.";
         } else if (value.trim().length < 2) {
-          newErrors.customer_name = "Name must be at least 2 characters.";
+          newErrors.name = "Name must be at least 2 characters.";
         } else {
-          delete newErrors.customer_name;
+          delete newErrors.name;
         }
         break;
 
-      case "customer_phone":
+      case "phone":
         if (!value.trim()) {
-          newErrors.customer_phone = "Phone number is required.";
+          newErrors.phone = "Phone number is required.";
         } else {
           const res = validateIndianPhone(value);
           if (!res.isValid) {
-            newErrors.customer_phone = res.error || "Enter a valid 10-digit Indian phone number.";
+            newErrors.phone = res.error || "Enter a valid 10-digit Indian phone number.";
           } else {
-            delete newErrors.customer_phone;
+            delete newErrors.phone;
           }
         }
         break;
@@ -128,16 +113,16 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
     // Run full validation
     const submitErrors: Record<string, string> = {};
 
-    if (!customerName.trim()) {
-      submitErrors.customer_name = "Client name is required.";
+    if (!name.trim()) {
+      submitErrors.name = "Client name is required.";
     }
 
-    if (!customerPhone.trim()) {
-      submitErrors.customer_phone = "Phone number is required.";
+    if (!phone.trim()) {
+      submitErrors.phone = "Phone number is required.";
     } else {
-      const res = validateIndianPhone(customerPhone);
+      const res = validateIndianPhone(phone);
       if (!res.isValid) {
-        submitErrors.customer_phone = res.error || "Enter a valid 10-digit Indian phone number.";
+        submitErrors.phone = res.error || "Enter a valid 10-digit Indian phone number.";
       }
     }
 
@@ -152,8 +137,8 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
     if (Object.keys(submitErrors).length > 0) {
       setErrors(submitErrors);
       setTouched({
-        customer_name: true,
-        customer_phone: true,
+        name: true,
+        phone: true,
         place: true,
         start_date: true,
         end_date: true,
@@ -226,33 +211,33 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
           {/* Row 1: Name of the client */}
           <div>
             <label
-              htmlFor="customer_name"
+              htmlFor="name"
               className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5"
             >
               Name of the client <span className="text-amber-400">*</span>
             </label>
             <input
-              id="customer_name"
-              name="customer_name"
+              id="name"
+              name="name"
               type="text"
               required
-              value={customerName}
+              value={name}
               onChange={(e) => {
-                setCustomerName(e.target.value);
-                validateField("customer_name", e.target.value);
+                setName(e.target.value);
+                validateField("name", e.target.value);
               }}
-              onBlur={() => handleBlur("customer_name")}
+              onBlur={() => handleBlur("name")}
               placeholder="Name"
               className={`w-full px-3.5 py-2.5 bg-slate-950/60 border rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 min-h-[44px] transition-all ${
-                touched.customer_name && errors.customer_name
+                touched.name && errors.name
                   ? "border-rose-500/60 focus:ring-rose-500/40"
                   : "border-slate-800 focus:ring-amber-500/40"
               }`}
             />
-            {touched.customer_name && errors.customer_name && (
+            {touched.name && errors.name && (
               <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
-                {errors.customer_name}
+                {errors.name}
               </p>
             )}
           </div>
@@ -260,7 +245,7 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
           {/* Row 2: Phone number (India) */}
           <div>
             <label
-              htmlFor="customer_phone"
+              htmlFor="phone"
               className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5"
             >
               Phone Number (India) <span className="text-amber-400">*</span>
@@ -271,29 +256,29 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
                 <span className="text-slate-700">|</span>
               </div>
               <input
-                id="customer_phone"
-                name="customer_phone"
+                id="phone"
+                name="phone"
                 type="tel"
                 required
-                value={customerPhone}
+                value={phone}
                 onChange={(e) => {
-                  setCustomerPhone(e.target.value);
-                  validateField("customer_phone", e.target.value);
+                  setPhone(e.target.value);
+                  validateField("phone", e.target.value);
                 }}
-                onBlur={() => handleBlur("customer_phone")}
+                onBlur={() => handleBlur("phone")}
                 placeholder="9876543210"
                 maxLength={14}
                 className={`w-full pl-20 pr-4 py-2.5 bg-slate-950/60 border rounded-xl text-sm font-mono text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 min-h-[44px] transition-all ${
-                  touched.customer_phone && errors.customer_phone
+                  touched.phone && errors.phone
                     ? "border-rose-500/60 focus:ring-rose-500/40"
                     : "border-slate-800 focus:ring-amber-500/40"
                 }`}
               />
             </div>
-            {touched.customer_phone && errors.customer_phone ? (
+            {touched.phone && errors.phone ? (
               <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
-                {errors.customer_phone}
+                {errors.phone}
               </p>
             ) : (
               <p className="text-[11px] text-slate-500 mt-1">
@@ -306,22 +291,22 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label
-                htmlFor="project_type"
+                htmlFor="type"
                 className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5 flex items-center gap-1.5"
               >
                 <Layers className="w-3.5 h-3.5 text-amber-400" />
                 Project Type <span className="text-amber-400">*</span>
               </label>
               <select
-                id="project_type"
-                name="project_type"
-                value={projectType}
-                onChange={(e) => setProjectType(e.target.value)}
+                id="type"
+                name="type"
+                value={type}
+                onChange={(e) => setType(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/40 min-h-[44px]"
               >
-                {PROJECT_TYPES.map((type) => (
-                  <option key={type} value={type} className="bg-slate-900 text-slate-100">
-                    {type}
+                {PROJECT_TYPES.map((t) => (
+                  <option key={t} value={t} className="bg-slate-900 text-slate-100">
+                    {t}
                   </option>
                 ))}
               </select>
@@ -431,10 +416,7 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
                   Today
                 </button>
               </div>
-              <div
-                onClick={() => startDateRef.current?.showPicker?.()}
-                className="relative cursor-pointer group"
-              >
+              <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-amber-400">
                   <Calendar className="w-4 h-4" />
                 </div>
@@ -448,14 +430,21 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
                     setStartDate(e.target.value);
                     validateField("start_date", e.target.value);
                   }}
-                  onClick={(e) => e.currentTarget.showPicker?.()}
+                  onClick={(e) => {
+                    try {
+                      e.currentTarget.showPicker?.();
+                    } catch {}
+                  }}
                   className="w-full pl-10 pr-10 py-2.5 bg-slate-950/60 border border-slate-800 group-hover:border-amber-500/40 rounded-xl text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/40 min-h-[44px] [color-scheme:dark] cursor-pointer"
                 />
                 <button
                   type="button"
                   onClick={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
-                    startDateRef.current?.showPicker?.();
+                    try {
+                      startDateRef.current?.showPicker?.();
+                    } catch {}
                   }}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-amber-400 transition-colors"
                   title="Open Calendar"
@@ -518,10 +507,7 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
                   </button>
                 </div>
               </div>
-              <div
-                onClick={() => endDateRef.current?.showPicker?.()}
-                className="relative cursor-pointer group"
-              >
+              <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-amber-400">
                   <Calendar className="w-4 h-4" />
                 </div>
@@ -536,7 +522,11 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
                     setEndDate(e.target.value);
                     validateField("end_date", e.target.value);
                   }}
-                  onClick={(e) => e.currentTarget.showPicker?.()}
+                  onClick={(e) => {
+                    try {
+                      e.currentTarget.showPicker?.();
+                    } catch {}
+                  }}
                   className={`w-full pl-10 pr-10 py-2.5 bg-slate-950/60 border group-hover:border-amber-500/40 rounded-xl text-sm text-slate-100 focus:outline-none focus:ring-2 min-h-[44px] [color-scheme:dark] cursor-pointer transition-all ${
                     errors.end_date
                       ? "border-rose-500/60 focus:ring-rose-500/40"
@@ -546,8 +536,11 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
                 <button
                   type="button"
                   onClick={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
-                    endDateRef.current?.showPicker?.();
+                    try {
+                      endDateRef.current?.showPicker?.();
+                    } catch {}
                   }}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-amber-400 transition-colors"
                   title="Open Calendar"
@@ -567,17 +560,17 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: ModalProps) {
           {/* Row 6: Description (Optional) */}
           <div>
             <label
-              htmlFor="work_description"
+              htmlFor="description"
               className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5"
             >
               Description <span className="text-slate-500 font-normal lowercase">(optional)</span>
             </label>
             <textarea
-              id="work_description"
-              name="work_description"
+              id="description"
+              name="description"
               rows={2}
-              value={workDescription}
-              onChange={(e) => setWorkDescription(e.target.value)}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. 3BHK full concealed wiring, DB fixing, and bathroom plumbing..."
               className="w-full px-3.5 py-2 bg-slate-950/60 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40 resize-none"
             />

@@ -22,50 +22,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { getStatusStyle, PROJECT_STATUSES, PROJECT_TYPES } from "@/lib/project-utils";
 
-const initialSampleProjects: ProjectRecord[] = [
-  {
-    id: "sample-1",
-    project_number: "PRJ-918234",
-    customer_name: "Apex Commercial Plaza",
-    customer_phone: "9845012345",
-    place: "Kaloor, Kochi",
-    address: "Kaloor, Kochi",
-    project_type: "Maintenance",
-    work_description: "Quarterly electrical maintenance and main distribution board check.",
-    start_date: "2026-09-10",
-    end_date: "2026-09-22",
-    status: "Ongoing",
-  },
-  {
-    id: "sample-2",
-    project_number: "PRJ-482019",
-    customer_name: "Sarah George",
-    customer_phone: "9895123456",
-    place: "Palarivattom, Ernakulam",
-    address: "Palarivattom, Ernakulam",
-    project_type: "Wiring & Plumbing",
-    work_description: "Complete concealed wiring and pipe fittings for new villa.",
-    start_date: "2026-09-01",
-    end_date: "2026-09-15",
-    status: "Completed",
-  },
-  {
-    id: "sample-3",
-    project_number: "PRJ-631940",
-    customer_name: "Rahul Varma",
-    customer_phone: "9744112233",
-    place: "Marine Drive, Kochi",
-    address: "Marine Drive, Kochi",
-    project_type: "Wiring",
-    work_description: "Living room lighting fixtures and false ceiling electrical work.",
-    start_date: "2026-09-18",
-    end_date: "2026-09-25",
-    status: "Pending",
-  },
-];
-
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<ProjectRecord[]>(initialSampleProjects);
+  const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -79,7 +37,7 @@ export default function ProjectsPage() {
 
     try {
       const data = await getProjectsAction();
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         setProjects(data);
       }
     } catch (err) {
@@ -96,7 +54,7 @@ export default function ProjectsPage() {
     getProjectsAction()
       .then((data) => {
         if (!isMounted) return;
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setProjects(data);
         }
       })
@@ -115,14 +73,11 @@ export default function ProjectsPage() {
   const handleProjectCreated = (newProject?: ProjectRecord) => {
     if (newProject) {
       setProjects((prev) => {
-        // Strip out initial sample demo records once a real project is added
-        const realProjects = prev.filter((p) => !p.id?.startsWith("sample-"));
-        const exists = realProjects.some((p) => p.id === newProject.id);
-        if (exists) return realProjects;
-        return [newProject, ...realProjects];
+        const exists = prev.some((p) => p.id === newProject.id);
+        if (exists) return prev;
+        return [newProject, ...prev];
       });
     }
-    // Re-sync with server in background without blanking out the screen
     fetchProjects(false);
   };
 
@@ -131,7 +86,7 @@ export default function ProjectsPage() {
       setProjects((prev) =>
         prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p))
       );
-      if (id && !id.startsWith("sample-")) {
+      if (id) {
         await updateProjectStatusAction(id, newStatus);
       }
     });
@@ -142,14 +97,13 @@ export default function ProjectsPage() {
     const matchesStatus =
       selectedStatus === "All" ||
       p.status.toLowerCase().trim() === selectedStatus.toLowerCase().trim();
-    const matchesType = selectedType === "All" || p.project_type === selectedType;
+    const matchesType = selectedType === "All" || p.type === selectedType;
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       !q ||
-      p.customer_name.toLowerCase().includes(q) ||
+      p.name.toLowerCase().includes(q) ||
       p.place?.toLowerCase().includes(q) ||
-      p.address?.toLowerCase().includes(q) ||
-      p.project_type.toLowerCase().includes(q);
+      p.type.toLowerCase().includes(q);
 
     return matchesStatus && matchesType && matchesSearch;
   });
@@ -170,9 +124,9 @@ export default function ProjectsPage() {
     const rows = filteredProjects.map((p, idx) => [
       idx + 1,
       `"${(p.project_number || "").replace(/"/g, '""')}"`,
-      `"${(p.customer_name || "").replace(/"/g, '""')}"`,
-      `"${(p.project_type || "").replace(/"/g, '""')}"`,
-      `"${(p.place || p.address || "").replace(/"/g, '""')}"`,
+      `"${(p.name || "").replace(/"/g, '""')}"`,
+      `"${(p.type || "").replace(/"/g, '""')}"`,
+      `"${(p.place || "").replace(/"/g, '""')}"`,
       p.start_date || "",
       p.end_date || "",
       `"${(p.status || "").replace(/"/g, '""')}"`,
@@ -370,7 +324,7 @@ export default function ProjectsPage() {
                 ) : (
                   filteredProjects.map((p, idx) => {
                     const statusStyle = getStatusStyle(p.status);
-                    const placeName = p.place || p.address || "—";
+                    const placeName = p.place || "—";
                     const detailHref = `/dashboard/projects/${p.id}`;
 
                     return (
@@ -390,10 +344,10 @@ export default function ProjectsPage() {
                               href={detailHref}
                               className="font-bold text-slate-100 text-sm hover:text-amber-400 transition-colors inline-block"
                             >
-                              {p.customer_name}
+                              {p.name}
                             </Link>
                             <span className="text-[11px] text-slate-400 font-mono">
-                              {p.project_type} • {p.project_number}
+                              {p.type} • {p.project_number}
                             </span>
                           </div>
                         </td>
