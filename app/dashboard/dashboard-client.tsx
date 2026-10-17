@@ -1,24 +1,32 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-  FolderKanban,
-  Wallet,
-  Receipt,
+  Search,
+  X,
+  ScanLine,
   FileSpreadsheet,
+  Landmark,
+  Receipt,
   Plus,
-  TrendingUp,
-  TrendingDown,
   Clock,
   CheckCircle2,
   Calendar,
   IndianRupee,
   ArrowRight,
   Zap,
+  Phone,
+  Settings,
+  Sparkles,
+  Wallet,
   ChevronRight,
+  ChevronDown,
+  Building2,
+  FolderKanban,
+  FileText,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ProjectRecord } from "@/app/dashboard/projects/actions";
 import { Payment } from "@/lib/types/payment";
 import { Expense } from "@/lib/types/expense";
@@ -33,12 +41,39 @@ interface DashboardClientProps {
   userEmail?: string | null;
 }
 
+// Vibrant palette for contact avatars like Google Pay
+const AVATAR_COLORS = [
+  "bg-amber-600",
+  "bg-blue-600",
+  "bg-emerald-600",
+  "bg-purple-600",
+  "bg-rose-600",
+  "bg-teal-600",
+  "bg-indigo-600",
+  "bg-cyan-600",
+  "bg-orange-600",
+];
+
+function getAvatarColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 export function DashboardClient({
   initialProjects,
   initialPayments,
   initialExpenses,
   userEmail,
 }: DashboardClientProps) {
+  const router = useRouter();
+
+  // Search state for client name & project filtering
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showAllAvatars, setShowAllAvatars] = useState(false);
+
   // Modals state
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -48,7 +83,6 @@ export function DashboardClient({
   // Financial Metrics Calculation
   const currentMonthPrefix = new Date().toISOString().substring(0, 7); // YYYY-MM
 
-  // Total Money In this month
   const thisMonthPayments = initialPayments.filter((p) =>
     (p.payment_date || "").startsWith(currentMonthPrefix)
   );
@@ -57,13 +91,11 @@ export function DashboardClient({
     0
   );
 
-  // Total Money In all time
   const totalMoneyInAllTime = initialPayments.reduce(
     (sum, p) => sum + (Number(p.amount) || 0),
     0
   );
 
-  // Total Expenses this month
   const thisMonthExpenses = initialExpenses.filter((e) =>
     (e.date || "").startsWith(currentMonthPrefix)
   );
@@ -72,486 +104,498 @@ export function DashboardClient({
     0
   );
 
-  // Active Jobs count
   const activeJobs = initialProjects.filter(
     (p) =>
       p.status.toLowerCase().includes("progress") ||
+      p.status.toLowerCase().includes("ongoing") ||
       p.status.toLowerCase().includes("scheduled") ||
       p.status.toLowerCase().includes("pending")
   );
 
-  // Since Quotations no longer track total_amount or project_id, 
-  // set totalReceivables to 0 for now until business logic is redefined.
-  const totalReceivables = 0;
-
-  // Recent combined transactions (Payments + Expenses) sorted by date
-  const recentMovements = [
-    ...initialPayments.map((p) => ({
-      id: p.id,
-      type: "INCOME" as const,
-      title: p.projects?.name || "Client Payment",
-      sub: p.method || "Cash",
-      amount: Number(p.amount) || 0,
-      date: p.payment_date,
-    })),
-    ...initialExpenses.map((e) => ({
-      id: e.id,
-      type: "EXPENSE" as const,
-      title: e.description || e.type,
-      sub: e.name ? `Job: ${e.name}` : e.type,
-      amount: Number(e.amount) || 0,
-      date: e.date,
-    })),
-  ]
-    .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
-    .slice(0, 5);
-
-  const getStatusBadge = (status: string) => {
-    const s = status.toLowerCase();
-    if (s.includes("progress")) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
-          <Clock className="w-3 h-3" /> In Progress
-        </span>
-      );
-    }
-    if (s.includes("completed")) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-          <CheckCircle2 className="w-3 h-3" /> Completed
-        </span>
-      );
-    }
-    if (s.includes("scheduled")) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/30">
-          <Calendar className="w-3 h-3" /> Scheduled
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
-        {status}
-      </span>
+  // Filter projects based on search query (Client name, phone, project number, place)
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery.trim()) return initialProjects;
+    const query = searchQuery.toLowerCase().trim();
+    return initialProjects.filter(
+      (p) =>
+        p.name.toLowerCase().includes(query) ||
+        (p.phone && p.phone.includes(query)) ||
+        (p.project_number && p.project_number.toLowerCase().includes(query)) ||
+        (p.place && p.place.toLowerCase().includes(query)) ||
+        (p.type && p.type.toLowerCase().includes(query))
     );
-  };
+  }, [initialProjects, searchQuery]);
+
+  // Compute expenses and payments per project
+  const projectStats = useMemo(() => {
+    const stats: Record<string, { expenses: number; payments: number }> = {};
+    for (const p of initialProjects) {
+      if (!p.id) continue;
+      stats[p.id] = { expenses: 0, payments: 0 };
+    }
+    for (const exp of initialExpenses) {
+      if (exp.project_id && stats[exp.project_id]) {
+        stats[exp.project_id].expenses += Number(exp.amount) || 0;
+      }
+    }
+    for (const pay of initialPayments) {
+      if (pay.project_id && stats[pay.project_id]) {
+        stats[pay.project_id].payments += Number(pay.amount) || 0;
+      }
+    }
+    return stats;
+  }, [initialProjects, initialExpenses, initialPayments]);
+
+  const displayedAvatars = showAllAvatars
+    ? filteredProjects
+    : filteredProjects.slice(0, 7);
 
   return (
-    <div className="space-y-5 sm:space-y-6">
-      {/* Field Operations Welcome Header */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                <Zap className="w-3 h-3 fill-current" />
-                Field Operations
-              </span>
-              <span className="text-xs text-slate-400">• Active</span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-              Hello, {userEmail ? userEmail.split("@")[0] : "Electrician & Plumber"}
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
-              Track ongoing work orders, collect client money, log fuel & parts expenses, and send instant quotations.
-            </p>
+    <div className="max-w-2xl mx-auto space-y-6 pb-20 select-none">
+      {/* 1. Google Pay Style Search Pill with Client Name Search + Settings Avatar */}
+      <div className="relative flex items-center gap-2">
+        <div className="relative flex-1">
+          <div className="flex items-center w-full h-12 px-4 rounded-full bg-[#1e2025] hover:bg-[#24262c] focus-within:bg-[#252830] border border-[#2e323b] focus-within:border-[#1a73e8] transition-all shadow-sm">
+            <Search className="w-5 h-5 text-slate-400 mr-3 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by client name or project..."
+              className="w-full bg-transparent text-sm text-slate-100 placeholder-slate-400 focus:outline-none"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-700/50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
+        </div>
 
-          <div className="flex items-center gap-2.5">
-            <Button
-              onClick={() => {
-                setSelectedProjectId(undefined);
-                setPaymentModalOpen(true);
-              }}
-              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs gap-1.5 shadow-sm active:scale-95 py-2.5 px-4 rounded-xl"
+        {/* Top-Right Settings Avatar (Matches Google Pay profile avatar in Image 1) */}
+        <Link
+          href="/dashboard/settings"
+          title="Settings"
+          aria-label="Settings"
+          className="w-12 h-12 rounded-full bg-[#1e2025] hover:bg-[#262830] border border-[#2e323b] hover:border-amber-500/50 flex items-center justify-center shrink-0 transition-transform active:scale-95 shadow-sm overflow-hidden"
+        >
+          <div className="w-9 h-9 rounded-full bg-[#1a73e8] text-white flex items-center justify-center font-bold text-sm shadow-sm">
+            {userEmail ? userEmail.charAt(0).toUpperCase() : "E"}
+          </div>
+        </Link>
+      </div>
+
+      {/* 2. Hero Promotional / Paperwork Banner Card (Google Pay Card Style) */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1c1f26] via-[#16181f] to-[#121317] border border-[#2a2d36] p-5 sm:p-6 shadow-lg">
+        {/* Decorative background glow & shapes */}
+        <div className="absolute -top-10 -right-10 w-44 h-44 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-4 opacity-15 pointer-events-none text-slate-400">
+          <Zap className="w-32 h-32" />
+        </div>
+
+        <div className="relative z-10 max-w-sm sm:max-w-md space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-blue-500/15 text-blue-400 border border-blue-500/25">
+            <Sparkles className="w-3 h-3 text-blue-400" />
+            Electrician Paperwork Hub
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight">
+            Manage Electrician Paperwork
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
+            Generate client quotes, track site expenses, collect stage payments & store blueprints in one place.
+          </p>
+
+          <div className="pt-2 flex items-center gap-3">
+            <Link
+              href="/dashboard/estimates/new"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#1a73e8] hover:bg-[#1557bf] text-white text-xs font-bold transition-all shadow-md active:scale-95"
             >
-              <Wallet className="w-4 h-4" />
-              <span>+ Record Payment</span>
-            </Button>
-            <Button
+              <span>New Quotation</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+            <button
+              type="button"
               onClick={() => setProjectModalOpen(true)}
-              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 shadow-sm active:scale-95 py-2.5 px-4 rounded-xl"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 text-xs font-semibold border border-slate-700/60 transition-all active:scale-95"
             >
-              <Plus className="w-4 h-4" />
-              <span>+ New Job</span>
-            </Button>
+              <Plus className="w-3.5 h-3.5 text-amber-400" />
+              <span>Add Project</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* 4 Big High-Contrast Touch-Friendly KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Card 1: Active Jobs */}
+      {/* 3. The 4 Primary Action Buttons (Exact Google Pay Blue Squares/Squircles) */}
+      {/* Mappings from user request:
+          Scan QR = Add project
+          pay anyone = Quatations
+          Bank Transfer = Payments
+          mobile Recharge = expance
+      */}
+      <div className="grid grid-cols-4 gap-2 sm:gap-4 pt-1">
+        {/* Action 1: Add project (Scan QR) */}
+        <button
+          type="button"
+          onClick={() => setProjectModalOpen(true)}
+          className="flex flex-col items-center group active:scale-95 transition-transform"
+        >
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#0b57d0] group-hover:bg-[#1a73e8] flex items-center justify-center text-white shadow-md shadow-[#0b57d0]/25 transition-colors">
+            <ScanLine className="w-7 h-7 stroke-[2]" />
+          </div>
+          <span className="text-xs font-bold text-slate-100 mt-2 text-center leading-tight">
+            Add project
+          </span>
+          <span className="text-[10px] text-slate-400 font-medium">Scan QR</span>
+        </button>
+
+        {/* Action 2: Quotations (Pay anyone) */}
+        <Link
+          href="/dashboard/estimates"
+          className="flex flex-col items-center group active:scale-95 transition-transform"
+        >
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#0b57d0] group-hover:bg-[#1a73e8] flex items-center justify-center text-white shadow-md shadow-[#0b57d0]/25 transition-colors">
+            <FileSpreadsheet className="w-7 h-7 stroke-[2]" />
+          </div>
+          <span className="text-xs font-bold text-slate-100 mt-2 text-center leading-tight">
+            Quotations
+          </span>
+          <span className="text-[10px] text-slate-400 font-medium">Pay anyone</span>
+        </Link>
+
+        {/* Action 3: Payments (Bank transfer) */}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedProjectId(undefined);
+            setPaymentModalOpen(true);
+          }}
+          className="flex flex-col items-center group active:scale-95 transition-transform"
+        >
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#0b57d0] group-hover:bg-[#1a73e8] flex items-center justify-center text-white shadow-md shadow-[#0b57d0]/25 transition-colors">
+            <Landmark className="w-7 h-7 stroke-[2]" />
+          </div>
+          <span className="text-xs font-bold text-slate-100 mt-2 text-center leading-tight">
+            Payments
+          </span>
+          <span className="text-[10px] text-slate-400 font-medium">Bank transfer</span>
+        </button>
+
+        {/* Action 4: Expense (Mobile recharge) */}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedProjectId(undefined);
+            setExpenseModalOpen(true);
+          }}
+          className="flex flex-col items-center group active:scale-95 transition-transform"
+        >
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#0b57d0] group-hover:bg-[#1a73e8] flex items-center justify-center text-white shadow-md shadow-[#0b57d0]/25 transition-colors">
+            <Receipt className="w-7 h-7 stroke-[2]" />
+          </div>
+          <span className="text-xs font-bold text-slate-100 mt-2 text-center leading-tight">
+            Expense
+          </span>
+          <span className="text-[10px] text-slate-400 font-medium">Mobile recharge</span>
+        </button>
+      </div>
+
+      {/* 4. Secondary Quick Metric Pills Row (Like Tap & Pay, UPI Lite, Rewards in GPay) */}
+      <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1">
         <Link
           href="/dashboard/projects"
-          className="p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 shadow-sm transition-all active:scale-98 flex flex-col justify-between"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#1e2025] hover:bg-[#262830] border border-[#2e323b] text-xs font-semibold text-slate-200 whitespace-nowrap transition-colors shrink-0"
         >
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Active Jobs
-            </span>
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <FolderKanban className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              {activeJobs.length} <span className="text-sm font-semibold text-slate-400">Jobs</span>
-            </div>
-            <p className="text-[11px] text-amber-400 font-medium mt-1 flex items-center gap-1">
-              <span>View all projects</span>
-              <ArrowRight className="w-3 h-3" />
-            </p>
-          </div>
+          <div className="w-2 h-2 rounded-full bg-[#1a73e8] animate-pulse" />
+          <span>Active Jobs: {activeJobs.length}</span>
         </Link>
 
-        {/* Card 2: Money In (This Month) */}
         <Link
           href="/dashboard/payments"
-          className="p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 shadow-sm transition-all active:scale-98 flex flex-col justify-between"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#1e2025] hover:bg-[#262830] border border-[#2e323b] text-xs font-semibold text-slate-200 whitespace-nowrap transition-colors shrink-0"
         >
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Payments Received
-            </span>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <IndianRupee className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
-              ₹{totalMoneyInMonth.toLocaleString("en-IN")}
-            </div>
-            <p className="text-[11px] text-slate-400 font-medium mt-1">
-              Collected this month
-            </p>
-          </div>
+          <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+          <span>This Month In: ₹{totalMoneyInMonth.toLocaleString("en-IN")}</span>
         </Link>
 
-        {/* Card 3: Expenses (Money Out) */}
         <Link
           href="/dashboard/expenses"
-          className="p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-rose-500/50 shadow-sm transition-all active:scale-98 flex flex-col justify-between"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#1e2025] hover:bg-[#262830] border border-[#2e323b] text-xs font-semibold text-slate-200 whitespace-nowrap transition-colors shrink-0"
         >
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Expenses Paid
-            </span>
-            <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              <Receipt className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-black text-rose-400 tracking-tight">
-              ₹{totalMoneyOutMonth.toLocaleString("en-IN")}
-            </div>
-            <p className="text-[11px] text-slate-400 font-medium mt-1">
-              Parts, fuel & labour expenses
-            </p>
-          </div>
-        </Link>
-
-        {/* Card 4: To Collect (Pending) */}
-        <Link
-          href="/dashboard/reports"
-          className="p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 shadow-sm transition-all active:scale-98 flex flex-col justify-between"
-        >
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Pending Due
-            </span>
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <Clock className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-black text-amber-400 tracking-tight">
-              {totalReceivables > 0 ? `₹${totalReceivables.toLocaleString("en-IN")}` : "All Clear"}
-            </div>
-            <p className="text-[11px] text-slate-400 font-medium mt-1">
-              Outstanding client balance
-            </p>
-          </div>
+          <Receipt className="w-3.5 h-3.5 text-rose-400" />
+          <span>Expenses: ₹{totalMoneyOutMonth.toLocaleString("en-IN")}</span>
         </Link>
       </div>
 
-      {/* Quick Trade Action Buttons Bar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-3">
-          Instant Field Actions
-        </span>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          <button
-            type="button"
-            onClick={() => setProjectModalOpen(true)}
-            className="flex items-center gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/40 text-left transition-all active:scale-95 group"
-          >
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 group-hover:scale-105 transition-transform">
-              <FolderKanban className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-white leading-tight">+ New Job</div>
-              <div className="text-[10px] text-slate-400">Add project</div>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedProjectId(undefined);
-              setPaymentModalOpen(true);
-            }}
-            className="flex items-center gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/40 text-left transition-all active:scale-95 group"
-          >
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition-transform">
-              <Wallet className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-white leading-tight">+ Record Payment</div>
-              <div className="text-[10px] text-slate-400">Collect money</div>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedProjectId(undefined);
-              setExpenseModalOpen(true);
-            }}
-            className="flex items-center gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-rose-500/40 text-left transition-all active:scale-95 group"
-          >
-            <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 group-hover:scale-105 transition-transform">
-              <Receipt className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-white leading-tight">+ Add Expense</div>
-              <div className="text-[10px] text-slate-400">Parts, petrol, tea</div>
-            </div>
-          </button>
-
+      {/* 5. Google Pay "Send money" People / Projects Avatar Grid */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <div>
+            <h3 className="text-base font-bold text-white tracking-tight">
+              Projects
+            </h3>
+            <p className="text-[11px] text-slate-400">
+              Select client to view expenses and payments timeline
+            </p>
+          </div>
           <Link
-            href="/dashboard/estimates/new"
-            className="flex items-center gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/40 text-left transition-all active:scale-95 group"
+            href="/dashboard/projects"
+            className="text-xs font-bold text-[#8ab4f8] hover:text-blue-300"
           >
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 group-hover:scale-105 transition-transform">
-              <FileSpreadsheet className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-white leading-tight">+ New Quote</div>
-              <div className="text-[10px] text-slate-400">Make estimate</div>
-            </div>
+            Manage &gt;
           </Link>
         </div>
+
+        {/* 4-Column Avatar Grid like Google Pay */}
+        <div className="grid grid-cols-4 gap-y-4 gap-x-2 sm:gap-x-4">
+          {displayedAvatars.map((p) => {
+            const initial = p.name ? p.name.trim().charAt(0).toUpperCase() : "P";
+            const colorClass = getAvatarColor(p.name);
+            const stats = p.id ? projectStats[p.id] : null;
+
+            return (
+              <Link
+                key={p.id || p.project_number}
+                href={`/dashboard/projects/${p.id}`}
+                className="flex flex-col items-center group text-center active:scale-95 transition-transform"
+              >
+                {/* Circle Avatar */}
+                <div
+                  className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full ${colorClass} flex items-center justify-center text-white text-xl font-bold shadow-md group-hover:ring-2 ring-blue-400 transition-all`}
+                >
+                  {initial}
+                </div>
+                {/* Client Name under Circle */}
+                <span className="text-xs font-semibold text-slate-200 mt-2 truncate w-full px-1">
+                  {p.name}
+                </span>
+                {/* Subtle project badge */}
+                <span className="text-[10px] text-slate-400 font-mono truncate w-full px-1">
+                  {p.type || "Wiring"}
+                </span>
+              </Link>
+            );
+          })}
+
+          {/* "+ Add New" or "More" Avatar */}
+          {filteredProjects.length > 7 && !showAllAvatars ? (
+            <button
+              type="button"
+              onClick={() => setShowAllAvatars(true)}
+              className="flex flex-col items-center group text-center active:scale-95 transition-transform"
+            >
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#1e2025] border border-[#2e323b] flex items-center justify-center text-slate-300 group-hover:text-white transition-colors">
+                <ChevronDown className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-semibold text-slate-200 mt-2">More</span>
+              <span className="text-[10px] text-slate-400">View all</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setProjectModalOpen(true)}
+              className="flex flex-col items-center group text-center active:scale-95 transition-transform"
+            >
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#1e2025] border border-dashed border-slate-600 hover:border-amber-400 flex items-center justify-center text-amber-400 transition-colors">
+                <Plus className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-semibold text-slate-200 mt-2">New Job</span>
+              <span className="text-[10px] text-slate-400">+ Add</span>
+            </button>
+          )}
+        </div>
+
+        {filteredProjects.length === 0 && (
+          <div className="text-center py-8 px-4 rounded-2xl bg-[#181a20] border border-[#262932]">
+            <p className="text-xs text-slate-400">
+              No project matches &ldquo;{searchQuery}&rdquo;.
+            </p>
+            <button
+              type="button"
+              onClick={() => setProjectModalOpen(true)}
+              className="mt-3 px-4 py-1.5 rounded-full bg-[#1a73e8] text-white text-xs font-bold"
+            >
+              + Create Project for &ldquo;{searchQuery}&rdquo;
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Main Field Grid: Recent Jobs + Cash Flow */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Left Column (2 Cols): Active & Recent Jobs Feed */}
-        <div className="lg:col-span-2 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold text-white tracking-tight">
-                Current Jobs & Customer Work Orders
-              </h2>
-              <p className="text-xs text-slate-400">
-                Manage ongoing jobs and record payments or expenses
-              </p>
-            </div>
-            <Link
-              href="/dashboard/projects"
-              className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1"
-            >
-              <span>All Jobs ({initialProjects.length})</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+      {/* 6. Detailed Project Listings (Showing Expense on Left & Payment on Right) */}
+      {/* As requested: "when selecting a project it shoul show the expance and payment of that project left and right respectively. the details button to expand the full details and plavce to track expance and payments" */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-base font-bold text-white tracking-tight">
+            Project Accounts &amp; Paperwork
+          </h3>
+          <span className="text-xs text-slate-400 font-mono">
+            {filteredProjects.length} Projects
+          </span>
+        </div>
 
-          <div className="space-y-3">
-            {initialProjects.slice(0, 4).map((p) => {
-              const projPayments = initialPayments.filter((pay) => pay.project_id === p.id);
-              const paidAmount = projPayments.reduce(
-                (sum, pay) => sum + (Number(pay.amount) || 0),
-                0
-              );
+        <div className="space-y-3">
+          {filteredProjects.map((p) => {
+            const stats = p.id
+              ? projectStats[p.id] || { expenses: 0, payments: 0 }
+              : { expenses: 0, payments: 0 };
+            const balance = stats.payments - stats.expenses;
+            const colorClass = getAvatarColor(p.name);
+            const initial = p.name ? p.name.trim().charAt(0).toUpperCase() : "P";
 
-              return (
-                <div
-                  key={p.id || p.project_number}
-                  className="p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm space-y-3 hover:border-slate-700 transition-all"
-                >
-                  {/* Top line: Customer name, Job #, Status */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div>
+            return (
+              <div
+                key={p.id || p.project_number}
+                className="rounded-2xl bg-[#181a20] border border-[#272a33] hover:border-[#353945] p-4 space-y-3.5 transition-all shadow-sm"
+              >
+                {/* Header: Avatar, Name, Job #, Status */}
+                <div className="flex items-start justify-between gap-3">
+                  <Link
+                    href={`/dashboard/projects/${p.id}`}
+                    className="flex items-center gap-3 group flex-1 min-w-0"
+                  >
+                    <div
+                      className={`w-11 h-11 rounded-full ${colorClass} flex items-center justify-center text-white font-bold text-base shrink-0`}
+                    >
+                      {initial}
+                    </div>
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm sm:text-base font-bold text-white">
+                        <h4 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate">
                           {p.name}
-                        </h3>
-                        <span className="font-mono text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                        </h4>
+                        <span className="text-[10px] font-mono font-bold bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700 shrink-0">
                           {p.project_number}
                         </span>
                       </div>
                       <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
-                        <span className="font-medium text-slate-300">{p.type}</span>
-                        {p.phone && (
-                          <span className="text-slate-400 font-mono">
-                            • {p.phone}
-                          </span>
-                        )}
-                        {p.place && (
-                          <span className="hidden sm:inline text-slate-500 truncate max-w-xs">
-                            • {p.place}
-                          </span>
-                        )}
+                        <span>{p.type || "Wiring"}</span>
+                        {p.place && <span>• {p.place}</span>}
+                        {p.phone && <span className="font-mono hidden sm:inline">• {p.phone}</span>}
                       </div>
                     </div>
+                  </Link>
 
-                    <div>{getStatusBadge(p.status)}</div>
-                  </div>
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight shrink-0 ${
+                      p.status.toLowerCase().includes("complete")
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                        : "bg-blue-500/10 text-blue-400 border border-blue-500/30"
+                    }`}
+                  >
+                    {p.status}
+                  </span>
+                </div>
 
-                  {/* Financial Mini Bar on Card */}
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-400">Total Inflow:</span>
-                      <span className="font-bold text-emerald-400 font-mono">
-                        ₹{paidAmount.toLocaleString("en-IN")}
-                      </span>
+                {/* LEFT: EXPENSE vs RIGHT: PAYMENT Bar */}
+                <div className="grid grid-cols-2 gap-2.5 p-3 rounded-xl bg-[#111216] border border-[#24262f]">
+                  {/* Left: Expense (Money Out) */}
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1">
+                      <Receipt className="w-3 h-3" />
+                      Expense (Out)
+                    </span>
+                    <div className="text-base sm:text-lg font-black text-white font-mono">
+                      ₹{stats.expenses.toLocaleString("en-IN")}
                     </div>
-
-                    {p.description && (
-                      <span className="text-[11px] text-slate-400 truncate max-w-[200px] hidden sm:inline">
-                        &ldquo;{p.description}&rdquo;
-                      </span>
-                    )}
+                    <span className="text-[10px] text-slate-500">Materials &amp; Labour</span>
                   </div>
 
-                  {/* Bottom Action Bar: Record Payment, Add Expense */}
-                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-800/60">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedProjectId(p.id);
-                        setPaymentModalOpen(true);
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold active:scale-95 transition-all"
-                    >
-                      + Payment
-                    </button>
+                  {/* Right: Payment (Money In) */}
+                  <div className="text-right space-y-0.5 border-l border-[#24262f] pl-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-end gap-1">
+                      <IndianRupee className="w-3 h-3" />
+                      Payment (In)
+                    </span>
+                    <div className="text-base sm:text-lg font-black text-emerald-400 font-mono">
+                      ₹{stats.payments.toLocaleString("en-IN")}
+                    </div>
+                    <span className="text-[10px] text-slate-500">
+                      Balance: ₹{balance.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                </div>
 
+                {/* Action Buttons: Details & Timeline + Quick Entry */}
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <Link
+                    href={`/dashboard/projects/${p.id}`}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#8ab4f8] hover:text-blue-300"
+                  >
+                    <span>Timeline &amp; Details</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => {
                         setSelectedProjectId(p.id);
                         setExpenseModalOpen(true);
                       }}
-                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold active:scale-95 transition-all"
+                      className="px-3 py-1.5 rounded-full bg-[#1e2025] hover:bg-slate-700/60 border border-[#2d313b] text-[11px] font-bold text-rose-300 active:scale-95 transition-all"
                     >
                       + Expense
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProjectId(p.id);
+                        setPaymentModalOpen(true);
+                      }}
+                      className="px-3 py-1.5 rounded-full bg-[#1a73e8] hover:bg-[#1557bf] text-[11px] font-bold text-white shadow-sm active:scale-95 transition-all"
+                    >
+                      + Payment
+                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right Column: Live Money Flow Activity */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-white tracking-tight">Recent Transactions</h2>
-            <Link
-              href="/dashboard/reports"
-              className="text-xs font-bold text-amber-400 hover:text-amber-300"
-            >
-              Reports
-            </Link>
-          </div>
-
-          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm space-y-3">
-            {recentMovements.length === 0 ? (
-              <p className="text-xs text-slate-500 text-center py-6">
-                No recent payments or expenses logged yet.
-              </p>
-            ) : (
-              recentMovements.map((item) => (
-                <div
-                  key={`${item.type}-${item.id}`}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 hover:border-slate-700 transition-colors"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className={`p-2 rounded-xl border ${
-                        item.type === "INCOME"
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                          : "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                      }`}
-                    >
-                      {item.type === "INCOME" ? (
-                        <TrendingUp className="w-3.5 h-3.5" />
-                      ) : (
-                        <TrendingDown className="w-3.5 h-3.5" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-200 leading-tight">
-                        {item.title}
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">{item.sub}</div>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <div
-                      className={`text-xs font-mono font-black ${
-                        item.type === "INCOME" ? "text-emerald-400" : "text-rose-400"
-                      }`}
-                    >
-                      {item.type === "INCOME" ? "+" : "-"}₹{item.amount.toLocaleString("en-IN")}
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-mono">{item.date}</div>
-                  </div>
-                </div>
-              ))
-            )}
-
-            <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-xs">
-              <span className="text-slate-400">Lifetime Money Received:</span>
-              <span className="font-bold text-emerald-400 font-mono">
-                ₹{totalMoneyInAllTime.toLocaleString("en-IN")}
-              </span>
-            </div>
-          </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Record Payment Modal */}
+      {/* 7. Floating Blue "Scan QR / Add Project" Pill (Google Pay style) */}
+      <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-30">
+        <button
+          type="button"
+          onClick={() => setProjectModalOpen(true)}
+          className="flex items-center gap-2 px-6 py-3 rounded-full bg-[#1a73e8] hover:bg-[#1557bf] text-white font-bold text-sm shadow-xl shadow-[#1a73e8]/30 active:scale-95 transition-all border border-blue-400/30"
+        >
+          <ScanLine className="w-5 h-5 stroke-[2.5]" />
+          <span>Add Project</span>
+        </button>
+      </div>
+
+      {/* Modals triggered from quick actions */}
       <RecordPaymentModal
         isOpen={paymentModalOpen}
         onClose={() => setPaymentModalOpen(false)}
         defaultProjectId={selectedProjectId}
         onSuccess={() => {
           setPaymentModalOpen(false);
-          window.location.reload();
+          router.refresh();
         }}
       />
 
-      {/* Record Expense Modal */}
       <RecordExpenseModal
         isOpen={expenseModalOpen}
         onClose={() => setExpenseModalOpen(false)}
         defaultProjectId={selectedProjectId}
         onSuccess={() => {
           setExpenseModalOpen(false);
-          window.location.reload();
+          router.refresh();
         }}
       />
 
-      {/* Create Project Modal */}
       <CreateProjectModal
         isOpen={projectModalOpen}
         onClose={() => setProjectModalOpen(false)}
         onSuccess={() => {
           setProjectModalOpen(false);
-          window.location.reload();
+          router.refresh();
         }}
       />
     </div>

@@ -17,12 +17,18 @@ import {
   LogOut,
   X,
   Zap,
+  ListChecks,
 } from "lucide-react";
 import { logout } from "@/app/login/actions";
 
 export function MobileBottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
+
+  // In individual project chat/timeline view, hide bottom nav to show transaction actions
+  if (pathname.startsWith("/dashboard/projects/") && pathname !== "/dashboard/projects") {
+    return null;
+  }
 
   const mainTabs = [
     {
@@ -32,26 +38,30 @@ export function MobileBottomNav() {
       exact: true,
     },
     {
-      name: "Projects",
-      href: "/dashboard/projects",
-      icon: FolderKanban,
-      badge: "Projects",
+      name: "Material List",
+      href: "/dashboard/item-list",
+      icon: ListChecks,
     },
     {
-      name: "Quotations",
-      href: "/dashboard/estimates",
-      icon: FileSpreadsheet,
-      badge: "Quotations",
+      name: "Labour",
+      href: "/dashboard/labour",
+      icon: Users,
     },
     {
-      name: "Payments",
-      href: "/dashboard/payments",
-      icon: Wallet,
-      badge: "Payments",
+      name: "Reports",
+      href: "/dashboard/reports",
+      icon: BarChart3,
     },
   ];
 
   const moreItems = [
+    {
+      name: "Material List",
+      description: "Project and shop material procurement lists",
+      href: "/dashboard/item-list",
+      icon: ListChecks,
+      color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+    },
     {
       name: "Expenses",
       description: "Log job site expenses, fuel, and parts",
@@ -100,9 +110,9 @@ export function MobileBottomNav() {
 
   return (
     <>
-      {/* Sticky Bottom Navigation Bar for Mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 md:hidden px-2 py-1 shadow-2xl safe-area-pb">
-        <div className="flex items-center justify-around">
+      {/* Sticky Bottom Navigation Bar for Mobile (Google Pay style) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#111216]/95 backdrop-blur-xl border-t border-[#23252d] md:hidden px-3 py-1.5 shadow-2xl safe-area-pb">
+        <div className="flex items-center justify-around max-w-md mx-auto">
           {mainTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = tab.exact
@@ -113,14 +123,24 @@ export function MobileBottomNav() {
               <Link
                 key={tab.name}
                 href={tab.href}
-                className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all min-w-[62px] min-h-[52px] ${
-                  isActive
-                    ? "text-amber-400 font-bold bg-amber-500/10"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
+                className="flex flex-col items-center justify-center transition-all group py-0.5"
               >
-                <Icon className={`w-5 h-5 ${isActive ? "text-amber-400 stroke-[2.5]" : "text-slate-400"}`} />
-                <span className="text-[11px] mt-1 font-semibold tracking-tight">{tab.name}</span>
+                <div
+                  className={`flex items-center justify-center px-4 py-1 rounded-full transition-all ${
+                    isActive
+                      ? "bg-[#1a73e8] text-white shadow-sm shadow-[#1a73e8]/30"
+                      : "text-[#9aa0a6] hover:text-white"
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 ${isActive ? "stroke-[2.5]" : "stroke-[1.8]"}`} />
+                </div>
+                <span
+                  className={`text-[10px] mt-1 tracking-tight ${
+                    isActive ? "font-bold text-white" : "font-medium text-[#9aa0a6]"
+                  }`}
+                >
+                  {tab.name}
+                </span>
               </Link>
             );
           })}
@@ -129,14 +149,24 @@ export function MobileBottomNav() {
           <button
             type="button"
             onClick={() => setMoreOpen(true)}
-            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all min-w-[62px] min-h-[52px] ${
-              isMoreActive || moreOpen
-                ? "text-amber-400 font-bold bg-amber-500/10"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
+            className="flex flex-col items-center justify-center transition-all group py-0.5"
           >
-            <Menu className="w-5 h-5 stroke-[2]" />
-            <span className="text-[11px] mt-1 font-semibold tracking-tight">More</span>
+            <div
+              className={`flex items-center justify-center px-4 py-1 rounded-full transition-all ${
+                isMoreActive || moreOpen
+                  ? "bg-[#1a73e8] text-white"
+                  : "text-[#9aa0a6] hover:text-white"
+              }`}
+            >
+              <Menu className="w-5 h-5 stroke-[1.8]" />
+            </div>
+            <span
+              className={`text-[10px] mt-1 tracking-tight ${
+                isMoreActive || moreOpen ? "font-bold text-white" : "font-medium text-[#9aa0a6]"
+              }`}
+            >
+              More
+            </span>
           </button>
         </div>
       </nav>

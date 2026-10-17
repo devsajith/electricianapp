@@ -36,6 +36,9 @@ export interface MaterialList {
   project_number?: string;
   project_name?: string;
   title: string;
+  status?: string;
+  notes?: string | null;
+  item_count?: number;
   created_at: string;
   updated_at?: string;
 }
@@ -43,27 +46,28 @@ export interface MaterialList {
 export interface MaterialListItem {
   id: string;
   list_id: string;
-  material_id: string;
-  material_name?: string;
-  material_brand?: string | null;
-  material_unit?: string;
+  material_id?: string | null;
+  name: string;
+  brand?: string | null;
+  unit: string;
   qty: number;
-  rate: number;
-  amount: number;
-  created_at: string;
+  is_purchased?: boolean;
+  created_at?: string;
+}
+
+export interface CreateMaterialListItemDTO {
+  material_id?: string | null;
+  name: string;
+  brand?: string | null;
+  unit: string;
+  qty: number;
 }
 
 export interface CreateMaterialListDTO {
   project_id?: string | null;
   title: string;
-}
-
-export interface CreateMaterialListItemDTO {
-  list_id: string;
-  material_id: string;
-  qty: number;
-  rate: number;
-  amount: number;
+  notes?: string | null;
+  items: CreateMaterialListItemDTO[];
 }
 
 export const initialSampleMaterials: Material[] = [
@@ -73,8 +77,8 @@ export const initialSampleMaterials: Material[] = [
   { id: "mat-w4", name: "4.0 sq mm FR Copper Wire (90m Roll)", brand: "Finolex", unit: "roll" },
   { id: "mat-w5", name: "6.0 sq mm FR Copper Wire (90m Roll)", brand: "Finolex", unit: "roll" },
   { id: "mat-w6", name: "10 sq mm 4-Core Copper Armoured Cable", brand: "Havells", unit: "meter" },
-  { id: "mat-c1", name: "20mm Rigid PVC Conduit Pipe (Heavy 3m)", brand: "Precision", unit: "nos" },
-  { id: "mat-c2", name: "25mm Rigid PVC Conduit Pipe (Heavy 3m)", brand: "Precision", unit: "nos" },
+  { id: "mat-c1", name: "20mm Rigid PVC Conduit Pipe (Heavy 3m)", brand: "Precision", unit: "length" },
+  { id: "mat-c2", name: "25mm Rigid PVC Conduit Pipe (Heavy 3m)", brand: "Precision", unit: "length" },
   { id: "mat-c3", name: "20mm PVC Circular Junction Box (4-Way)", brand: "Precision", unit: "nos" },
   { id: "mat-s1", name: "6A 1-Way Modular Switch", brand: "Anchor Roma", unit: "nos" },
   { id: "mat-s2", name: "6A 2-Way Modular Switch", brand: "Anchor Roma", unit: "nos" },

@@ -1,10 +1,38 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { createProjectAction, ProjectRecord } from "./actions";
-import { X, Plus, Loader2, Zap, AlertCircle, Calendar, MapPin, Layers, CheckCircle2 } from "lucide-react";
+import { createProjectAction, ProjectRecord, ProjectPlanFile } from "./actions";
+import {
+  X,
+  Plus,
+  Loader2,
+  Zap,
+  AlertCircle,
+  Calendar,
+  MapPin,
+  Layers,
+  CheckCircle2,
+  UploadCloud,
+  FileText,
+  Image as ImageIcon,
+  Paperclip,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { validateIndianPhone, PROJECT_TYPES, PROJECT_STATUSES } from "@/lib/project-utils";
+import { createClient } from "@/lib/supabase/client";
+
+function formatFileSize(bytes?: number): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+interface FileSlot {
+  id: string;
+  file: File | null;
+}
 
 interface ModalProps {
   isOpen: boolean;
@@ -19,7 +47,13 @@ export function CreateProjectModal(props: ModalProps) {
 
 function CreateProjectModalContent({ onClose, onSuccess }: ModalProps) {
   const [pending, setPending] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  // Reference plans / files (1 file slot by default, + button to add more)
+  const [fileSlots, setFileSlots] = useState<FileSlot[]>([
+    { id: "slot-1", file: null },
+  ]);
 
   // References for date picker trigger
   const startDateRef = useRef<HTMLInputElement>(null);
@@ -107,6 +141,33 @@ function CreateProjectModalContent({ onClose, onSuccess }: ModalProps) {
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
+  const handleFileChange = (slotId: string, file: File | null) => {
+    if (file && file.size > 50 * 1024 * 1024) {
+      setServerError(`File "${file.name}" exceeds the 50MB size limit.`);
+      return;
+    }
+    setFileSlots((prev) =>
+      prev.map((s) => (s.id === slotId ? { ...s, file } : s))
+    );
+    setServerError(null);
+  };
+
+  const handleAddSlot = () => {
+    setFileSlots((prev) => [
+      ...prev,
+      { id: `slot-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`, file: null },
+    ]);
+  };
+
+  const handleRemoveSlot = (slotId: string) => {
+    setFileSlots((prev) => {
+      if (prev.length <= 1) {
+        return [{ id: prev[0].id, file: null }];
+      }
+      return prev.filter((s) => s.id !== slotId);
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -151,11 +212,69 @@ function CreateProjectModalContent({ onClose, onSuccess }: ModalProps) {
 
     try {
       const formData = new FormData(e.currentTarget);
+
+      // Handle optional reference file uploads to Supabase Storage
+      const validFiles = fileSlots
+        .map((s) => s.file)
+        .filter((f): f is File => f !== null);
+
+      const uploadedPlans: ProjectPlanFile[] = [];
+      if (validFiles.length > 0) {
+        setUploadStatus(`Uploading ${validFiles.length} file${validFiles.length > 1 ? "s" : ""} to storage...`);
+        const supabase = createClient();
+
+        for (let i = 0; i < validFiles.length; i++) {
+          const file = validFiles[i];
+          setUploadStatus(`Uploading ${i + 1}/${validFiles.length}: ${file.name}...`);
+
+          const fileExt = file.name.split(".").pop() || "";
+          const sanitizedBase = file.name
+            .replace(/\.[^/.]+$/, "")
+            .replace(/[^a-zA-Z0-9_-]/g, "_")
+            .substring(0, 30);
+          const uniquePath = `plans/${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${sanitizedBase}.${fileExt}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from("project-plans")
+            .upload(uniquePath, file, {
+              cacheControl: "3600",
+              upsert: false,
+            });
+
+          if (uploadError) {
+            console.error("Storage upload error:", uploadError);
+            throw new Error(
+              `Upload failed for "${file.name}": ${uploadError.message}. Make sure the 'project-plans' storage bucket exists in Supabase.`
+            );
+          }
+
+          const { data: urlData } = supabase.storage
+            .from("project-plans")
+            .getPublicUrl(uniquePath);
+
+          uploadedPlans.push({
+            id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `plan_${Date.now()}_${i}`,
+            name: file.name,
+            url: urlData.publicUrl,
+            path: uniquePath,
+            type: file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg"),
+            size: file.size,
+            uploaded_at: new Date().toISOString(),
+          });
+        }
+      }
+
+      if (uploadedPlans.length > 0) {
+        formData.append("plans", JSON.stringify(uploadedPlans));
+      }
+
+      setUploadStatus("Saving project...");
       const res = await createProjectAction(null, formData);
 
       if (res?.error) {
         setServerError(res.error);
         setPending(false);
+        setUploadStatus(null);
         return;
       }
 
@@ -170,6 +289,7 @@ function CreateProjectModalContent({ onClose, onSuccess }: ModalProps) {
       setServerError(message);
     } finally {
       setPending(false);
+      setUploadStatus(null);
     }
   };
 
@@ -576,12 +696,152 @@ function CreateProjectModalContent({ onClose, onSuccess }: ModalProps) {
             />
           </div>
 
+          {/* Row 7: Reference Home Plans & Documents (1 file option by default, + button for more) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <Paperclip className="w-3.5 h-3.5 text-amber-400" />
+                Reference Home Plan / File
+                <span className="text-slate-500 font-normal lowercase">(optional)</span>
+              </label>
+              {fileSlots.filter((s) => s.file !== null).length > 0 && (
+                <span className="text-[11px] font-mono text-amber-400 font-medium">
+                  {fileSlots.filter((s) => s.file !== null).length}{" "}
+                  {fileSlots.filter((s) => s.file !== null).length === 1 ? "file" : "files"} chosen
+                </span>
+              )}
+            </div>
+
+            {/* File Slots List */}
+            <div className="space-y-2">
+              {fileSlots.map((slot, index) => {
+                const isPdf =
+                  slot.file &&
+                  (slot.file.type === "application/pdf" ||
+                    slot.file.name.toLowerCase().endsWith(".pdf"));
+
+                return (
+                  <div key={slot.id} className="space-y-1">
+                    {fileSlots.length > 1 && (
+                      <span className="text-[10px] text-slate-400 font-semibold px-0.5">
+                        File {index + 1}
+                      </span>
+                    )}
+
+                    {slot.file ? (
+                      /* Filled State */
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-200">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {isPdf ? (
+                            <div className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 shrink-0">
+                              <FileText className="w-4 h-4" />
+                            </div>
+                          ) : (
+                            <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shrink-0">
+                              <ImageIcon className="w-4 h-4" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-slate-200">{slot.file.name}</p>
+                            <p className="text-[10px] text-slate-500 font-mono">
+                              {formatFileSize(slot.file.size)} • {isPdf ? "PDF Document" : "Image"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          <label
+                            htmlFor={`file-input-${slot.id}`}
+                            className="px-2 py-1 text-[11px] font-medium text-amber-400 hover:text-amber-300 hover:bg-slate-800 rounded cursor-pointer transition-colors"
+                          >
+                            Change
+                          </label>
+                          <input
+                            id={`file-input-${slot.id}`}
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0] || null;
+                              if (f) handleFileChange(slot.id, f);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSlot(slot.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors"
+                            title="Remove file"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Empty State: 1 File Upload Input */
+                      <div className="flex items-center gap-2">
+                        <label
+                          htmlFor={`file-input-${slot.id}`}
+                          className="flex-1 flex items-center justify-between px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 hover:border-amber-500/40 rounded-xl cursor-pointer text-xs transition-colors group min-h-[44px]"
+                        >
+                          <div className="flex items-center gap-2 text-slate-400 group-hover:text-slate-300">
+                            <Paperclip className="w-4 h-4 text-amber-400 shrink-0" />
+                            <span>Choose Plan / Document (PDF, Image)</span>
+                          </div>
+                          <span className="px-2 py-0.5 rounded bg-slate-800 text-[11px] text-slate-400 group-hover:text-amber-300 group-hover:bg-slate-700 transition-colors font-medium">
+                            Browse
+                          </span>
+                          <input
+                            id={`file-input-${slot.id}`}
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0] || null;
+                              if (f) handleFileChange(slot.id, f);
+                            }}
+                          />
+                        </label>
+
+                        {fileSlots.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSlot(slot.id)}
+                            className="p-2.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors shrink-0"
+                            title="Remove this slot"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* + Add Another File Button */}
+            <div className="pt-1 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleAddSlot}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-amber-500/40 hover:border-amber-400 bg-amber-500/5 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 text-xs font-semibold transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add another file</span>
+              </button>
+              <span className="text-[10px] text-slate-500">
+                Supports PDF, JPG, PNG (Max 50MB each)
+              </span>
+            </div>
+          </div>
+
           {/* Modal Footer */}
           <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3 shrink-0">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
+              disabled={pending}
               className="h-10 px-5 text-xs border-slate-700 hover:bg-slate-800 text-slate-300"
             >
               Cancel
@@ -589,12 +849,12 @@ function CreateProjectModalContent({ onClose, onSuccess }: ModalProps) {
             <Button
               type="submit"
               disabled={pending}
-              className="h-10 px-6 text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold gap-1.5 shadow-md"
+              className="h-10 px-6 text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold gap-1.5 shadow-md min-w-[120px]"
             >
               {pending ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Creating...
+                  <span className="truncate max-w-[200px]">{uploadStatus || "Creating..."}</span>
                 </>
               ) : (
                 <>

@@ -5,7 +5,6 @@ import {
   MaterialListItem,
   CreateMaterialDTO,
   CreateMaterialListDTO,
-  CreateMaterialListItemDTO,
 } from "@/lib/types/material";
 import { withTimeout } from "@/lib/timeout";
 
@@ -19,18 +18,21 @@ export function isValidUUID(id?: string | null): boolean {
 
 const MATERIAL_COLUMNS = "id, name, brand, unit, created_at, updated_at";
 const MATERIAL_LIST_COLUMNS =
-  "id, project_id, title, created_at, updated_at, projects(project_number, name)";
+  "id, project_id, title, status, notes, created_at, updated_at, projects(project_number, name)";
 const MATERIAL_LIST_ITEM_COLUMNS =
-  "id, list_id, material_id, qty, rate, amount, created_at, materials(name, brand, unit)";
+  "id, list_id, material_id, name, brand, unit, qty, is_purchased, created_at";
 
 interface MaterialListDbRow {
   id: string;
-  project_id: string;
+  project_id?: string | null;
   projects?: {
     project_number?: string;
     name?: string;
   } | null;
   title: string;
+  status?: string;
+  notes?: string | null;
+  material_list_items?: { id: string }[];
   created_at?: string;
   updated_at?: string;
 }
@@ -38,15 +40,12 @@ interface MaterialListDbRow {
 interface MaterialListItemDbRow {
   id: string;
   list_id: string;
-  material_id: string;
-  materials?: {
-    name?: string;
-    brand?: string | null;
-    unit?: string;
-  } | null;
+  material_id?: string | null;
+  name: string;
+  brand?: string | null;
+  unit: string;
   qty: number | string;
-  rate?: number | string;
-  amount?: number | string;
+  is_purchased?: boolean;
   created_at?: string;
 }
 
@@ -195,40 +194,51 @@ export async function deleteMaterialService(id: string): Promise<{ success: bool
   }
 }
 
+/**
+ * Service: Fetch all material lists (both project and non-project lists)
+ */
 export async function getMaterialListsService(): Promise<{ data: MaterialList[]; error?: string }> {
-  try {
-    const supabase = await createClient();
+  return withTimeout(
+    (async () => {
+      try {
+        const supabase = await createClient();
 
-    const { data, error } = await supabase
-      .from("material_lists")
-      .select(MATERIAL_LIST_COLUMNS)
-      .order("created_at", { ascending: false });
+        const { data, error } = await supabase
+          .from("material_lists")
+          .select("id, project_id, title, status, notes, created_at, updated_at, projects(project_number, name), material_list_items(id)")
+          .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching material lists:", error);
-      return { data: [], error: "Failed to fetch material lists" };
-    }
+        if (error) {
+          console.error("Error fetching material lists:", error);
+          return { data: [], error: error.message || "Failed to fetch material lists" };
+        }
 
-    const formattedData: MaterialList[] = ((data as unknown as MaterialListDbRow[]) || []).map((row) => ({
-      id: row.id,
-      project_id: row.project_id,
-      project_number: row.projects?.project_number,
-      project_name: row.projects?.name,
-      title: row.title,
-      created_at: row.created_at || new Date().toISOString(),
-      updated_at: row.updated_at,
-    }));
+        const formattedData: MaterialList[] = ((data as unknown as MaterialListDbRow[]) || []).map((row) => ({
+          id: row.id,
+          project_id: row.project_id || null,
+          project_number: row.projects?.project_number,
+          project_name: row.projects?.name,
+          title: row.title,
+          status: row.status || "Draft",
+          notes: row.notes || null,
+          item_count: Array.isArray(row.material_list_items) ? row.material_list_items.length : 0,
+          created_at: row.created_at || new Date().toISOString(),
+          updated_at: row.updated_at,
+        }));
 
-    return { data: formattedData };
-  } catch (error) {
-    console.error("Service error (getMaterialLists):", error);
-    return { data: [], error: "Internal server error" };
-  }
+        return { data: formattedData };
+      } catch (error) {
+        console.error("Service error (getMaterialLists):", error);
+        return { data: [], error: "Internal server error" };
+      }
+    })(),
+    { data: [], error: "timeout" },
+    2500
+  );
 }
 
 /**
- * Service: Fetch material list and its items in PARALLEL via Promise.all
- * Eliminates sequential query waterfall
+ * Service: Fetch a single material list with all its line items
  */
 export async function getMaterialListByIdService(
   id: string
@@ -240,7 +250,6 @@ export async function getMaterialListByIdService(
   try {
     const supabase = await createClient();
 
-    // Parallelize list metadata and list items fetching
     const [listRes, itemsRes] = await Promise.all([
       supabase
         .from("material_lists")
@@ -267,10 +276,12 @@ export async function getMaterialListByIdService(
     const listRow = listRes.data as unknown as MaterialListDbRow;
     const formattedList: MaterialList = {
       id: listRow.id,
-      project_id: listRow.project_id,
+      project_id: listRow.project_id || null,
       project_number: listRow.projects?.project_number,
       project_name: listRow.projects?.name,
       title: listRow.title,
+      status: listRow.status || "Draft",
+      notes: listRow.notes || null,
       created_at: listRow.created_at || new Date().toISOString(),
       updated_at: listRow.updated_at,
     };
@@ -278,13 +289,12 @@ export async function getMaterialListByIdService(
     const formattedItems: MaterialListItem[] = ((itemsRes.data as unknown as MaterialListItemDbRow[]) || []).map((row) => ({
       id: row.id,
       list_id: row.list_id,
-      material_id: row.material_id,
-      material_name: row.materials?.name,
-      material_brand: row.materials?.brand,
-      material_unit: row.materials?.unit,
-      qty: Number(row.qty),
-      rate: Number(row.rate) || 0,
-      amount: Number(row.amount) || 0,
+      material_id: row.material_id || null,
+      name: row.name,
+      brand: row.brand || null,
+      unit: row.unit || "No",
+      qty: Number(row.qty) || 1,
+      is_purchased: Boolean(row.is_purchased),
       created_at: row.created_at || new Date().toISOString(),
     }));
 
@@ -295,74 +305,103 @@ export async function getMaterialListByIdService(
   }
 }
 
+/**
+ * Service: Create a material list with all its items in one operation
+ */
 export async function createMaterialListService(
   input: CreateMaterialListDTO
 ): Promise<{ data?: MaterialList; error?: string }> {
   try {
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    // 1. Insert header
+    const { data: listData, error: listError } = await supabase
       .from("material_lists")
       .insert({
-        project_id: input.project_id,
-        title: input.title,
+        project_id: isValidUUID(input.project_id) ? input.project_id : null,
+        title: input.title.trim(),
+        notes: input.notes?.trim() || null,
+        status: "Draft",
       })
       .select(MATERIAL_LIST_COLUMNS)
       .single();
 
-    if (error) {
-      console.error("Error creating material list:", error);
-      return { error: "Failed to create material list" };
+    if (listError || !listData) {
+      console.error("Error creating material list header:", listError);
+      return { error: listError?.message || "Failed to create material list" };
     }
 
-    return { data: data as MaterialList };
+    const createdList = listData as unknown as MaterialListDbRow;
+
+    // 2. Insert items if any
+    if (input.items && input.items.length > 0) {
+      const itemsPayload = input.items.map((item) => ({
+        list_id: createdList.id,
+        material_id: isValidUUID(item.material_id) ? item.material_id : null,
+        name: item.name.trim(),
+        brand: item.brand?.trim() || null,
+        unit: item.unit.trim() || "No",
+        qty: Number(item.qty) || 1,
+        is_purchased: false,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from("material_list_items")
+        .insert(itemsPayload);
+
+      if (itemsError) {
+        console.error("Error inserting material list items:", itemsError);
+      }
+    }
+
+    return {
+      data: {
+        id: createdList.id,
+        project_id: createdList.project_id || null,
+        project_number: createdList.projects?.project_number,
+        project_name: createdList.projects?.name,
+        title: createdList.title,
+        status: createdList.status || "Draft",
+        notes: createdList.notes || null,
+        item_count: input.items?.length || 0,
+        created_at: createdList.created_at || new Date().toISOString(),
+        updated_at: createdList.updated_at,
+      },
+    };
   } catch (error) {
     console.error("Service error (createMaterialList):", error);
     return { error: "Internal server error" };
   }
 }
 
-export async function addMaterialListItemService(
-  input: CreateMaterialListItemDTO
-): Promise<{ data?: MaterialListItem; error?: string }> {
+/**
+ * Service: Toggle checkbox state of an item in the list
+ */
+export async function toggleMaterialListItemPurchasedService(
+  itemId: string,
+  isPurchased: boolean
+): Promise<{ success: boolean; error?: string }> {
+  if (!isValidUUID(itemId)) {
+    return { success: false, error: "Invalid item ID format." };
+  }
+
   try {
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("material_list_items")
-      .insert({
-        list_id: input.list_id,
-        material_id: input.material_id,
-        qty: Number(input.qty),
-        rate: Number(input.rate) || 0,
-        amount: Number(input.amount) || 0,
-      })
-      .select(MATERIAL_LIST_ITEM_COLUMNS)
-      .single();
+      .update({ is_purchased: isPurchased })
+      .eq("id", itemId);
 
     if (error) {
-      console.error("Error adding material list item:", error);
-      return { error: "Failed to add material list item" };
+      console.error("Error toggling item purchased status:", error);
+      return { success: false, error: error.message };
     }
 
-    const row = data as unknown as MaterialListItemDbRow;
-    return {
-      data: {
-        id: row.id,
-        list_id: row.list_id,
-        material_id: row.material_id,
-        material_name: row.materials?.name,
-        material_brand: row.materials?.brand,
-        material_unit: row.materials?.unit,
-        qty: Number(row.qty),
-        rate: Number(row.rate) || 0,
-        amount: Number(row.amount) || 0,
-        created_at: row.created_at || new Date().toISOString(),
-      },
-    };
+    return { success: true };
   } catch (error) {
-    console.error("Service error (addMaterialListItem):", error);
-    return { error: "Internal server error" };
+    console.error("Service error (toggleMaterialListItemPurchased):", error);
+    return { success: false, error: "Internal server error" };
   }
 }
 

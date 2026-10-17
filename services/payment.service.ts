@@ -29,7 +29,7 @@ export async function getPaymentsService(): Promise<{ data: Payment[]; error?: s
           .order("payment_date", { ascending: false });
 
         if (error) {
-          console.error("[PaymentService] Error fetching payments:", error);
+          console.error("[PaymentService] Error fetching payments:", error.message || error);
           return { data: [], error: error.message };
         }
 
@@ -63,7 +63,7 @@ export async function getPaymentsService(): Promise<{ data: Payment[]; error?: s
 
         return { data: items };
       } catch (err: unknown) {
-        console.error("[PaymentService] Exception:", err);
+        console.error("[PaymentService] Exception:", err instanceof Error ? err.message : err);
         return { data: [], error: err instanceof Error ? err.message : "Error fetching payments" };
       }
     })(),
@@ -92,7 +92,7 @@ export async function getPaymentsByProjectIdService(
       .order("payment_date", { ascending: false });
 
     if (error) {
-      console.error(`[PaymentService] Error fetching payments for project ${projectId}:`, error);
+      console.error(`[PaymentService] Error fetching payments for project ${projectId}:`, error.message || error);
       return { data: [] };
     }
 
@@ -126,7 +126,7 @@ export async function getPaymentsByProjectIdService(
 
     return { data: items };
   } catch (err: unknown) {
-    console.error(`[PaymentService] Exception:`, err);
+    console.error(`[PaymentService] Exception:`, err instanceof Error ? err.message : err);
     return { data: [] };
   }
 }
@@ -159,7 +159,7 @@ export async function createPaymentService(
       .single();
 
     if (error) {
-      console.error("[PaymentService] Error creating payment:", error);
+      console.error("[PaymentService] Error creating payment:", error.message || error);
       return { error: error.message };
     }
 
@@ -176,7 +176,7 @@ export async function createPaymentService(
       },
     };
   } catch (err: unknown) {
-    console.error("[PaymentService] Exception creating payment:", err);
+    console.error("[PaymentService] Exception creating payment:", err instanceof Error ? err.message : err);
     return { error: err instanceof Error ? err.message : "Failed to create payment." };
   }
 }
@@ -197,13 +197,13 @@ export async function deletePaymentService(
     const { error } = await supabase.from("payments").delete().eq("id", id);
 
     if (error) {
-      console.error(`[PaymentService] Error deleting payment ${id}:`, error);
+      console.error(`[PaymentService] Error deleting payment ${id}:`, error.message || error);
       return { success: false, error: error.message };
     }
 
     return { success: true };
   } catch (err: unknown) {
-    console.error(`[PaymentService] Exception deleting payment ${id}:`, err);
+    console.error(`[PaymentService] Exception deleting payment ${id}:`, err instanceof Error ? err.message : err);
     return { success: false, error: err instanceof Error ? err.message : "Error deleting payment" };
   }
 }

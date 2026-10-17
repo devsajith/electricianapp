@@ -58,15 +58,20 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
         {/* Theme Toggle Button (Dark / Light) */}
         <ThemeToggle />
 
-        {/* User Badge */}
-        <div className="h-9 px-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center gap-2 text-xs font-semibold text-slate-200">
-          <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs">
+        {/* Top-Right Settings Button (Google Pay style avatar / gear) */}
+        <a
+          href="/dashboard/settings"
+          title="Settings"
+          aria-label="Settings"
+          className="h-9 px-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 flex items-center gap-2 text-xs font-semibold text-slate-200 transition-colors"
+        >
+          <div className="w-6 h-6 rounded-full bg-[#1a73e8] text-white flex items-center justify-center font-bold text-xs shadow-sm">
             {userEmail ? userEmail.charAt(0).toUpperCase() : "E"}
           </div>
           <span className="hidden sm:inline truncate max-w-[100px]">
-            {userEmail ? userEmail.split("@")[0] : "Electrician"}
+            Settings
           </span>
-        </div>
+        </a>
       </div>
     </header>
   );

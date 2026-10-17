@@ -307,3 +307,88 @@ CREATE POLICY "Allow all access to expenses" ON public.expenses FOR ALL USING (t
 CREATE POLICY "Allow all access to materials" ON public.materials FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all access to workers" ON public.workers FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all access to labour_logs" ON public.labour_logs FOR ALL USING (true) WITH CHECK (true);
+
+
+-- ====================================================================
+-- STEP 12: MATERIAL LISTS & ITEMS (PROJECT & GENERAL PROCUREMENT)
+-- ====================================================================
+
+CREATE TABLE IF NOT EXISTS public.material_lists (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Draft',
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.material_list_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  list_id UUID NOT NULL REFERENCES public.material_lists(id) ON DELETE CASCADE,
+  material_id UUID REFERENCES public.materials(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  brand TEXT,
+  unit TEXT NOT NULL DEFAULT 'No',
+  qty NUMERIC(10, 2) NOT NULL DEFAULT 1,
+  is_purchased BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_material_lists_project_id ON public.material_lists(project_id);
+CREATE INDEX IF NOT EXISTS idx_material_lists_created_at ON public.material_lists(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_material_list_items_list_id ON public.material_list_items(list_id);
+
+ALTER TABLE public.material_lists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.material_list_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow all access to material_lists" ON public.material_lists FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access to material_list_items" ON public.material_list_items FOR ALL USING (true) WITH CHECK (true);
+
+
+-- ====================================================================
+-- STEP 13: REFERENCE HOME PLANS & STORAGE BUCKET
+-- ====================================================================
+
+-- Add plans JSONB column to public.projects
+ALTER TABLE public.projects 
+ADD COLUMN IF NOT EXISTS plans JSONB DEFAULT '[]'::jsonb;
+
+-- Storage bucket 'project-plans'
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'project-plans',
+  'project-plans',
+  true,
+  52428800,
+  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = true,
+  file_size_limit = 52428800,
+  allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+
+-- Storage RLS Policies (RLS is already enabled on storage.objects by default)
+DROP POLICY IF EXISTS "Public can view project plans" ON storage.objects;
+CREATE POLICY "Public can view project plans"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'project-plans');
+
+DROP POLICY IF EXISTS "Anyone can upload project plans" ON storage.objects;
+CREATE POLICY "Anyone can upload project plans"
+ON storage.objects FOR INSERT
+TO public
+WITH CHECK (bucket_id = 'project-plans');
+
+DROP POLICY IF EXISTS "Anyone can update project plans" ON storage.objects;
+CREATE POLICY "Anyone can update project plans"
+ON storage.objects FOR UPDATE
+TO public
+USING (bucket_id = 'project-plans');
+
+DROP POLICY IF EXISTS "Anyone can delete project plans" ON storage.objects;
+CREATE POLICY "Anyone can delete project plans"
+ON storage.objects FOR DELETE
+TO public
+USING (bucket_id = 'project-plans');

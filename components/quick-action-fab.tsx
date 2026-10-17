@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Plus,
   Wallet,
@@ -15,10 +15,16 @@ import { CreateProjectModal } from "@/app/dashboard/projects/create-project-moda
 
 export function QuickActionFAB() {
   const router = useRouter();
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
+
+  // Avoid overlapping Google Pay style actions on home and project timeline
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/projects/")) {
+    return null;
+  }
 
   return (
     <>

@@ -26,7 +26,7 @@ const navItems = [
   { name: "Quotations", href: "/dashboard/estimates", icon: FileSpreadsheet },
   { name: "Payments", href: "/dashboard/payments", icon: Wallet },
   { name: "Expenses", href: "/dashboard/expenses", icon: Receipt },
-  { name: "Rates Catalog", href: "/dashboard/item-list", icon: ListChecks },
+  { name: "Material List", href: "/dashboard/item-list", icon: ListChecks },
   { name: "Materials", href: "/dashboard/materials", icon: Package },
   { name: "Labour", href: "/dashboard/labour", icon: Users },
   { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },

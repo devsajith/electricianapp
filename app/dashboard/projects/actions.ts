@@ -8,10 +8,12 @@ import {
   updateProjectService,
   deleteProjectService,
   Project,
+  ProjectPlanFile,
 } from "@/services/project.service";
 import { validateIndianPhone, PROJECT_TYPES, PROJECT_STATUSES } from "@/lib/project-utils";
 
 export type ProjectRecord = Project;
+export type { ProjectPlanFile };
 
 export async function createProjectAction(prevState: unknown, formData: FormData) {
   try {
@@ -23,6 +25,16 @@ export async function createProjectAction(prevState: unknown, formData: FormData
     const start_date = (formData.get("start_date") as string)?.trim() || null;
     const end_date = (formData.get("end_date") as string)?.trim() || null;
     const description = (formData.get("description") as string)?.trim() || null;
+
+    const plansRaw = (formData.get("plans") as string)?.trim();
+    let plans: ProjectPlanFile[] = [];
+    if (plansRaw) {
+      try {
+        plans = JSON.parse(plansRaw);
+      } catch (err) {
+        console.error("Failed to parse plans JSON:", err);
+      }
+    }
 
     // Field Validations
     if (!name) {
@@ -68,6 +80,7 @@ export async function createProjectAction(prevState: unknown, formData: FormData
       start_date,
       end_date,
       status: normalizedStatus,
+      plans,
     });
 
     if (error) {
@@ -122,3 +135,17 @@ export async function deleteProjectAction(id: string) {
     return { error: message };
   }
 }
+
+export async function updateProjectPlansAction(id: string, plans: ProjectPlanFile[]) {
+  try {
+    const { data, error } = await updateProjectService(id, { plans });
+    if (error) return { error };
+    revalidatePath(`/dashboard/projects/${id}`);
+    revalidatePath("/dashboard/projects");
+    return { success: true, data };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to update project plans.";
+    return { error: message };
+  }
+}
+
