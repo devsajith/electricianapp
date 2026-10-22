@@ -25,8 +25,11 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  // In individual project chat/timeline view, hide bottom nav to show transaction actions
-  if (pathname.startsWith("/dashboard/projects/") && pathname !== "/dashboard/projects") {
+  // In individual project or labour timeline view, hide bottom nav to show transaction actions
+  if (
+    (pathname.startsWith("/dashboard/projects/") && pathname !== "/dashboard/projects") ||
+    (pathname.startsWith("/dashboard/labour/") && pathname !== "/dashboard/labour" && pathname !== "/dashboard/labour/new")
+  ) {
     return null;
   }
 

@@ -390,7 +390,7 @@ export default function ProjectsPage() {
                         {/* Column D: Actions */}
                         <td className="py-2.5 px-2 text-center whitespace-nowrap">
                           <Link
-                            href={detailHref}
+                            href={`${detailHref}?tab=details`}
                             className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-sm transition-colors"
                           >
                             <Eye className="w-3 h-3" />

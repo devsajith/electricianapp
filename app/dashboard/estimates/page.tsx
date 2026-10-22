@@ -15,6 +15,7 @@ import {
   MapPin,
   FileSpreadsheet,
   Download,
+  ListOrdered,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Quotation, QuotationStatus } from "@/lib/types/quotation";
@@ -95,7 +96,8 @@ export default function EstimatesPage() {
       !q ||
       est.quotation_number.toLowerCase().includes(q) ||
       (est.client_name && est.client_name.toLowerCase().includes(q)) ||
-      (est.description && est.description.toLowerCase().includes(q));
+      (est.client_place && est.client_place.toLowerCase().includes(q)) ||
+      (est.subject && est.subject.toLowerCase().includes(q));
 
     return matchesStatus && matchesSearch;
   });
@@ -107,22 +109,19 @@ export default function EstimatesPage() {
 
   const exportToCsv = () => {
     if (filteredEstimates.length === 0) return;
-    const headers = ["Row", "Quote #", "Date", "Client", "Place", "Phone", "Quoted Rate", "Unit", "Status"];
+    const headers = ["Row", "Quote #", "Date", "Client", "Place", "Items Count", "Status"];
     const rows = filteredEstimates.map((est, idx) => {
       const client = est.client_name || "Client";
       const place = est.client_place || "—";
-      const unitStr = est.unit || "Squarefeet";
-      const rateVal = est.rate || 0;
-      const dateStr = est.created_at ? new Date(est.created_at).toLocaleDateString() : "N/A";
+      const itemsCount = est.items?.length || 1;
+      const dateStr = est.quotation_date || (est.created_at ? new Date(est.created_at).toLocaleDateString() : "N/A");
       return [
         idx + 1,
         `"${est.quotation_number}"`,
         `"${dateStr}"`,
         `"${client.replace(/"/g, '""')}"`,
         `"${place.replace(/"/g, '""')}"`,
-        `"${(est.client_phone || "").replace(/"/g, '""')}"`,
-        rateVal,
-        `"${unitStr.replace(/"/g, '""')}"`,
+        itemsCount,
         `"${est.status}"`,
       ];
     });
@@ -146,11 +145,11 @@ export default function EstimatesPage() {
               <FileText className="w-5 h-5" />
             </span>
             <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-              Quotations
+              Pandali Electricals Quotations
             </h1>
           </div>
           <p className="text-xs text-slate-400">
-            Draft, track, send, and convert electrical project proposals.
+            Generate, print, track, and manage official client rate schedule quotations.
           </p>
         </div>
 
@@ -244,7 +243,7 @@ export default function EstimatesPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by Quote Number or Client..."
+              placeholder="Search by Quote Number (PE/...), Client, or Place..."
               className="w-full pl-10 pr-4 py-2.5 sm:py-2 bg-slate-950/60 border border-slate-800 rounded-xl text-base sm:text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
             />
           </div>
@@ -308,17 +307,17 @@ export default function EstimatesPage() {
                     <th className="py-2 px-3 w-12 text-center border-r border-slate-700/80 bg-slate-900/90 text-slate-500 font-mono select-none">
                       ◢
                     </th>
-                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-36">
+                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-40">
                       <div className="text-[10px] text-emerald-400 font-mono">A</div>
                       QUOTE #
                     </th>
                     <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
                       <div className="text-[10px] text-emerald-400 font-mono">B</div>
-                      CLIENT & PLACE
+                      CLIENT & LOCATION
                     </th>
                     <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-48">
                       <div className="text-[10px] text-emerald-400 font-mono">C</div>
-                      QUOTED RATE
+                      ITEMS SCHEDULE
                     </th>
                     <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-center w-36">
                       <div className="text-[10px] text-emerald-400 font-mono">D</div>
@@ -326,7 +325,7 @@ export default function EstimatesPage() {
                     </th>
                     <th className="py-2.5 px-4 font-bold text-center w-28">
                       <div className="text-[10px] text-emerald-400 font-mono">E</div>
-                      ACTIONS
+                      DOCUMENT
                     </th>
                   </tr>
                 </thead>
@@ -334,8 +333,12 @@ export default function EstimatesPage() {
                   {filteredEstimates.map((est, idx) => {
                     const client = est.client_name || "Client";
                     const place = est.client_place || "—";
-                    const unitStr = est.unit || "Sq.Ft";
-                    const rateVal = est.rate || 0;
+                    const itemsCount = est.items?.length || 0;
+                    const dateDisplay =
+                      est.quotation_date ||
+                      (est.created_at
+                        ? new Date(est.created_at).toLocaleDateString("en-GB")
+                        : "N/A");
 
                     return (
                       <tr
@@ -350,30 +353,34 @@ export default function EstimatesPage() {
                             {est.quotation_number}
                           </div>
                           <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                            {est.created_at ? new Date(est.created_at).toLocaleDateString() : "N/A"}
+                            {dateDisplay}
                           </div>
                         </td>
                         <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
-                          <div className="font-bold text-slate-100">
-                            {client}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-bold text-slate-100">
+                              {client}
+                            </div>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                              {est.project_type || "Wiring"}
+                            </span>
                           </div>
                           <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
                             <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
                             <span className="truncate max-w-[240px]">{place}</span>
                           </div>
                         </td>
-                        <td className="py-2.5 px-4 border-r border-slate-800">
-                          {rateVal > 0 ? (
-                            <div>
-                              <span className="font-mono font-extrabold text-emerald-400 text-sm">
-                                ₹{rateVal}
-                              </span>
-                              <span className="text-[11px] text-slate-400 ml-1.5 font-medium font-sans">
-                                / {unitStr.toLowerCase().includes("meter") ? "meter" : "sq.ft"}
-                              </span>
+                        <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
+                          <div className="flex items-center gap-1.5 text-slate-200">
+                            <ListOrdered className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span className="font-bold text-xs">
+                              {itemsCount > 0 ? `${itemsCount} item${itemsCount > 1 ? "s" : ""}` : "Rate card"}
+                            </span>
+                          </div>
+                          {est.items && est.items[0] && (
+                            <div className="text-[10px] text-slate-400 truncate max-w-[180px] mt-0.5">
+                              {est.items[0].description}
                             </div>
-                          ) : (
-                            <span className="text-slate-500 font-sans">Custom</span>
                           )}
                         </td>
                         <td className="py-2.5 px-4 border-r border-slate-800 text-center font-sans">
@@ -402,7 +409,7 @@ export default function EstimatesPage() {
                               className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1 rounded px-2.5 shadow-sm"
                             >
                               <Eye className="w-3.5 h-3.5" />
-                              <span>View</span>
+                              <span>View Letterhead</span>
                             </Button>
                           </Link>
                         </td>

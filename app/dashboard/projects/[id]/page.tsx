@@ -1,8 +1,17 @@
 "use client";
 
-import React, { useEffect, useState, useTransition, use, useCallback, useRef, useMemo } from "react";
+import React, {
+  useEffect,
+  useState,
+  useTransition,
+  use,
+  useCallback,
+  useRef,
+  useMemo,
+  Suspense,
+} from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   MapPin,
@@ -26,12 +35,13 @@ import {
   Loader2,
   CheckCircle2,
   Clock,
-  MoreVertical,
   Info,
   X,
   Send,
   IndianRupee,
   Share2,
+  Building2,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,9 +52,15 @@ import {
   ProjectRecord,
   ProjectPlanFile,
 } from "../actions";
-import { getExpensesByProjectIdAction, deleteExpenseAction } from "@/app/dashboard/expenses/actions";
+import {
+  getExpensesByProjectIdAction,
+  deleteExpenseAction,
+} from "@/app/dashboard/expenses/actions";
 import { Expense } from "@/lib/types/expense";
-import { getProjectPaymentsAction, deletePaymentAction } from "@/app/dashboard/payments/actions";
+import {
+  getProjectPaymentsAction,
+  deletePaymentAction,
+} from "@/app/dashboard/payments/actions";
 import { Payment } from "@/lib/types/payment";
 import { RecordExpenseModal } from "@/components/record-expense-modal";
 import { RecordPaymentModal } from "@/components/record-payment-modal";
@@ -88,13 +104,18 @@ function formatDateHeader(dateStr?: string): string {
   }
 }
 
-export default function ProjectDetailPage({
+function ProjectDetailContent({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Tab state: "timeline" or "details"
+  const initialTab = searchParams.get("tab") === "details" ? "details" : "timeline";
+  const [activeTab, setActiveTab] = useState<"timeline" | "details">(initialTab);
 
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -102,14 +123,12 @@ export default function ProjectDetailPage({
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Modals state
+  // Modals for financial entry
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
 
   // Quick memo/note input state
   const [quickNote, setQuickNote] = useState("");
-  const [isSendingNote, setIsSendingNote] = useState(false);
 
   const [isPending, startTransition] = useTransition();
   const planFileInputRef = useRef<HTMLInputElement>(null);
@@ -145,6 +164,14 @@ export default function ProjectDetailPage({
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Sync tab if URL query changes
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "details" || tabParam === "timeline") {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   const handleStatusChange = (newStatus: string) => {
     if (!project) return;
@@ -215,11 +242,18 @@ export default function ProjectDetailPage({
           .getPublicUrl(uniquePath);
 
         newPlans.push({
-          id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `plan_${Date.now()}_${i}`,
+          id:
+            typeof crypto !== "undefined" && crypto.randomUUID
+              ? crypto.randomUUID()
+              : `plan_${Date.now()}_${i}`,
           name: file.name,
           url: urlData.publicUrl,
           path: uniquePath,
-          type: file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg"),
+          type:
+            file.type ||
+            (file.name.toLowerCase().endsWith(".pdf")
+              ? "application/pdf"
+              : "image/jpeg"),
           size: file.size,
           uploaded_at: new Date().toISOString(),
         });
@@ -247,10 +281,8 @@ export default function ProjectDetailPage({
     await updateProjectPlansAction(project.id!, updatedPlans);
   };
 
-  // Quick send note: logs an expense modal or quick note
   const handleSendQuickNote = () => {
     if (!quickNote.trim()) return;
-    // Open expense modal with description pre-filled
     setIsExpenseModalOpen(true);
   };
 
@@ -258,44 +290,48 @@ export default function ProjectDetailPage({
   const timelineItems = useMemo(() => {
     const list: Array<{
       id: string;
-      type: "EXPENSE" | "PAYMENT";
-      amount: number;
+      type: "PAYMENT" | "EXPENSE";
       title: string;
       sub?: string;
+      amount: number;
       date: string;
       method?: string;
-      rawExpense?: Expense;
+      timestamp: number;
       rawPayment?: Payment;
+      rawExpense?: Expense;
     }> = [];
 
     for (const exp of expenses) {
+      const ts = exp.date ? new Date(exp.date).getTime() : 0;
       list.push({
         id: `exp-${exp.id}`,
         type: "EXPENSE",
+        title: exp.description || "Site Expense",
+        sub: exp.type === "self" ? "Self Expense" : "Project Outflow",
         amount: Number(exp.amount) || 0,
-        title: exp.description || exp.type || "Site Expense",
-        sub: exp.name || "Parts / Material",
         date: exp.date || "",
+        timestamp: ts,
         rawExpense: exp,
       });
     }
 
     for (const pay of payments) {
+      const ts = pay.payment_date ? new Date(pay.payment_date).getTime() : 0;
       list.push({
         id: `pay-${pay.id}`,
         type: "PAYMENT",
+        title: pay.payment_info || "Client Payment Received",
+        sub: pay.method || "Payment In",
         amount: Number(pay.amount) || 0,
-        title: `Payment from ${project?.name || "Client"}`,
-        sub: pay.payment_info || undefined,
         date: pay.payment_date || "",
-        method: pay.method || "Cash",
+        method: pay.method,
+        timestamp: ts,
         rawPayment: pay,
       });
     }
 
-    // Sort ascending by date so oldest is on top and newest is at bottom (chat stream style)
-    return list.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-  }, [expenses, payments, project]);
+    return list.sort((a, b) => a.timestamp - b.timestamp);
+  }, [expenses, payments]);
 
   // Group timeline items by date header
   const groupedTimeline = useMemo(() => {
@@ -327,7 +363,7 @@ export default function ProjectDetailPage({
     return (
       <div className="p-16 text-center text-slate-400 text-xs">
         <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        Opening project paperwork &amp; timeline...
+        Loading project details &amp; timeline...
       </div>
     );
   }
@@ -340,9 +376,9 @@ export default function ProjectDetailPage({
         <p className="text-xs text-slate-400">
           The project record you requested does not exist or may have been removed.
         </p>
-        <Link href="/dashboard">
+        <Link href="/dashboard/projects">
           <Button variant="outline" className="border-slate-800 text-xs text-slate-300">
-            <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Return to Home
+            <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Return to Projects
           </Button>
         </Link>
       </div>
@@ -355,39 +391,50 @@ export default function ProjectDetailPage({
   const phoneDigits = getIndianPhoneDigits(project.phone || "");
   const clientInitial = project.name ? project.name.trim().charAt(0).toUpperCase() : "C";
 
+  const createQuoteUrl = `/dashboard/estimates/new?clientName=${encodeURIComponent(
+    project.name || ""
+  )}&clientPhone=${encodeURIComponent(project.phone || "")}&place=${encodeURIComponent(
+    project.place || ""
+  )}&projectType=${encodeURIComponent(project.type || "Wiring")}`;
+
   return (
-    <div className="max-w-2xl mx-auto flex flex-col min-h-[calc(100vh-8rem)] relative pb-28 select-none">
-      {/* 1. Top App Bar (Google Pay Header Style in Image 2) */}
-      <div className="sticky top-0 z-20 -mx-3.5 sm:-mx-6 px-4 py-3 bg-[#111216]/95 backdrop-blur-xl border-b border-[#23252d] flex items-center justify-between shadow-md">
+    <div className="max-w-3xl mx-auto flex flex-col min-h-[calc(100vh-8rem)] relative pb-28 select-none">
+      {/* 1. Top App Bar */}
+      <div className="sticky top-0 z-20 -mx-3.5 sm:-mx-6 px-4 py-3 bg-[#111216]/95 backdrop-blur-xl border-b border-[#23252d] flex items-center justify-between shadow-md mb-4">
         <div className="flex items-center gap-3 min-w-0">
-          {/* Back button */}
           <Link
-            href="/dashboard"
-            aria-label="Back"
+            href="/dashboard/projects"
+            aria-label="Back to Projects"
             className="p-1.5 rounded-full text-slate-300 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
 
-          {/* Client Avatar Circle (Matches Orange S in Image 2) */}
+          {/* Client Avatar Circle */}
           <div className="w-10 h-10 rounded-full bg-orange-600 text-white font-bold flex items-center justify-center text-lg shadow-sm shrink-0">
             {clientInitial}
           </div>
 
           {/* Client Info */}
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm sm:text-base font-bold text-white truncate leading-tight">
-              {project.name}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm sm:text-base font-bold text-white truncate leading-tight">
+                {project.name}
+              </h2>
+              <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                {project.project_number}
+              </span>
+            </div>
             <div className="text-[11px] text-slate-400 truncate flex items-center gap-1.5 font-medium">
               {project.phone && <span>{formatPhoneNumber(project.phone)}</span>}
               {project.place && <span>• {project.place}</span>}
+              <span>• {project.type || "Wiring"}</span>
             </div>
           </div>
         </div>
 
-        {/* Right Action Icons: Call, Details Button */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* Right Action Icons: Call, Switch View Button */}
+        <div className="flex items-center gap-2 shrink-0">
           {phoneDigits && (
             <a
               href={`tel:${phoneDigits}`}
@@ -398,453 +445,636 @@ export default function ProjectDetailPage({
             </a>
           )}
 
-          {/* "Details" Button (Prominently requested by user) */}
-          <button
-            type="button"
-            onClick={() => setDetailsDrawerOpen(true)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#1e2025] hover:bg-slate-700/80 border border-[#2e323b] text-xs font-bold text-[#8ab4f8] hover:text-blue-200 transition-colors shadow-sm"
-          >
-            <Info className="w-3.5 h-3.5" />
-            <span>Details</span>
-          </button>
+          {/* Toggle between Details and Timeline */}
+          {activeTab === "timeline" ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab("details")}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1e2025] hover:bg-slate-700/80 border border-[#2e323b] text-xs font-bold text-[#8ab4f8] hover:text-blue-200 transition-colors shadow-sm"
+            >
+              <Info className="w-3.5 h-3.5" />
+              <span>Project Details</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setActiveTab("timeline")}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1e2025] hover:bg-slate-700/80 border border-[#2e323b] text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors shadow-sm"
+            >
+              <Receipt className="w-3.5 h-3.5" />
+              <span>View Ledger</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 2. Google Pay Top Summary Banner Card ("Tap to view" style in Image 2) */}
-      <div className="mt-3 mb-2 p-3.5 rounded-2xl bg-gradient-to-r from-[#1a1c22] to-[#15171d] border border-[#282a33] flex items-center justify-between gap-3 shadow-sm">
-        <div className="space-y-0.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Account Balance
-          </span>
-          <div className="flex items-center gap-3 text-xs">
-            <span className="text-slate-300">
-              In: <strong className="text-emerald-400 font-mono">₹{projPaymentTotal.toLocaleString("en-IN")}</strong>
-            </span>
-            <span className="text-slate-400">•</span>
-            <span className="text-slate-300">
-              Out: <strong className="text-rose-400 font-mono">₹{projExpenseTotal.toLocaleString("en-IN")}</strong>
-            </span>
-          </div>
-        </div>
-
+      {/* 2. Full Page Navigation Tabs */}
+      <div className="flex items-center gap-1.5 p-1 bg-slate-900/90 border border-slate-800 rounded-2xl mb-4 shadow-sm">
         <button
           type="button"
-          onClick={() => setDetailsDrawerOpen(true)}
-          className="text-xs font-bold text-[#8ab4f8] hover:text-blue-300 shrink-0"
+          onClick={() => setActiveTab("details")}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+            activeTab === "details"
+              ? "bg-[#1a73e8] text-white shadow-md shadow-[#1a73e8]/30 font-extrabold"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+          }`}
         >
-          View Paperwork &gt;
+          <Info className="w-3.5 h-3.5" />
+          <span>Project Details &amp; Specifications</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("timeline")}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+            activeTab === "timeline"
+              ? "bg-[#1a73e8] text-white shadow-md shadow-[#1a73e8]/30 font-extrabold"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+          }`}
+        >
+          <Receipt className="w-3.5 h-3.5" />
+          <span>Timeline &amp; Ledger ({timelineItems.length})</span>
         </button>
       </div>
 
-      {/* 3. Transaction Timeline Feed (Left = Expense, Right = Payment) */}
-      {/* User requirement: "when selecting a project it shoul show the expance and payment of that project left and right respectively" */}
-      <div className="flex-1 space-y-5 pt-3">
-        {timelineItems.length === 0 ? (
-          <div className="text-center py-16 px-4 space-y-3">
-            <div className="w-16 h-16 rounded-full bg-[#1a1c22] border border-[#292c36] flex items-center justify-center mx-auto text-slate-500">
-              <Receipt className="w-8 h-8 stroke-[1.5]" />
-            </div>
-            <h3 className="text-sm font-bold text-white">No transactions yet</h3>
-            <p className="text-xs text-slate-400 max-w-xs mx-auto">
-              Start by logging client payments on the right or site expenses on the left.
-            </p>
-          </div>
-        ) : (
-          groupedTimeline.map((group, groupIdx) => (
-            <div key={`group-${groupIdx}`} className="space-y-3">
-              {/* Date divider separator (Google Pay style curved separator) */}
-              <div className="flex items-center justify-center py-1">
-                <div className="px-3 py-1 rounded-full bg-[#18191f] border border-[#262832] text-[10px] font-semibold text-slate-400 tracking-tight shadow-xs">
-                  {group.header}
-                </div>
-              </div>
-
-              {/* Transactions in this group */}
-              <div className="space-y-3">
-                {group.items.map((item) => {
-                  if (item.type === "EXPENSE") {
-                    // LEFT SIDE: EXPENSE BUBBLE (Outgoing / Site Cost)
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex justify-start mr-8 sm:mr-24"
-                      >
-                        <div className="w-full max-w-sm rounded-3xl rounded-tl-xs bg-[#1f2127] border border-[#2d313c] p-4 text-white shadow-md hover:border-rose-500/30 transition-all">
-                          <div className="flex items-center justify-between text-xs text-slate-400 pb-1">
-                            <span className="font-semibold text-rose-300 truncate max-w-[200px]">
-                              Expense: {item.title}
-                            </span>
-                            {item.rawExpense && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleDeleteExpense(
-                                    item.rawExpense!.id,
-                                    item.title
-                                  )
-                                }
-                                title="Delete expense"
-                                className="text-slate-500 hover:text-rose-400 p-1"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Big Rupee Amount */}
-                          <div className="text-2xl sm:text-3xl font-black text-white font-mono py-1">
-                            ₹{item.amount.toLocaleString("en-IN")}
-                          </div>
-
-                          {/* Footer Tag */}
-                          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-                            <span className="inline-flex items-center gap-1.5 text-slate-400">
-                              <span className="w-2 h-2 rounded-full bg-rose-500" />
-                              Site Outflow • {item.date}
-                            </span>
-                            <span className="text-[10px] text-slate-500 font-mono">
-                              {item.sub}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  } else {
-                    // RIGHT SIDE: PAYMENT BUBBLE (Incoming / Client Money)
-                    // Matches Image 2 exact Google Pay payment bubble style
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex justify-end ml-8 sm:ml-24"
-                      >
-                        <div className="w-full max-w-sm rounded-3xl rounded-tr-xs bg-[#282a32] border border-[#383c48] p-4 text-white shadow-md hover:border-emerald-500/30 transition-all">
-                          <div className="flex items-center justify-between text-xs text-slate-300 pb-1">
-                            <span className="font-semibold truncate max-w-[200px]">
-                              {item.title}
-                            </span>
-                            {item.rawPayment && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleDeletePayment(
-                                    item.rawPayment!.id,
-                                    `₹${item.amount}`
-                                  )
-                                }
-                                title="Delete payment"
-                                className="text-slate-500 hover:text-rose-400 p-1"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Big Rupee Amount (Matches ₹3,300, ₹1,300 in Image 2) */}
-                          <div className="text-2xl sm:text-3xl font-black text-white font-mono py-1">
-                            ₹{item.amount.toLocaleString("en-IN")}
-                          </div>
-
-                          {/* Footer Tag with Green Checkmark */}
-                          <div className="flex items-center justify-between text-[11px] pt-1">
-                            <span className="inline-flex items-center gap-1.5 text-emerald-400 font-medium">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                              Paid • {item.date}
-                            </span>
-                            <span className="px-2 py-0.5 rounded-md bg-slate-800/80 border border-slate-700/80 text-[10px] text-slate-300 font-mono font-bold">
-                              {item.method || "Cash"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                })}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* 4. Bottom Sticky Action Bar (Matches Google Pay Image 2 bottom) */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-[#111216]/98 backdrop-blur-xl border-t border-[#23252d] px-3.5 py-2.5 safe-area-pb shadow-2xl">
-        <div className="max-w-2xl mx-auto flex items-center gap-2">
-          {/* Quick Expense Button (Left) */}
-          <button
-            type="button"
-            onClick={() => setIsExpenseModalOpen(true)}
-            className="px-4 py-2.5 rounded-full bg-[#1e2025] hover:bg-slate-800 text-rose-300 text-xs font-bold border border-[#2d313b] shrink-0 active:scale-95 transition-all shadow-sm"
-          >
-            + Expense
-          </button>
-
-          {/* Quick Memo / Site Note input */}
-          <div className="flex-1 relative flex items-center">
-            <input
-              type="text"
-              value={quickNote}
-              onChange={(e) => setQuickNote(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSendQuickNote();
-              }}
-              placeholder="Message or site memo..."
-              className="w-full h-10 px-4 rounded-full bg-[#1e2025] border border-[#2e323b] text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#1a73e8]"
-            />
-            {quickNote && (
-              <button
-                type="button"
-                onClick={handleSendQuickNote}
-                className="absolute right-2 p-1.5 rounded-full bg-[#1a73e8] text-white hover:bg-blue-600 transition-colors"
-              >
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Quick Payment Button (Right, Google Pay blue pill) */}
-          <button
-            type="button"
-            onClick={() => setIsPaymentModalOpen(true)}
-            className="px-5 py-2.5 rounded-full bg-[#1a73e8] hover:bg-[#1557bf] text-white text-xs font-bold shrink-0 shadow-md shadow-[#1a73e8]/30 active:scale-95 transition-all"
-          >
-            + Payment
-          </button>
-        </div>
-      </div>
-
-      {/* 5. Project "Details" Modal / Drawer (Paperwork, Blueprints, Quotes, Status) */}
-      {detailsDrawerOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex flex-col justify-end animate-in fade-in duration-200"
-          onClick={() => setDetailsDrawerOpen(false)}
-        >
-          <div
-            className="bg-[#181a20] border-t border-[#2a2d36] rounded-t-3xl p-5 space-y-5 max-h-[88vh] overflow-y-auto animate-in slide-in-from-bottom duration-250 shadow-2xl max-w-2xl w-full mx-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-[#282b35]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-orange-600 text-white font-bold flex items-center justify-center text-lg">
+      {/* ======================================================== */}
+      {/* FULL PAGE VIEW 1: PROJECT DETAILS & SPECS (NO MODAL!)    */}
+      {/* ======================================================== */}
+      {activeTab === "details" && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          {/* Header Card / Client Overview Banner */}
+          <div className="p-5 rounded-2xl bg-[#181a20] border border-[#282b35] shadow-lg space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#282b35]">
+              <div className="flex items-center gap-3.5">
+                <div className="w-14 h-14 rounded-2xl bg-orange-600 text-white font-extrabold flex items-center justify-center text-2xl shadow-md">
                   {clientInitial}
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-base leading-tight">
-                    {project.name}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Project #{project.project_number} • Full Paperwork &amp; Specs
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-xl font-bold text-white tracking-tight">
+                      {project.name}
+                    </h1>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                      {project.project_number}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {project.type || "Wiring"} Project • Registered on {project.created_at ? new Date(project.created_at).toLocaleDateString("en-IN") : "Active"}
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setDetailsDrawerOpen(false)}
-                className="p-2 rounded-full text-slate-400 hover:text-white bg-slate-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            {/* Status Changer */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Work Status
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {PROJECT_STATUSES.map((st) => (
-                  <button
-                    key={st}
-                    type="button"
-                    onClick={() => handleStatusChange(st)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                      project.status === st
-                        ? "bg-[#1a73e8] text-white shadow-md shadow-[#1a73e8]/30"
-                        : "bg-[#1e2025] border border-[#2e323b] text-slate-300 hover:text-white"
-                    }`}
-                  >
-                    {st}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick Details Grid */}
-            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-[#121316] border border-[#24262f] text-xs">
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">
-                  Work Type
+              {/* Status Badge & Status Switcher */}
+              <div className="flex flex-col sm:items-end gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Current Status
                 </span>
-                <span className="font-semibold text-white">{project.type || "Wiring"}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">
-                  Site Location
-                </span>
-                <span className="font-semibold text-white">{project.place || "Not specified"}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">
-                  Phone
-                </span>
-                <span className="font-mono text-slate-200">{project.phone || "—"}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">
-                  Timeline
-                </span>
-                <span className="text-slate-200">
-                  {project.start_date ? project.start_date : "Started"} →{" "}
-                  {project.end_date ? project.end_date : "Ongoing"}
-                </span>
-              </div>
-            </div>
-
-            {project.description && (
-              <div className="p-3 rounded-xl bg-[#121316] border border-[#24262f] text-xs">
-                <span className="text-slate-400 block text-[10px] uppercase font-bold mb-1">
-                  Scope &amp; Description
-                </span>
-                <p className="text-slate-200 leading-relaxed">{project.description}</p>
-              </div>
-            )}
-
-            {/* Blueprints / Reference Plans & Paperwork Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                    <Paperclip className="w-3.5 h-3.5 text-blue-400" />
-                    Blueprints &amp; Paperwork ({(project.plans || []).length})
-                  </h4>
-                  <p className="text-[11px] text-slate-400">
-                    Wiring diagrams, architectural drawings &amp; permits
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => planFileInputRef.current?.click()}
-                  disabled={isUploadingPlan}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1a73e8] hover:bg-[#1557bf] text-white text-xs font-bold transition-all disabled:opacity-50"
-                >
-                  {isUploadingPlan ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <UploadCloud className="w-3.5 h-3.5" />
-                  )}
-                  <span>+ Upload Plan</span>
-                </button>
-                <input
-                  ref={planFileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*,application/pdf"
-                  className="hidden"
-                  onChange={handleAddMorePlans}
-                />
-              </div>
-
-              {(project.plans || []).length === 0 ? (
-                <div className="p-4 rounded-xl bg-[#121316] border border-dashed border-[#2e313b] text-center text-xs text-slate-400">
-                  No plans or blueprints uploaded yet. Tap Upload Plan above to attach diagrams or PDFs.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {(project.plans || []).map((file) => (
-                    <div
-                      key={file.id}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-[#121316] border border-[#24262f] hover:border-slate-700 transition-colors text-xs"
+                <div className="flex flex-wrap gap-1.5">
+                  {PROJECT_STATUSES.map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => handleStatusChange(st)}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                        project.status === st
+                          ? "bg-[#1a73e8] text-white shadow-md shadow-[#1a73e8]/30 ring-2 ring-blue-400/50"
+                          : "bg-[#121316] border border-[#2e323b] text-slate-300 hover:text-white hover:bg-slate-800"
+                      }`}
                     >
-                      <a
-                        href={file.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2.5 flex-1 min-w-0"
-                      >
-                        <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
-                          {file.type?.includes("pdf") ? (
-                            <FileText className="w-4 h-4" />
-                          ) : (
-                            <ImageIcon className="w-4 h-4" />
-                          )}
-                        </div>
-                        <div className="truncate">
-                          <span className="font-bold text-slate-200 block truncate">
-                            {file.name}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            {formatFileSize(file.size)}
-                          </span>
-                        </div>
-                      </a>
-
-                      <div className="flex items-center gap-1 shrink-0">
-                        <a
-                          href={file.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-white"
-                          title="Open full preview"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePlan(file.id, file.name)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400"
-                          title="Delete file"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
+                      {st}
+                    </button>
                   ))}
                 </div>
-              )}
+              </div>
             </div>
 
-            {/* Quick Links: Quotations and Material List */}
-            <div className="grid grid-cols-2 gap-2.5 pt-2">
+            {/* Quick Primary Actions Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+              {phoneDigits ? (
+                <a
+                  href={`tel:${phoneDigits}`}
+                  className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#121316] hover:bg-slate-800/80 border border-[#2d313b] text-xs font-bold text-emerald-400 transition-colors shadow-xs"
+                >
+                  <Phone className="w-4 h-4" />
+                  <span>Call Client</span>
+                </a>
+              ) : (
+                <button
+                  disabled
+                  className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#121316] border border-[#2d313b] text-xs font-bold text-slate-600 opacity-60 cursor-not-allowed"
+                >
+                  <Phone className="w-4 h-4" />
+                  <span>No Phone</span>
+                </button>
+              )}
+
               <Link
-                href={`/dashboard/estimates/new?clientName=${encodeURIComponent(project.name)}`}
-                className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1e2025] hover:bg-slate-700/60 border border-[#2d313b] text-xs font-bold text-slate-200 transition-colors"
+                href={createQuoteUrl}
+                className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#121316] hover:bg-slate-800/80 border border-[#2d313b] text-xs font-bold text-amber-400 transition-colors shadow-xs"
               >
-                <FileSpreadsheet className="w-4 h-4 text-sky-400" />
+                <FileSpreadsheet className="w-4 h-4" />
                 <span>Create Quote</span>
               </Link>
 
               <Link
                 href={`/dashboard/item-list/new?projectId=${project.id}`}
-                className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1e2025] hover:bg-slate-700/60 border border-[#2d313b] text-xs font-bold text-slate-200 transition-colors"
+                className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#121316] hover:bg-slate-800/80 border border-[#2d313b] text-xs font-bold text-sky-400 transition-colors shadow-xs"
               >
-                <ListChecks className="w-4 h-4 text-amber-400" />
+                <ListChecks className="w-4 h-4" />
                 <span>Material List</span>
               </Link>
+
+              <button
+                type="button"
+                onClick={() => setIsPaymentModalOpen(true)}
+                className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#121316] hover:bg-slate-800/80 border border-[#2d313b] text-xs font-bold text-emerald-400 transition-colors shadow-xs"
+              >
+                <Wallet className="w-4 h-4" />
+                <span>+ Payment</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 2-Column Information & Financial Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Site & Client Details Card */}
+            <div className="p-4 rounded-2xl bg-[#181a20] border border-[#282b35] shadow-sm space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5 pb-2 border-b border-[#282b35]">
+                <Building2 className="w-4 h-4 text-amber-400" />
+                <span>Client &amp; Site Details</span>
+              </h3>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-2.5 rounded-xl bg-[#121316] border border-[#24262f]">
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                    Client Name
+                  </span>
+                  <span className="font-semibold text-white truncate block">
+                    {project.name}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-[#121316] border border-[#24262f]">
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                    Phone Number
+                  </span>
+                  <span className="font-mono font-semibold text-slate-200">
+                    {project.phone || "—"}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-[#121316] border border-[#24262f]">
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                    Site Location / Place
+                  </span>
+                  <div className="flex items-center gap-1 font-semibold text-white">
+                    <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="truncate">{project.place || "Not specified"}</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-[#121316] border border-[#24262f]">
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                    Work Type
+                  </span>
+                  <span className="font-semibold text-amber-400">
+                    {project.type || "Wiring"}
+                  </span>
+                </div>
+
+                <div className="col-span-2 p-2.5 rounded-xl bg-[#121316] border border-[#24262f]">
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                    Project Schedule
+                  </span>
+                  <div className="flex items-center gap-1.5 font-medium text-slate-200">
+                    <Calendar className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <span>
+                      {project.start_date || "Start date not set"} →{" "}
+                      {project.end_date || "Ongoing"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Delete Project Row */}
-            <div className="pt-2 border-t border-[#282b35] flex justify-between items-center">
+            {/* Financial Overview Card */}
+            <div className="p-4 rounded-2xl bg-[#181a20] border border-[#282b35] shadow-sm space-y-3 flex flex-col justify-between">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5 pb-2 border-b border-[#282b35]">
+                  <Wallet className="w-4 h-4 text-emerald-400" />
+                  <span>Financial Summary</span>
+                </h3>
+
+                <div className="grid grid-cols-2 gap-3 text-xs pt-3">
+                  <div className="p-3 rounded-xl bg-[#121316] border border-emerald-500/20">
+                    <span className="text-emerald-400 block text-[10px] uppercase font-bold">
+                      Total Money In
+                    </span>
+                    <span className="text-lg font-black font-mono text-emerald-300 block">
+                      ₹{projPaymentTotal.toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {payments.length} payments recorded
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#121316] border border-rose-500/20">
+                    <span className="text-rose-400 block text-[10px] uppercase font-bold">
+                      Total Expenses Out
+                    </span>
+                    <span className="text-lg font-black font-mono text-rose-300 block">
+                      ₹{projExpenseTotal.toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {expenses.length} expenses logged
+                    </span>
+                  </div>
+
+                  <div className="col-span-2 p-3 rounded-xl bg-gradient-to-r from-[#141820] to-[#121316] border border-[#2e323b] flex items-center justify-between">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                        Net Balance
+                      </span>
+                      <span
+                        className={`text-xl font-black font-mono ${
+                          netBalance >= 0 ? "text-emerald-400" : "text-rose-400"
+                        }`}
+                      >
+                        ₹{netBalance.toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("timeline")}
+                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors"
+                    >
+                      View Ledger →
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={() => setIsPaymentModalOpen(true)}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Payment
+                </Button>
+                <Button
+                  onClick={() => setIsExpenseModalOpen(true)}
+                  className="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Expense
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Scope & Description Card */}
+          {project.description && (
+            <div className="p-4 rounded-2xl bg-[#181a20] border border-[#282b35] shadow-sm space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-sky-400" />
+                <span>Scope of Work &amp; Description</span>
+              </h3>
+              <div className="p-3.5 rounded-xl bg-[#121316] border border-[#24262f] text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">
+                {project.description}
+              </div>
+            </div>
+          )}
+
+          {/* Blueprints / Reference Plans & Paperwork Section */}
+          <div className="p-4 rounded-2xl bg-[#181a20] border border-[#282b35] shadow-sm space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#282b35]">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <Paperclip className="w-4 h-4 text-blue-400" />
+                  <span>Blueprints, Wiring Diagrams &amp; Paperwork ({(project.plans || []).length})</span>
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Attach architectural plans, single line diagrams, permits or customer approvals
+                </p>
+              </div>
+
               <button
                 type="button"
-                onClick={handleDelete}
-                className="text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1.5"
+                onClick={() => planFileInputRef.current?.click()}
+                disabled={isUploadingPlan}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#1a73e8] hover:bg-[#1557bf] text-white text-xs font-bold transition-all disabled:opacity-50 self-start sm:self-auto shadow-sm"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete Project</span>
+                {isUploadingPlan ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <UploadCloud className="w-3.5 h-3.5" />
+                )}
+                <span>+ Upload Blueprint / PDF</span>
               </button>
+              <input
+                ref={planFileInputRef}
+                type="file"
+                multiple
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={handleAddMorePlans}
+              />
+            </div>
+
+            {(project.plans || []).length === 0 ? (
+              <div className="p-8 rounded-xl bg-[#121316] border border-dashed border-[#2e313b] text-center text-xs text-slate-400 space-y-2">
+                <UploadCloud className="w-8 h-8 text-slate-600 mx-auto" />
+                <p className="font-semibold text-slate-300">No blueprints or documents attached yet</p>
+                <p className="text-[11px] text-slate-500">
+                  Tap Upload above to attach wiring diagrams, photos, or architectural drawings.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {(project.plans || []).map((file) => (
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-3 rounded-xl bg-[#121316] border border-[#24262f] hover:border-slate-700 transition-colors text-xs"
+                  >
+                    <a
+                      href={file.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 flex-1 min-w-0"
+                    >
+                      <div className="p-2.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
+                        {file.type?.includes("pdf") ? (
+                          <FileText className="w-4 h-4" />
+                        ) : (
+                          <ImageIcon className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div className="truncate">
+                        <span className="font-bold text-slate-200 block truncate">
+                          {file.name}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {formatFileSize(file.size)}
+                        </span>
+                      </div>
+                    </a>
+
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                        title="Open file preview"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePlan(file.id, file.name)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800"
+                        title="Delete file"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Danger Zone: Delete Project */}
+          <div className="p-4 rounded-2xl bg-[#181a20] border border-rose-950/40 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-bold text-rose-400 block">
+                Delete Project Record
+              </span>
+              <p className="text-[11px] text-slate-400">
+                Permanently deletes this project and its blueprint references.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleDelete}
+              className="border-rose-900/60 bg-rose-950/30 text-rose-300 hover:bg-rose-900/50 hover:text-rose-200 text-xs font-bold gap-1.5 self-end sm:self-auto"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Project</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* FULL PAGE VIEW 2: TIMELINE & LEDGER                      */}
+      {/* ======================================================== */}
+      {activeTab === "timeline" && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          {/* Account Balance Summary Banner */}
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#1a1c22] to-[#15171d] border border-[#282a33] flex items-center justify-between gap-3 shadow-sm">
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Account Balance
+              </span>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-slate-300">
+                  In: <strong className="text-emerald-400 font-mono">₹{projPaymentTotal.toLocaleString("en-IN")}</strong>
+                </span>
+                <span className="text-slate-400">•</span>
+                <span className="text-slate-300">
+                  Out: <strong className="text-rose-400 font-mono">₹{projExpenseTotal.toLocaleString("en-IN")}</strong>
+                </span>
+                <span className="text-slate-400">•</span>
+                <span className="text-slate-300">
+                  Net:{" "}
+                  <strong
+                    className={`font-mono ${
+                      netBalance >= 0 ? "text-emerald-400" : "text-rose-400"
+                    }`}
+                  >
+                    ₹{netBalance.toLocaleString("en-IN")}
+                  </strong>
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("details")}
+              className="text-xs font-bold text-[#8ab4f8] hover:text-blue-300 shrink-0"
+            >
+              View Full Details &gt;
+            </button>
+          </div>
+
+          {/* Transaction Timeline Feed (Left = Expense, Right = Payment) */}
+          <div className="flex-1 space-y-5 pt-2">
+            {timelineItems.length === 0 ? (
+              <div className="text-center py-16 px-4 space-y-3">
+                <div className="w-16 h-16 rounded-full bg-[#1a1c22] border border-[#292c36] flex items-center justify-center mx-auto text-slate-500">
+                  <Receipt className="w-8 h-8 stroke-[1.5]" />
+                </div>
+                <h3 className="text-sm font-bold text-white">No transactions yet</h3>
+                <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                  Start by logging client payments on the right or site expenses on the left.
+                </p>
+              </div>
+            ) : (
+              groupedTimeline.map((group, groupIdx) => (
+                <div key={`group-${groupIdx}`} className="space-y-3">
+                  {/* Date divider separator */}
+                  <div className="flex items-center justify-center py-1">
+                    <div className="px-3 py-1 rounded-full bg-[#18191f] border border-[#262832] text-[10px] font-semibold text-slate-400 tracking-tight shadow-xs">
+                      {group.header}
+                    </div>
+                  </div>
+
+                  {/* Transactions in this group */}
+                  <div className="space-y-3">
+                    {group.items.map((item) => {
+                      if (item.type === "EXPENSE") {
+                        // LEFT SIDE: EXPENSE BUBBLE (Outgoing)
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex justify-start mr-8 sm:mr-24"
+                          >
+                            <div className="w-full max-w-sm rounded-3xl rounded-tl-xs bg-[#1f2127] border border-[#2d313c] p-4 text-white shadow-md hover:border-rose-500/30 transition-all">
+                              <div className="flex items-center justify-between text-xs text-slate-400 pb-1">
+                                <span className="font-semibold text-rose-300 truncate max-w-[200px]">
+                                  Expense: {item.title}
+                                </span>
+                                {item.rawExpense && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleDeleteExpense(
+                                        item.rawExpense!.id,
+                                        item.title
+                                      )
+                                    }
+                                    title="Delete expense"
+                                    className="text-slate-500 hover:text-rose-400 p-1"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="text-2xl sm:text-3xl font-black text-white font-mono py-1">
+                                ₹{item.amount.toLocaleString("en-IN")}
+                              </div>
+
+                              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                                <span className="inline-flex items-center gap-1.5 text-slate-400">
+                                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                                  Site Outflow • {item.date}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-mono">
+                                  {item.sub}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      } else {
+                        // RIGHT SIDE: PAYMENT BUBBLE (Incoming)
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex justify-end ml-8 sm:ml-24"
+                          >
+                            <div className="w-full max-w-sm rounded-3xl rounded-tr-xs bg-[#282a32] border border-[#383c48] p-4 text-white shadow-md hover:border-emerald-500/30 transition-all">
+                              <div className="flex items-center justify-between text-xs text-slate-300 pb-1">
+                                <span className="font-semibold truncate max-w-[200px]">
+                                  {item.title}
+                                </span>
+                                {item.rawPayment && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleDeletePayment(
+                                        item.rawPayment!.id,
+                                        `₹${item.amount}`
+                                      )
+                                    }
+                                    title="Delete payment"
+                                    className="text-slate-500 hover:text-rose-400 p-1"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="text-2xl sm:text-3xl font-black text-white font-mono py-1">
+                                ₹{item.amount.toLocaleString("en-IN")}
+                              </div>
+
+                              <div className="flex items-center justify-between text-[11px] pt-1">
+                                <span className="inline-flex items-center gap-1.5 text-emerald-400 font-medium">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                  Paid • {item.date}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md bg-slate-800/80 border border-slate-700/80 text-[10px] text-slate-300 font-mono font-bold">
+                                  {item.method || "Cash"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Sticky Bottom Bar for Quick Expense & Payment in Timeline Mode */}
+          <div className="fixed bottom-0 left-0 right-0 z-30 bg-[#111216]/98 backdrop-blur-xl border-t border-[#23252d] px-3.5 py-2.5 safe-area-pb shadow-2xl">
+            <div className="max-w-3xl mx-auto flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setDetailsDrawerOpen(false)}
-                className="px-4 py-1.5 rounded-full bg-slate-800 text-xs font-bold text-slate-200"
+                onClick={() => setIsExpenseModalOpen(true)}
+                className="px-4 py-2.5 rounded-full bg-[#1e2025] hover:bg-slate-800 text-rose-300 text-xs font-bold border border-[#2d313b] shrink-0 active:scale-95 transition-all shadow-sm"
               >
-                Close
+                + Expense
+              </button>
+
+              <div className="flex-1 relative flex items-center">
+                <input
+                  type="text"
+                  value={quickNote}
+                  onChange={(e) => setQuickNote(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSendQuickNote();
+                  }}
+                  placeholder="Message or site memo..."
+                  className="w-full h-10 px-4 rounded-full bg-[#1e2025] border border-[#2e323b] text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#1a73e8]"
+                />
+                {quickNote && (
+                  <button
+                    type="button"
+                    onClick={handleSendQuickNote}
+                    className="absolute right-2 p-1.5 rounded-full bg-[#1a73e8] text-white hover:bg-blue-600 transition-colors"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsPaymentModalOpen(true)}
+                className="px-5 py-2.5 rounded-full bg-[#1a73e8] hover:bg-[#1557bf] text-white text-xs font-bold shrink-0 shadow-md shadow-[#1a73e8]/30 active:scale-95 transition-all"
+              >
+                + Payment
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Record Payment Modal */}
+      {/* Financial Action Modals (Payment / Expense) */}
       <RecordPaymentModal
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
@@ -855,7 +1085,6 @@ export default function ProjectDetailPage({
         }}
       />
 
-      {/* Record Expense Modal */}
       <RecordExpenseModal
         isOpen={isExpenseModalOpen}
         onClose={() => setIsExpenseModalOpen(false)}
@@ -866,5 +1095,24 @@ export default function ProjectDetailPage({
         }}
       />
     </div>
+  );
+}
+
+export default function ProjectDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-16 text-center text-slate-400 text-xs">
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          Opening project paperwork &amp; timeline...
+        </div>
+      }
+    >
+      <ProjectDetailContent params={params} />
+    </Suspense>
   );
 }

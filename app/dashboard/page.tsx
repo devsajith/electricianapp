@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getProjectsAction } from "./projects/actions";
 import { getPaymentsAction } from "./payments/actions";
 import { getExpensesAction } from "./expenses/actions";
+import { getLaboursAction, getLabourEntriesAction } from "./labour/actions";
 import { DashboardClient } from "./dashboard-client";
 import { withTimeout } from "@/lib/timeout";
 
@@ -29,12 +30,14 @@ export default async function DashboardPage() {
       getProjectsAction(),
       getPaymentsAction(),
       getExpensesAction(),
+      getLaboursAction(),
+      getLabourEntriesAction(),
     ]),
-    [[], { data: [] }, { data: [] }],
+    [[], { data: [] }, { data: [] }, [], []],
     2500
   );
 
-  const [user, [projectsRes, paymentsRes, expensesRes]] = await Promise.all([
+  const [user, [projectsRes, paymentsRes, expensesRes, laboursRes, labourEntriesRes]] = await Promise.all([
     userPromise,
     dataPromise,
   ]);
@@ -46,6 +49,8 @@ export default async function DashboardPage() {
       initialProjects={projects}
       initialPayments={paymentsRes.data || []}
       initialExpenses={expensesRes.data || []}
+      initialLabours={laboursRes || []}
+      initialLabourEntries={labourEntriesRes || []}
       userEmail={user?.email}
     />
   );
