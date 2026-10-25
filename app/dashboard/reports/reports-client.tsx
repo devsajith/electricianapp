@@ -526,7 +526,7 @@ export function ReportsClient({
       </div>
 
       {/* Main Tab Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-800/80 pb-2 no-print overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-slate-800/80 pb-2 no-print overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveTab("revenue")}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${

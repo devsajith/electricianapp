@@ -237,7 +237,7 @@ export function DashboardClient({
     : filteredProjects.slice(0, 7);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-20 select-none">
+    <div className="max-w-2xl mx-auto space-y-6 pb-2 select-none">
       {/* 1. Google Pay Style Search Pill with Client Name Search + Settings Avatar */}
       <div className="relative flex items-center gap-2">
         <div className="relative flex-1">

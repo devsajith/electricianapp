@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { QuickActionFAB } from "@/components/quick-action-fab";
+import { HeaderProvider } from "@/components/header-context";
 
 interface DashboardShellProps {
   userEmail?: string | null;
@@ -15,7 +16,8 @@ export function DashboardShell({ userEmail, children }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-amber-500 selection:text-slate-950">
+    <HeaderProvider>
+      <div className="flex h-screen h-dvh w-full overflow-hidden bg-background text-foreground font-sans selection:bg-amber-500 selection:text-slate-950">
       {/* Sidebar (Desktop + Mobile Drawer Fallback) */}
       <Sidebar
         userEmail={userEmail}
@@ -24,7 +26,7 @@ export function DashboardShell({ userEmail, children }: DashboardShellProps) {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         {/* Header with Hamburger Menu & User Profile */}
         <Header
           userEmail={userEmail}
@@ -32,7 +34,10 @@ export function DashboardShell({ userEmail, children }: DashboardShellProps) {
         />
 
         {/* Page Content with safe padding for mobile bottom bar */}
-        <main className="flex-1 p-3.5 sm:p-6 pb-28 md:pb-6 overflow-y-auto">
+        <main
+          id="main-content"
+          className="flex-1 overflow-y-auto overscroll-y-contain p-3 sm:p-5 md:p-6 pb-24 md:pb-8"
+        >
           {children}
         </main>
       </div>
@@ -43,5 +48,6 @@ export function DashboardShell({ userEmail, children }: DashboardShellProps) {
       {/* Native App-Style Mobile Bottom Navigation Bar */}
       <MobileBottomNav />
     </div>
+    </HeaderProvider>
   );
 }

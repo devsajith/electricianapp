@@ -21,12 +21,18 @@ export function QuickActionFAB() {
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
 
-  // Avoid overlapping Google Pay style actions on home, project timeline, and labour timeline
-  if (
+  // Hide FAB on detail views, creation forms, settings, reports, and home where it causes overlapping
+  const shouldHideFAB =
     pathname === "/dashboard" ||
+    pathname === "/dashboard/settings" ||
+    pathname === "/dashboard/reports" ||
     pathname.startsWith("/dashboard/projects/") ||
-    (pathname.startsWith("/dashboard/labour/") && pathname !== "/dashboard/labour")
-  ) {
+    pathname.startsWith("/dashboard/estimates/") ||
+    pathname.startsWith("/dashboard/item-list/") ||
+    pathname.startsWith("/dashboard/materials/") ||
+    (pathname.startsWith("/dashboard/labour/") && pathname !== "/dashboard/labour");
+
+  if (shouldHideFAB) {
     return null;
   }
 

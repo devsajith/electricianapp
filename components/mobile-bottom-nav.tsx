@@ -114,7 +114,7 @@ export function MobileBottomNav() {
   return (
     <>
       {/* Sticky Bottom Navigation Bar for Mobile (Google Pay style) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#111216]/95 backdrop-blur-xl border-t border-[#23252d] md:hidden px-3 py-1.5 shadow-2xl safe-area-pb">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#111216]/95 backdrop-blur-xl border-t border-[#23252d] md:hidden px-3 py-1.5 shadow-2xl safe-area-pb no-print">
         <div className="flex items-center justify-around max-w-md mx-auto">
           {mainTabs.map((tab) => {
             const Icon = tab.icon;

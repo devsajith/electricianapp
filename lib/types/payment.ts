@@ -13,6 +13,7 @@ export interface PaymentProjectSummary {
   project_number?: string;
   name?: string;
   phone?: string;
+  place?: string;
 }
 
 export interface Payment {

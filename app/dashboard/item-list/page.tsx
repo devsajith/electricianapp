@@ -207,9 +207,10 @@ export default function ItemListPage() {
             ))}
           </div>
         </div>
+      </div>
 
-        {/* Excel Spreadsheet Container */}
-        <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950">
+      {/* Excel Spreadsheet Container */}
+      <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950">
           {/* Excel Ribbon */}
           <div className="bg-[#107c41] px-4 py-2 flex flex-wrap items-center justify-between text-white border-b border-emerald-800 text-xs">
             <div className="flex items-center gap-2">
@@ -367,7 +368,6 @@ export default function ItemListPage() {
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }

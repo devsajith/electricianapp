@@ -97,76 +97,17 @@ export default function QuotationDetailPage({
     }
   };
 
-  // Direct 1-Click PDF Download fitting onto 1 page if short
-  const handleDownloadPdf = async () => {
+  // Direct 1-Click Instant PDF & Print Generator (Instant vector resolution, zero freeze)
+  const handleDownloadPdf = () => {
     if (!quotation) return;
-    const docElement = document.getElementById("quotation-print-document");
-    if (!docElement) return;
-
     setDownloadingPdf(true);
     try {
-      const html2canvas = (await import("html2canvas")).default;
-      const { jsPDF } = await import("jspdf");
-
-      const canvas = await html2canvas(docElement, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-      });
-
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
-      const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
-
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      // Fit to 1 page if short/medium (with 10% auto-scaling tolerance)
-      if (imgHeight <= pdfHeight * 1.10) {
-        const fitScale = imgHeight > pdfHeight ? (pdfHeight / imgHeight) * 0.98 : 1;
-        const finalWidth = imgWidth * fitScale;
-        const finalHeight = imgHeight * fitScale;
-        const marginX = (pdfWidth - finalWidth) / 2;
-        const marginY = (pdfHeight - finalHeight) / 2;
-        pdf.addImage(imgData, "PNG", marginX, Math.max(0, marginY), finalWidth, finalHeight);
-      } else {
-        // Multi-page if very long table
-        let heightLeft = imgHeight;
-        let position = 0;
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-
-        while (heightLeft > 0) {
-          position = heightLeft - imgHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-          heightLeft -= pdfHeight;
-        }
-      }
-
-      // File name format: ClientNamePlaceName.pdf (e.g. SubashAdimali.pdf)
-      const toPascalCase = (str?: string | null) => {
-        if (!str) return "";
-        return str
-          .replace(/^(Mr\.|Mrs\.|Ms\.|Dr\.)\s*/i, "")
-          .split(/[\s,._-]+/)
-          .filter(Boolean)
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join("");
-      };
-
-      const namePart = toPascalCase(quotation.client_name);
-      const placePart = toPascalCase(quotation.client_place);
-      const fileName = `${namePart}${placePart}` || "Quotation";
-
-      pdf.save(`${fileName}.pdf`);
+      window.print();
     } catch (err) {
-      console.error("PDF generation error:", err);
-      alert("Failed to download PDF. Please try again.");
+      console.error("PDF Print error:", err);
+      alert("Failed to open print / PDF dialog.");
     } finally {
-      setDownloadingPdf(false);
+      setTimeout(() => setDownloadingPdf(false), 600);
     }
   };
 
@@ -208,9 +149,34 @@ export default function QuotationDetailPage({
     : [];
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="space-y-6 pb-12">
+      {/* Dedicated Print Media Styles for crisp PDF and printouts */}
+      <style jsx global>{`
+        @media print {
+          body, html, #main-content {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            overflow: visible !important;
+            height: auto !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          aside, header, nav, .no-print, button {
+            display: none !important;
+          }
+          .quotation-print-sheet {
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 auto !important;
+            padding: 6mm 10mm !important;
+            max-width: 100% !important;
+            width: 100% !important;
+          }
+        }
+      `}</style>
+
       {/* TOP CONTROLS TOOLBAR */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm no-print">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/estimates">
             <Button
@@ -240,7 +206,7 @@ export default function QuotationDetailPage({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-start sm:justify-end">
           <Button
             onClick={handleShare}
             variant="outline"

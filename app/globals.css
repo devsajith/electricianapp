@@ -108,7 +108,7 @@
 }
 
 /* ======================================================== */
-/* LIGHT MODE DYNAMIC PALETTE                               */
+/* LIGHT MODE DYNAMIC PALETTE & HIGH-CONTRAST READABILITY   */
 /* ======================================================== */
 html.light {
   color-scheme: light;
@@ -116,7 +116,7 @@ html.light {
   --foreground: #0f172a;
 
   /* Remap slate tokens to crisp clean light mode */
-  --color-slate-950: #f8fafc;
+  --color-slate-950: #f1f5f9;
   --color-slate-900: #ffffff;
   --color-slate-800: #e2e8f0;
   --color-slate-700: #cbd5e1;
@@ -128,26 +128,147 @@ html.light {
   --color-slate-100: #0f172a;
 }
 
-html.light .text-white {
+/* Base Light Mode Text Legibility */
+html.light {
   color: #0f172a;
 }
 
-html.light .keep-white,
-html.light button.bg-amber-500,
-html.light button.bg-emerald-500,
-html.light button.bg-rose-500,
-html.light button.bg-sky-500,
-html.light .bg-amber-500 .text-white,
-html.light .bg-emerald-500 .text-white,
-html.light .bg-rose-500 .text-white,
-html.light .bg-sky-500 .text-white,
-html.light [class*="bg-amber-500"] .text-white,
-html.light [class*="bg-emerald-500"] .text-white,
+html.light .text-slate-400 {
+  color: #475569 !important;
+}
+
+html.light .text-slate-300 {
+  color: #334155 !important;
+}
+
+html.light .text-slate-200 {
+  color: #1e293b !important;
+}
+
+html.light .text-slate-100 {
+  color: #0f172a !important;
+}
+
+html.light .text-slate-500 {
+  color: #64748b !important;
+}
+
+/* Headings and Titles on Light/White Surfaces */
+html.light h1.text-white,
+html.light h2.text-white,
+html.light h3.text-white,
+html.light h4.text-white,
+html.light header h2,
+html.light .bg-white .text-white,
+html.light .bg-slate-900 .text-white,
+html.light .bg-slate-950 .text-white,
+html.light .bg-\[\#1e2025\] .text-white,
+html.light .bg-\[\#181a20\] .text-white {
+  color: #0f172a !important;
+}
+
+/* Solid Buttons, Ribbons, Badges & Pills: MUST PRESERVE PURE WHITE TEXT */
+html.light .bg-\[\#107c41\],
+html.light .bg-\[\#107c41\] *,
+html.light .bg-\[\#1a73e8\],
+html.light .bg-\[\#1a73e8\] *,
+html.light .bg-\[\#0b57d0\],
+html.light .bg-\[\#0b57d0\] *,
+html.light .bg-\[\#1e3a5f\],
+html.light .bg-\[\#1e3a5f\] *,
+html.light .bg-\[\#1a365d\],
+html.light .bg-blue-600,
+html.light .bg-blue-600 *,
+html.light .bg-emerald-600,
+html.light .bg-emerald-600 *,
+html.light .bg-emerald-700,
+html.light .bg-emerald-700 *,
+html.light .bg-rose-500,
+html.light .bg-rose-500 *,
+html.light .bg-rose-600,
+html.light .bg-rose-600 *,
+html.light .bg-amber-600,
+html.light .bg-purple-600,
+html.light .bg-teal-600,
+html.light .bg-indigo-600,
+html.light .bg-cyan-600,
+html.light .bg-orange-600,
+html.light [class*="bg-blue-600"] .text-white,
+html.light [class*="bg-emerald-600"] .text-white,
+html.light [class*="bg-rose-600"] .text-white,
 html.light [class*="bg-rose-500"] .text-white,
-html.light [class*="bg-sky-500"] .text-white {
+html.light .keep-white {
   color: #ffffff !important;
 }
 
+/* Amber Buttons: High-Contrast Pure Black on Gold */
+html.light button.bg-amber-500,
+html.light button.bg-amber-500 *,
+html.light .bg-amber-500,
+html.light .bg-amber-500 * {
+  color: #000000 !important;
+}
+
+/* Hardcoded Dark Hex Surfaces -> Clean Light White Cards */
+html.light .bg-\[\#1e2025\],
+html.light .bg-\[\#24262c\],
+html.light .bg-\[\#252830\],
+html.light .bg-\[\#262830\],
+html.light .bg-\[\#181a20\],
+html.light .bg-\[\#1a1c22\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light .bg-\[\#111216\] {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* Timeline Transaction Bubble Cards */
+html.light .bg-\[\#1f2127\] {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+  color: #0f172a !important;
+}
+html.light .bg-\[\#1f2127\] .text-white {
+  color: #be123c !important;
+}
+
+html.light .bg-\[\#282a32\] {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #0f172a !important;
+}
+html.light .bg-\[\#282a32\] .text-white {
+  color: #047857 !important;
+}
+
+/* Timeline Account Balance Gradient */
+html.light .from-\[\#1a1c22\] {
+  --tw-gradient-from: #ffffff !important;
+  --tw-gradient-to: #f1f5f9 !important;
+  background-image: linear-gradient(to right, #ffffff, #f1f5f9) !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Dark Borders Remapped in Light Mode */
+html.light .border-\[\#2e323b\],
+html.light .border-\[\#262932\],
+html.light .border-\[\#2a2d36\],
+html.light .border-\[\#282b35\],
+html.light .border-\[\#23252d\],
+html.light .border-\[\#292c36\],
+html.light .border-\[\#2d313b\],
+html.light .border-\[\#383c48\],
+html.light .border-\[\#383c48\]\/60 {
+  border-color: #e2e8f0 !important;
+}
+
+/* Inputs, Selects, and Textareas */
 html.light input:not([type="checkbox"]):not([type="radio"]),
 html.light select,
 html.light textarea {
@@ -156,28 +277,144 @@ html.light textarea {
   border-color: #cbd5e1 !important;
 }
 
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #64748b !important;
+}
+
 html.light select option {
   background-color: #ffffff !important;
   color: #0f172a !important;
 }
 
+/* Cards & Surface Shadows in Light Mode */
 html.light .bg-slate-900\/80,
 html.light .bg-slate-900\/90,
 html.light .bg-slate-900\/70,
 html.light .bg-slate-900 {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.04) !important;
 }
 
+html.light .bg-slate-950\/40,
+html.light .bg-slate-950\/50,
 html.light .bg-slate-950\/60,
 html.light .bg-slate-950\/70,
 html.light .bg-slate-950\/80,
 html.light .bg-slate-950\/90,
 html.light .bg-slate-950 {
-  background-color: #f1f5f9 !important;
+  background-color: #f8fafc !important;
   border-color: #e2e8f0 !important;
 }
+
+html.light .border-slate-800,
+html.light .border-slate-800\/60,
+html.light .border-slate-800\/80,
+html.light .border-slate-700,
+html.light .border-slate-700\/80 {
+  border-color: #e2e8f0 !important;
+}
+
+/* Excel Spreadsheet Tables in Light Mode */
+html.light thead tr.bg-slate-900,
+html.light thead tr {
+  background-color: #f1f5f9 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+}
+
+html.light thead th {
+  color: #334155 !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light thead th .text-white {
+  color: #0f172a !important;
+}
+
+html.light thead th .text-slate-400 {
+  color: #64748b !important;
+}
+
+html.light thead th.bg-slate-900,
+html.light thead th.bg-slate-900\/90 {
+  background-color: #f1f5f9 !important;
+  color: #64748b !important;
+}
+
+html.light tbody tr {
+  border-color: #e2e8f0 !important;
+  background-color: #ffffff !important;
+}
+
+html.light tbody tr:hover {
+  background-color: #f8fafc !important;
+}
+
+html.light tbody td {
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+html.light tbody td.bg-slate-900\/70 {
+  background-color: #f8fafc !important;
+  color: #64748b !important;
+}
+
+html.light tbody td a.text-white {
+  color: #0f172a !important;
+}
+
+html.light tbody td a.text-white:hover {
+  color: #2563eb !important;
+}
+
+html.light .divide-slate-800 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0 !important;
+}
+
+/* Sidebar & Header in Light Mode */
+html.light aside .bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light aside nav a.text-slate-400 {
+  color: #475569 !important;
+}
+
+html.light aside nav a.text-slate-400:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html.light header.bg-slate-900\/70 {
+  background-color: rgba(255, 255, 255, 0.88) !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light header h2 {
+  color: #0f172a !important;
+}
+
+/* Mobile Bottom Navigation & Sticky Bottom Bars */
+html.light nav.bg-\[\#111216\]\/95,
+html.light .bg-\[\#111216\]\/98 {
+  background-color: rgba(255, 255, 255, 0.97) !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light nav.bg-\[\#111216\]\/95 span,
+html.light nav.bg-\[\#111216\]\/95 button {
+  color: #475569;
+}
+
+html.light nav.bg-\[\#111216\]\/95 .bg-\[\#1a73e8\] span,
+html.light nav.bg-\[\#111216\]\/95 .bg-\[\#1a73e8\] svg {
+  color: #ffffff !important;
+}
+
 
 /* ======================================================== */
 /* TRUE BLACKISH DARK THEME (ZERO BLUE TINT, 100% CONTRAST) */
@@ -251,4 +488,40 @@ html.dark .bg-slate-950 {
 
 @utility safe-area-pb {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+/* ======================================================== */
+/* SCROLLBAR & OVERFLOW UTILITIES                           */
+/* ======================================================== */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.25);
+    border-radius: 9999px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(148, 163, 184, 0.45);
+  }
+}
+
+/* Smooth momentum touch scrolling for tables and containers */
+.overflow-x-auto,
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
 }

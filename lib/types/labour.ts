@@ -13,6 +13,13 @@ export interface CreateLabourDTO {
   place: string;
 }
 
+export type LabourAttendanceStatus =
+  | "full_day"
+  | "half_day"
+  | "overtime"
+  | "absent"
+  | "payment_only";
+
 export interface LabourEntry {
   id: string;
   worker_id: string;
@@ -24,6 +31,7 @@ export interface LabourEntry {
   ot: string;
   amount_paid: number;
   amount?: number;
+  attendance_status?: LabourAttendanceStatus;
   created_at?: string;
 }
 
@@ -37,8 +45,10 @@ export interface CreateLabourEntryDTO {
   ot: string;
   amount_paid: number;
   amount?: number;
+  attendance_status?: LabourAttendanceStatus;
 }
 
 export const initialSampleLabours: Labour[] = [];
 
 export const initialSampleLabourEntries: LabourEntry[] = [];
+

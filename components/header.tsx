@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Search, Menu } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useHeader } from "@/components/header-context";
 
 interface HeaderProps {
   userEmail?: string | null;
@@ -11,6 +12,12 @@ interface HeaderProps {
 
 export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
   const pathname = usePathname();
+  const { hasCustomHeader } = useHeader();
+
+  const isDetailPage =
+    /^\/dashboard\/(labour|projects)\/[^/]+$/.test(pathname) &&
+    !pathname.endsWith("/new");
+  const showCustom = isDetailPage || hasCustomHeader;
 
   // Format page title from pathname
   const getPageTitle = () => {
@@ -21,7 +28,34 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
   };
 
   return (
-    <header className="h-16 border-b border-slate-800 bg-slate-900/70 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20">
+    <header className="h-16 shrink-0 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-3 sm:px-6 flex items-center justify-between z-20 transition-colors">
+      {showCustom ? (
+        <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+          {/* Custom Slot rendered by HeaderSlot */}
+          <div
+            id="navbar-custom-content"
+            className="flex-1 min-w-0 flex items-center justify-between gap-2"
+          />
+
+          {/* Persistent Utility Controls */}
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <ThemeToggle />
+
+            <a
+              href="/dashboard/settings"
+              title="Settings"
+              aria-label="Settings"
+              className="hidden sm:flex h-9 px-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 items-center gap-2 text-xs font-semibold text-slate-200 transition-colors"
+            >
+              <div className="w-6 h-6 rounded-full bg-[#1a73e8] text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                {userEmail ? userEmail.charAt(0).toUpperCase() : "E"}
+              </div>
+              <span className="hidden md:inline truncate max-w-[80px]">Settings</span>
+            </a>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Left Title & Mobile Hamburger Menu Button */}
       <div className="flex items-center gap-3">
         {onMobileMenuToggle && (
@@ -73,6 +107,8 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
           </span>
         </a>
       </div>
-    </header>
-  );
+    </>
+  )}
+</header>
+);
 }
