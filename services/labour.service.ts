@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Labour, CreateLabourDTO, LabourEntry, CreateLabourEntryDTO, LabourAttendanceStatus } from "@/lib/types/labour";
 import { withTimeout } from "@/lib/timeout";
-import { createExpenseService } from "@/services/expense.service";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -11,6 +10,8 @@ export function isValidUUID(id?: string | null): boolean {
 
 const WORKER_COLUMNS = "id, name, phone, place, created_at, updated_at";
 const LABOUR_LOG_COLUMNS =
+  "id, worker_id, project_id, work_date, day, tach, ot, amount_paid, balance_amount, attendance_status, created_at, projects(id, name, place)";
+const LABOUR_LOG_COLUMNS_NO_BALANCE =
   "id, worker_id, project_id, work_date, day, tach, ot, amount_paid, attendance_status, created_at, projects(id, name, place)";
 const LABOUR_LOG_COLUMNS_LEGACY =
   "id, worker_id, project_id, work_date, day, tach, ot, amount_paid, created_at, projects(id, name, place)";
@@ -115,9 +116,15 @@ export async function deleteLabourService(id: string): Promise<{ success: boolea
   }
 }
 
-export async function getLabourEntriesService(workerId?: string): Promise<{ data: LabourEntry[]; error?: string }> {
+export async function getLabourEntriesService(
+  workerId?: string,
+  projectId?: string
+): Promise<{ data: LabourEntry[]; error?: string }> {
   try {
     if (workerId && !isValidUUID(workerId)) {
+      return { data: [] };
+    }
+    if (projectId && !isValidUUID(projectId)) {
       return { data: [] };
     }
 
@@ -131,12 +138,38 @@ export async function getLabourEntriesService(workerId?: string): Promise<{ data
     if (workerId) {
       query = query.eq("worker_id", workerId);
     }
+    if (projectId) {
+      query = query.eq("project_id", projectId);
+    }
 
     const initialRes = await query;
     let data: unknown = initialRes.data;
     let error: { message?: string; code?: string } | null = initialRes.error;
 
-    // Fallback 1: If attendance_status column does not exist yet, query with legacy columns
+    // Fallback 1: If balance_amount column does not exist yet, query with LABOUR_LOG_COLUMNS_NO_BALANCE
+    if (error && (error.message?.includes("balance_amount") || error.code === "42703")) {
+      let retryQuery = supabase
+        .from("labour_logs")
+        .select(LABOUR_LOG_COLUMNS_NO_BALANCE)
+        .order("work_date", { ascending: false });
+
+      if (workerId) {
+        retryQuery = retryQuery.eq("worker_id", workerId);
+      }
+      if (projectId) {
+        retryQuery = retryQuery.eq("project_id", projectId);
+      }
+
+      const retryRes = await retryQuery;
+      if (!retryRes.error) {
+        data = retryRes.data;
+        error = null;
+      } else {
+        error = retryRes.error;
+      }
+    }
+
+    // Fallback 2: If attendance_status column does not exist yet, query with legacy columns
     if (error && (error.message?.includes("attendance_status") || error.code === "42703")) {
       let retryQuery = supabase
         .from("labour_logs")
@@ -145,6 +178,9 @@ export async function getLabourEntriesService(workerId?: string): Promise<{ data
 
       if (workerId) {
         retryQuery = retryQuery.eq("worker_id", workerId);
+      }
+      if (projectId) {
+        retryQuery = retryQuery.eq("project_id", projectId);
       }
 
       const retryRes = await retryQuery;
@@ -164,6 +200,9 @@ export async function getLabourEntriesService(workerId?: string): Promise<{ data
       if (workerId) {
         fallbackQuery = fallbackQuery.eq("worker_id", workerId);
       }
+      if (projectId) {
+        fallbackQuery = fallbackQuery.eq("project_id", projectId);
+      }
 
       const fb = await fallbackQuery;
       if (!fb.error) {
@@ -175,6 +214,21 @@ export async function getLabourEntriesService(workerId?: string): Promise<{ data
     if (error) {
       console.error("Error fetching labour logs:", error.message || error);
       return { data: [], error: error.message || "Failed to fetch labour logs" };
+    }
+
+    // Fetch worker names to attach to records
+    let workerMap = new Map<string, string>();
+    try {
+      const { data: workersData } = await supabase.from("workers").select("id, name");
+      if (workersData) {
+        for (const w of workersData) {
+          if (w.id && w.name) {
+            workerMap.set(w.id, w.name);
+          }
+        }
+      }
+    } catch (wErr) {
+      console.error("Failed to fetch worker names:", wErr);
     }
 
     interface LabourEntryDbRow {
@@ -192,6 +246,7 @@ export async function getLabourEntriesService(workerId?: string): Promise<{ data
       amount_paid?: number | string;
       amount?: number | string;
       total_amount?: number | string;
+      balance_amount?: number | string;
       attendance_status?: string;
       created_at?: string;
     }
@@ -230,9 +285,14 @@ export async function getLabourEntriesService(workerId?: string): Promise<{ data
           ? "0"
           : "1";
 
+      const workerName = workerMap.get(row.worker_id) || "Worker";
+
+      const balance = Number(row.balance_amount) || 0;
+
       return {
         id: row.id,
         worker_id: row.worker_id,
+        worker_name: workerName,
         date: row.work_date || "",
         day,
         project_id: row.project_id || "",
@@ -241,6 +301,7 @@ export async function getLabourEntriesService(workerId?: string): Promise<{ data
         ot: String(row.ot ?? "0"),
         amount_paid: paid,
         amount: paid,
+        balance_amount: balance,
         attendance_status: status,
         created_at: row.created_at,
       };
@@ -253,6 +314,12 @@ export async function getLabourEntriesService(workerId?: string): Promise<{ data
   }
 }
 
+export async function getLabourEntriesByProjectService(
+  projectId: string
+): Promise<{ data: LabourEntry[]; error?: string }> {
+  return getLabourEntriesService(undefined, projectId);
+}
+
 export async function createLabourEntryService(input: CreateLabourEntryDTO): Promise<{ data?: LabourEntry; error?: string }> {
   try {
     const supabase = await createClient();
@@ -260,6 +327,7 @@ export async function createLabourEntryService(input: CreateLabourEntryDTO): Pro
     const workDate = new Date(input.date);
     const day = input.day || workDate.toLocaleDateString("en-US", { weekday: "short" });
     const paidAmount = Number(input.amount_paid ?? input.amount) || 0;
+    const balanceAmount = Number(input.balance_amount) || 0;
 
     const rawTach = input.tach !== undefined && input.tach !== null ? String(input.tach).trim() : "";
     const parsedTach = rawTach !== "" && !isNaN(Number(rawTach)) ? Number(rawTach) : null;
@@ -292,6 +360,7 @@ export async function createLabourEntryService(input: CreateLabourEntryDTO): Pro
       tach: tachNum,
       ot: otNum,
       amount_paid: paidAmount,
+      balance_amount: balanceAmount,
       attendance_status: attendanceStatus,
     };
 
@@ -303,6 +372,23 @@ export async function createLabourEntryService(input: CreateLabourEntryDTO): Pro
 
     let data: unknown = initialInsert.data;
     let error: { message?: string; code?: string } | null = initialInsert.error;
+
+    // Fallback 0: If balance_amount column does not exist yet in labour_logs
+    if (error && (error.message?.includes("balance_amount") || error.code === "42703")) {
+      delete insertPayload.balance_amount;
+      const retryBalance = await supabase
+        .from("labour_logs")
+        .insert(insertPayload)
+        .select(LABOUR_LOG_COLUMNS_NO_BALANCE)
+        .single();
+
+      if (!retryBalance.error && retryBalance.data) {
+        data = retryBalance.data;
+        error = null;
+      } else {
+        error = retryBalance.error;
+      }
+    }
 
     // Fallback 1: If attendance_status column does not exist yet in labour_logs
     if (error && (error.message?.includes("attendance_status") || error.code === "42703")) {
@@ -381,6 +467,7 @@ export async function createLabourEntryService(input: CreateLabourEntryDTO): Pro
         amount_paid?: number | string;
         amount?: number | string;
         total_amount?: number | string;
+        balance_amount?: number | string;
         attendance_status?: string;
         created_at?: string;
       }
@@ -389,41 +476,6 @@ export async function createLabourEntryService(input: CreateLabourEntryDTO): Pro
       const proj = Array.isArray(row.projects) ? row.projects[0] : row.projects;
       const projectName = proj?.name ? `${proj.name}${proj.place ? ` (${proj.place})` : ""}` : "Site";
       const returnPaid = Number(row.amount_paid ?? row.amount ?? row.total_amount ?? paidAmount) || 0;
-
-      // Automatically create an expense entry for the project if associated with a project, amount paid > 0, and not absent
-      if (row.project_id && returnPaid > 0 && attendanceStatus !== "absent") {
-        try {
-          let workerName = "";
-          if (row.worker_id) {
-            const { data: workerData } = await supabase
-              .from("workers")
-              .select("name")
-              .eq("id", row.worker_id)
-              .maybeSingle();
-            if (workerData?.name) {
-              workerName = workerData.name;
-            }
-          }
-
-          const tachVal = row.tach !== undefined && row.tach !== null ? row.tach : tachNum;
-          const otVal = row.ot !== undefined && row.ot !== null ? row.ot : otNum;
-          const entryDay = row.day || day;
-          const desc = workerName
-            ? `Labour: ${workerName} (${entryDay} - Tach: ${tachVal}, OT: ${otVal}h)`
-            : `Labour (${entryDay} - Tach: ${tachVal}, OT: ${otVal}h)`;
-
-          await createExpenseService({
-            type: "project",
-            project_id: row.project_id,
-            amount: returnPaid,
-            description: desc,
-            date: row.work_date || input.date,
-            labour_log_id: row.id,
-          });
-        } catch (expErr) {
-          console.error("Failed to automatically create expense for labour log:", expErr);
-        }
-      }
 
       const finalTach =
         row.tach !== undefined && row.tach !== null
@@ -442,6 +494,7 @@ export async function createLabourEntryService(input: CreateLabourEntryDTO): Pro
           ot: String(row.ot !== undefined && row.ot !== null ? row.ot : otNum),
           amount_paid: returnPaid,
           amount: returnPaid,
+          balance_amount: Number(row.balance_amount) || balanceAmount,
           attendance_status: (row.attendance_status as LabourAttendanceStatus) || attendanceStatus,
           created_at: row.created_at || new Date().toISOString(),
         },

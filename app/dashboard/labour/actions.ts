@@ -47,14 +47,21 @@ export async function deleteLabourAction(id: string) {
   }
 }
 
-export async function getLabourEntriesAction(workerId?: string): Promise<LabourEntry[]> {
+export async function getLabourEntriesAction(
+  workerId?: string,
+  projectId?: string
+): Promise<LabourEntry[]> {
   try {
-    const { data } = await getLabourEntriesService(workerId);
+    const { data } = await getLabourEntriesService(workerId, projectId);
     return data || [];
   } catch (err) {
     console.error("Error in getLabourEntriesAction:", err);
     return [];
   }
+}
+
+export async function getLabourEntriesByProjectAction(projectId: string): Promise<LabourEntry[]> {
+  return getLabourEntriesAction(undefined, projectId);
 }
 
 export async function createLabourEntryAction(input: CreateLabourEntryDTO) {

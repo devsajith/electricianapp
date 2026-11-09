@@ -178,6 +178,7 @@ export default function LabourDetailPage({
   // 2. Wage Payment Saver (dedicated payment to labour)
   const handleSavePayment = async (paymentData: {
     amount: number;
+    balanceAmount?: number;
     date: string;
     projectId?: string;
     projectName?: string;
@@ -196,6 +197,9 @@ export default function LabourDetailPage({
       ot: "0",
       amount_paid: paymentData.amount,
       amount: paymentData.amount,
+      balance_amount: paymentData.balanceAmount || 0,
+      notes: paymentData.notes,
+      payment_method: paymentData.paymentMethod,
       attendance_status: "payment_only",
     });
 
@@ -216,7 +220,12 @@ export default function LabourDetailPage({
 
   // Group payment entries chronologically for Payment feed
   const paymentEntries = useMemo(() => {
-    return entries.filter((e) => (Number(e.amount_paid ?? e.amount) || 0) > 0);
+    return entries.filter(
+      (e) =>
+        (Number(e.amount_paid ?? e.amount) || 0) > 0 ||
+        (Number(e.balance_amount) || 0) > 0 ||
+        e.attendance_status === "payment_only"
+    );
   }, [entries]);
 
   const groupedPaymentEntries = useMemo(() => {
@@ -291,6 +300,10 @@ export default function LabourDetailPage({
 
   const totalWages = entries.reduce(
     (sum, e) => sum + (Number(e.amount_paid ?? e.amount) || 0),
+    0
+  );
+  const totalBalance = entries.reduce(
+    (sum, e) => sum + (Number(e.balance_amount) || 0),
     0
   );
   const totalDays = entries.length;
@@ -413,6 +426,24 @@ export default function LabourDetailPage({
               ₹{totalWages.toLocaleString("en-IN")}
             </div>
           </button>
+
+          {totalBalance > 0 && (
+            <>
+              <div className="h-8 w-px bg-slate-800 hidden sm:block" />
+              <button
+                type="button"
+                onClick={() => setActiveSection("payments")}
+                className="text-left group cursor-pointer"
+              >
+                <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider block">
+                  Pending Balance
+                </span>
+                <div className="text-sm sm:text-base font-bold text-amber-400 group-hover:text-amber-300 font-mono transition-colors">
+                  ₹{totalBalance.toLocaleString("en-IN")}
+                </div>
+              </button>
+            </>
+          )}
         </div>
 
         {/* Quick Top Actions */}
@@ -471,6 +502,11 @@ export default function LabourDetailPage({
           <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[#1a73e8]/30 text-blue-300 font-mono">
             ₹{totalWages.toLocaleString("en-IN")}
           </span>
+          {totalBalance > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">
+              Bal: ₹{totalBalance.toLocaleString("en-IN")}
+            </span>
+          )}
         </button>
       </div>
       {/* 4. SECTION 1: ATTENDANCE */}
@@ -542,6 +578,7 @@ export default function LabourDetailPage({
                   <div className="space-y-3">
                     {group.items.map((entry) => {
                       const amt = Number(entry.amount_paid ?? entry.amount) || 0;
+                      const bal = Number(entry.balance_amount) || 0;
 
                       return (
                         <div key={entry.id} className="flex justify-end ml-4 sm:ml-16">
@@ -560,16 +597,33 @@ export default function LabourDetailPage({
                               </button>
                             </div>
 
-                            {/* Big Amount */}
-                            <div className="text-2xl sm:text-3xl font-black text-white font-mono py-1">
-                              ₹{amt.toLocaleString("en-IN")}
+                            {/* Big Amount and Balance */}
+                            <div className="flex items-baseline justify-between py-1 flex-wrap gap-2">
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                                  Amount Paid
+                                </span>
+                                <div className="text-2xl sm:text-3xl font-black text-white font-mono">
+                                  ₹{amt.toLocaleString("en-IN")}
+                                </div>
+                              </div>
+                              {bal > 0 && (
+                                <div className="text-right">
+                                  <span className="text-[10px] uppercase font-bold text-amber-400 block">
+                                    Balance Due
+                                  </span>
+                                  <div className="text-base sm:text-lg font-bold text-amber-400 font-mono">
+                                    ₹{bal.toLocaleString("en-IN")}
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                             {/* Status badge with green checkmark */}
-                            <div className="flex items-center justify-between text-[11px] pt-1">
+                            <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#313542] mt-1">
                               <span className="inline-flex items-center gap-1.5 text-emerald-400 font-medium">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                                Paid • {entry.date}
+                                {bal > 0 ? "Partial Paid" : "Paid"} • {entry.date}
                               </span>
                               <span className="text-[10px] text-slate-400 font-mono">
                                 {entry.project_name || "Direct Wage"}
@@ -698,6 +752,16 @@ export default function LabourDetailPage({
                   ₹{totalWages.toLocaleString("en-IN")}
                 </span>
               </div>
+              {totalBalance > 0 && (
+                <div className="col-span-2 pt-2 border-t border-[#24262f] flex items-center justify-between">
+                  <span className="text-amber-400 block text-[10px] uppercase font-bold">
+                    Pending Balance Due
+                  </span>
+                  <span className="font-bold text-amber-400 font-mono text-sm">
+                    ₹{totalBalance.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="pt-2 flex justify-end">

@@ -23,6 +23,7 @@ interface LabourPaymentModalProps {
   projects: ProjectRecord[];
   onSavePayment: (paymentData: {
     amount: number;
+    balanceAmount?: number;
     date: string;
     projectId?: string;
     projectName?: string;
@@ -43,6 +44,7 @@ export function LabourPaymentModal({
   const todayStr = new Date().toISOString().split("T")[0];
 
   const [amount, setAmount] = useState<string>("");
+  const [balanceAmount, setBalanceAmount] = useState<string>("");
   const [date, setDate] = useState<string>(todayStr);
   const [projectId, setProjectId] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("Cash");
@@ -75,8 +77,11 @@ export function LabourPaymentModal({
         ? `${selectedProj.name}${selectedProj.place ? ` (${selectedProj.place})` : ""}`
         : "Direct Wage";
 
+      const numBalance = balanceAmount ? Number(balanceAmount) : 0;
+
       await onSavePayment({
         amount: numAmount,
+        balanceAmount: numBalance > 0 ? numBalance : 0,
         date,
         projectId: projectId || undefined,
         projectName,
@@ -85,6 +90,7 @@ export function LabourPaymentModal({
       });
 
       setAmount("");
+      setBalanceAmount("");
       setNotes("");
       onClose();
     } catch (err: unknown) {
@@ -168,6 +174,29 @@ export function LabourPaymentModal({
                   ₹{val.toLocaleString("en-IN")}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Balance Amount Input (Optional) */}
+          <div className="space-y-1.5 p-3 rounded-2xl bg-amber-500/5 border border-amber-500/25">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                <span>Balance Amount (Pending Wage ₹)</span>
+              </label>
+              <span className="text-[10px] text-slate-400">Optional balance to pay</span>
+            </div>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base font-bold text-amber-400 font-mono">
+                ₹
+              </span>
+              <input
+                type="number"
+                placeholder="0 (Enter balance amount if pending)"
+                value={balanceAmount}
+                onChange={(e) => setBalanceAmount(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 bg-[#121317] border border-[#2d303a] rounded-xl text-sm font-bold font-mono text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+              />
             </div>
           </div>
 
@@ -255,7 +284,7 @@ export function LabourPaymentModal({
                 <>
                   <IndianRupee className="w-4 h-4" />
                   <span>
-                    Confirm Payment {amount ? `₹${Number(amount).toLocaleString("en-IN")}` : ""}
+                    Confirm Payment {amount ? `₹${Number(amount).toLocaleString("en-IN")}` : ""}{balanceAmount && Number(balanceAmount) > 0 ? ` (Balance: ₹${Number(balanceAmount).toLocaleString("en-IN")})` : ""}
                   </span>
                 </>
               )}

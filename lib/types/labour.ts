@@ -23,6 +23,7 @@ export type LabourAttendanceStatus =
 export interface LabourEntry {
   id: string;
   worker_id: string;
+  worker_name?: string;
   date: string;
   day: string;
   project_id: string;
@@ -31,6 +32,9 @@ export interface LabourEntry {
   ot: string;
   amount_paid: number;
   amount?: number;
+  balance_amount?: number;
+  notes?: string;
+  payment_method?: string;
   attendance_status?: LabourAttendanceStatus;
   created_at?: string;
 }
@@ -45,6 +49,9 @@ export interface CreateLabourEntryDTO {
   ot: string;
   amount_paid: number;
   amount?: number;
+  balance_amount?: number;
+  notes?: string;
+  payment_method?: string;
   attendance_status?: LabourAttendanceStatus;
 }
 

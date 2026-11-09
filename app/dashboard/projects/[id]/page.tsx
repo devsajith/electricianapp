@@ -42,6 +42,8 @@ import {
   Share2,
   Building2,
   Check,
+  Briefcase,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HeaderSlot } from "@/components/header-context";
@@ -63,8 +65,16 @@ import {
   deletePaymentAction,
 } from "@/app/dashboard/payments/actions";
 import { Payment } from "@/lib/types/payment";
+import {
+  getLaboursAction,
+  getLabourEntriesByProjectAction,
+  deleteLabourEntryAction,
+} from "@/app/dashboard/labour/actions";
+import { Labour, LabourEntry } from "@/lib/types/labour";
 import { RecordExpenseModal } from "@/components/record-expense-modal";
 import { RecordPaymentModal } from "@/components/record-payment-modal";
+import { ProjectAttendanceModal } from "@/components/project-attendance-modal";
+import { ProjectWorkTable } from "@/components/project-work-table";
 import {
   getStatusStyle,
   formatPhoneNumber,
@@ -114,19 +124,24 @@ function ProjectDetailContent({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Tab state: "timeline" or "details"
-  const initialTab = searchParams.get("tab") === "details" ? "details" : "timeline";
-  const [activeTab, setActiveTab] = useState<"timeline" | "details">(initialTab);
+  // Tab state: "timeline", "details", or "work"
+  const tabParam = searchParams.get("tab");
+  const initialTab: "timeline" | "details" | "work" =
+    tabParam === "details" ? "details" : tabParam === "work" ? "work" : "timeline";
+  const [activeTab, setActiveTab] = useState<"timeline" | "details" | "work">(initialTab);
 
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [labourEntries, setLabourEntries] = useState<LabourEntry[]>([]);
+  const [workers, setWorkers] = useState<Labour[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Modals for financial entry
+  // Modals for financial & labour entries
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
 
   // Quick memo/note input state
   const [quickNote, setQuickNote] = useState("");
@@ -140,10 +155,12 @@ function ProjectDetailContent({
     const timer = setTimeout(() => setLoading(false), 2500);
 
     try {
-      const [projData, expRes, payRes] = await Promise.all([
+      const [projData, expRes, payRes, labourData, laboursList] = await Promise.all([
         getProjectByIdAction(id),
         getExpensesByProjectIdAction(id),
         getProjectPaymentsAction(id),
+        getLabourEntriesByProjectAction(id),
+        getLaboursAction(),
       ]);
       clearTimeout(timer);
       if (projData) {
@@ -153,6 +170,8 @@ function ProjectDetailContent({
       }
       setExpenses(expRes.data || []);
       setPayments(payRes.data || []);
+      setLabourEntries(labourData || []);
+      setWorkers(laboursList || []);
     } catch (err) {
       console.error("Error loading project detail:", err);
       clearTimeout(timer);
@@ -169,10 +188,42 @@ function ProjectDetailContent({
   // Sync tab if URL query changes
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "details" || tabParam === "timeline") {
+    if (tabParam === "details" || tabParam === "timeline" || tabParam === "work") {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
+
+  // Calculate total distinct days of work done in this project
+  const totalWorkDays = useMemo(() => {
+    const dates = new Set<string>();
+    for (const e of labourEntries) {
+      if (e.attendance_status === "absent") continue;
+      if (e.attendance_status === "payment_only" && Number(e.tach) === 0 && Number(e.ot) === 0) continue;
+      const tachNum = Number(e.tach);
+      const otNum = Number(e.ot) || 0;
+      if (
+        tachNum > 0 ||
+        otNum > 0 ||
+        e.attendance_status === "full_day" ||
+        e.attendance_status === "half_day" ||
+        e.attendance_status === "overtime"
+      ) {
+        if (e.date) {
+          dates.add(e.date.split("T")[0].trim());
+        }
+      }
+    }
+    return dates.size;
+  }, [labourEntries]);
+
+  const handleDeleteLabourEntry = (entryId: string, workerName: string, dateStr: string) => {
+    if (!confirm(`Delete work entry for ${workerName} on ${dateStr}?`)) return;
+    startTransition(async () => {
+      setLabourEntries((prev) => prev.filter((e) => e.id !== entryId));
+      await deleteLabourEntryAction(entryId);
+      loadData();
+    });
+  };
 
   const handleStatusChange = (newStatus: string) => {
     if (!project) return;
@@ -465,7 +516,25 @@ function ProjectDetailContent({
             </a>
           )}
 
-          {activeTab === "timeline" ? (
+          {activeTab === "details" ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab("work")}
+              className="flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-[#1e2025] hover:bg-slate-200 dark:hover:bg-slate-700/80 border border-slate-300 dark:border-[#2e323b] text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors shadow-sm"
+            >
+              <Briefcase className="w-3.5 h-3.5" />
+              <span>Work ({totalWorkDays}d)</span>
+            </button>
+          ) : activeTab === "work" ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab("timeline")}
+              className="flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-[#1e2025] hover:bg-slate-200 dark:hover:bg-slate-700/80 border border-slate-300 dark:border-[#2e323b] text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors shadow-sm"
+            >
+              <Receipt className="w-3.5 h-3.5" />
+              <span>Ledger</span>
+            </button>
+          ) : (
             <button
               type="button"
               onClick={() => setActiveTab("details")}
@@ -473,15 +542,6 @@ function ProjectDetailContent({
             >
               <Info className="w-3.5 h-3.5" />
               <span className="hidden xs:inline">Project</span> Details
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setActiveTab("timeline")}
-              className="flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-[#1e2025] hover:bg-slate-200 dark:hover:bg-slate-700/80 border border-slate-300 dark:border-[#2e323b] text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors shadow-sm"
-            >
-              <Receipt className="w-3.5 h-3.5" />
-              <span>Ledger</span>
             </button>
           )}
         </div>
@@ -492,26 +552,56 @@ function ProjectDetailContent({
         <button
           type="button"
           onClick={() => setActiveTab("details")}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+          className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
             activeTab === "details"
               ? "bg-[#1a73e8] text-white shadow-md shadow-[#1a73e8]/30 font-extrabold"
               : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
           }`}
         >
           <Info className="w-3.5 h-3.5" />
-          <span>Project Details &amp; Specifications</span>
+          <span className="hidden sm:inline">Project</span> Details
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("work")}
+          className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            activeTab === "work"
+              ? "bg-amber-600 text-white shadow-md shadow-amber-600/30 font-extrabold"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+          }`}
+        >
+          <Briefcase className="w-3.5 h-3.5" />
+          <span>Work Table</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+              activeTab === "work"
+                ? "bg-black/30 text-amber-200"
+                : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+            }`}
+          >
+            {totalWorkDays}d
+          </span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("timeline")}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+          className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
             activeTab === "timeline"
               ? "bg-[#1a73e8] text-white shadow-md shadow-[#1a73e8]/30 font-extrabold"
               : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
           }`}
         >
           <Receipt className="w-3.5 h-3.5" />
-          <span>Timeline &amp; Ledger ({timelineItems.length})</span>
+          <span>Ledger</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+              activeTab === "timeline"
+                ? "bg-black/30 text-white"
+                : "bg-slate-800 text-slate-400"
+            }`}
+          >
+            {timelineItems.length}
+          </span>
         </button>
       </div>
 
@@ -567,7 +657,7 @@ function ProjectDetailContent({
             </div>
 
             {/* Quick Primary Actions Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
               {phoneDigits ? (
                 <a
                   href={`tel:${phoneDigits}`}
@@ -604,8 +694,17 @@ function ProjectDetailContent({
 
               <button
                 type="button"
+                onClick={() => setIsAttendanceModalOpen(true)}
+                className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#121316] hover:bg-slate-800/80 border border-amber-500/30 text-xs font-bold text-amber-400 transition-colors shadow-xs"
+              >
+                <Briefcase className="w-4 h-4" />
+                <span>+ Log Work</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setIsPaymentModalOpen(true)}
-                className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#121316] hover:bg-slate-800/80 border border-[#2d313b] text-xs font-bold text-emerald-400 transition-colors shadow-xs"
+                className="col-span-2 sm:col-span-1 flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#121316] hover:bg-slate-800/80 border border-[#2d313b] text-xs font-bold text-emerald-400 transition-colors shadow-xs"
               >
                 <Wallet className="w-4 h-4" />
                 <span>+ Payment</span>
@@ -762,6 +861,15 @@ function ProjectDetailContent({
             </div>
           )}
 
+          {/* Project Work History & Labour Attendance Section */}
+          <ProjectWorkTable
+            entries={labourEntries}
+            projectId={project.id}
+            projectName={project.name}
+            onAddAttendance={() => setIsAttendanceModalOpen(true)}
+            onDeleteEntry={handleDeleteLabourEntry}
+          />
+
           {/* Blueprints / Reference Plans & Paperwork Section */}
           <div className="p-4 rounded-2xl bg-[#181a20] border border-[#282b35] shadow-sm space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#282b35]">
@@ -880,6 +988,21 @@ function ProjectDetailContent({
               <span>Delete Project</span>
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* FULL PAGE VIEW: WORK TABLE & LABOUR ATTENDANCE            */}
+      {/* ======================================================== */}
+      {activeTab === "work" && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          <ProjectWorkTable
+            entries={labourEntries}
+            projectId={project.id}
+            projectName={project.name}
+            onAddAttendance={() => setIsAttendanceModalOpen(true)}
+            onDeleteEntry={handleDeleteLabourEntry}
+          />
         </div>
       )}
 
@@ -1110,6 +1233,19 @@ function ProjectDetailContent({
         defaultProjectId={project.id}
         onSuccess={() => {
           setIsExpenseModalOpen(false);
+          loadData();
+        }}
+      />
+
+      {/* Labour Attendance Modal for this Project */}
+      <ProjectAttendanceModal
+        isOpen={isAttendanceModalOpen}
+        onClose={() => setIsAttendanceModalOpen(false)}
+        projectId={project.id}
+        projectName={project.name}
+        workers={workers}
+        onSuccess={() => {
+          setIsAttendanceModalOpen(false);
           loadData();
         }}
       />
