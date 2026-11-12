@@ -2,25 +2,20 @@
 
 import React, { useState, useMemo } from "react";
 import {
-  Calendar as CalendarIcon,
-  Users,
-  Clock,
-  Zap,
-  ChevronDown,
-  ChevronUp,
-  Search,
+  FileSpreadsheet,
+  Download,
   Plus,
   Trash2,
-  AlertCircle,
-  CheckCircle2,
+  Search,
+  Users,
+  Calendar,
+  Clock,
+  Zap,
   Sun,
   Sunset,
   XCircle,
-  Briefcase,
-  Layers,
-  Download,
-  FileSpreadsheet,
   Table as TableIcon,
+  CheckCircle2,
 } from "lucide-react";
 import { LabourEntry } from "@/lib/types/labour";
 import { Button } from "@/components/ui/button";
@@ -33,18 +28,6 @@ interface ProjectWorkTableProps {
   onDeleteEntry?: (id: string, workerName: string, date: string) => void;
 }
 
-export interface DayWorkSummary {
-  date: string; // YYYY-MM-DD
-  dayName: string;
-  formattedDate: string;
-  isToday: boolean;
-  isYesterday: boolean;
-  workingCount: number;
-  totalOtHours: number;
-  totalTach: number;
-  entries: LabourEntry[];
-}
-
 export function ProjectWorkTable({
   entries,
   projectId,
@@ -53,11 +36,11 @@ export function ProjectWorkTable({
   onDeleteEntry,
 }: ProjectWorkTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
-  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [viewMode, setViewMode] = useState<"workers" | "days">("workers");
 
-  // Format date helper (DD-MMM-YYYY)
-  const formatDate = (dateStr: string) => {
+  // Format date helper (e.g. 12 Nov 2026)
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "—";
     try {
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) return dateStr;
@@ -71,165 +54,140 @@ export function ProjectWorkTable({
     }
   };
 
-  // Group and calculate days of work from labour log entries
-  const { daySummaries, totalWorkDays, totalLaboursDeployments, totalOtHoursAll, totalTachAll } =
-    useMemo(() => {
-      const map: Record<string, LabourEntry[]> = {};
-      const today = new Date();
-      const todayStr = today.toISOString().split("T")[0];
-      const yesterday = new Date();
-      yesterday.setDate(today.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split("T")[0];
+  // Filter entries belonging to this project
+  const projectEntries = useMemo(() => {
+    return entries
+      .filter((e) => (e.project_id ? e.project_id === projectId : false))
+      .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  }, [entries, projectId]);
 
-      // Filter only entries that belong to this project
-      const projectEntries = entries.filter((e) => {
-        if (!e.project_id) return false;
-        return e.project_id === projectId;
-      });
+  // Aggregate project statistics
+  const { totalWorkDays, totalDeployments, totalShifts, totalOtHours } = useMemo(() => {
+    const datesSet = new Set<string>();
+    let shiftsSum = 0;
+    let otSum = 0;
+    let deploymentsCount = 0;
 
-      for (const e of projectEntries) {
-        if (!e.date) continue;
-        const normalizedDate = e.date.split("T")[0].trim();
-        if (!map[normalizedDate]) {
-          map[normalizedDate] = [];
-        }
-        map[normalizedDate].push(e);
+    for (const e of projectEntries) {
+      const tach = Number(e.tach) || 0;
+      const ot = Number(e.ot) || 0;
+      const isWorking =
+        e.attendance_status !== "absent" &&
+        (tach > 0 ||
+          ot > 0 ||
+          e.attendance_status === "full_day" ||
+          e.attendance_status === "half_day" ||
+          e.attendance_status === "overtime");
+
+      if (isWorking) {
+        if (e.date) datesSet.add(e.date.split("T")[0]);
+        shiftsSum += tach;
+        otSum += ot;
+        deploymentsCount += 1;
       }
+    }
 
-      const summaries: DayWorkSummary[] = [];
-      let totalDeployments = 0;
-      let totalOt = 0;
-      let totalTachSum = 0;
+    return {
+      totalWorkDays: datesSet.size,
+      totalDeployments: deploymentsCount,
+      totalShifts: shiftsSum,
+      totalOtHours: otSum,
+    };
+  }, [projectEntries]);
 
-      for (const [dateStr, list] of Object.entries(map)) {
-        // A worker worked on that day if not marked absent and has shift/ot
-        const workingEntries = list.filter((e) => {
-          if (e.attendance_status === "absent") return false;
-          if (e.attendance_status === "payment_only" && Number(e.tach) === 0 && Number(e.ot) === 0) {
-            return false;
-          }
-          const tachNum = Number(e.tach);
-          const otNum = Number(e.ot) || 0;
-          return (
-            tachNum > 0 ||
-            otNum > 0 ||
-            e.attendance_status === "full_day" ||
-            e.attendance_status === "half_day" ||
-            e.attendance_status === "overtime"
-          );
-        });
-
-        const workingCount = workingEntries.length;
-        const dayOt = workingEntries.reduce((sum, e) => sum + (Number(e.ot) || 0), 0);
-        const dayTach = workingEntries.reduce((sum, e) => sum + (Number(e.tach) || 0), 0);
-
-        if (workingCount > 0) {
-          totalDeployments += workingCount;
-          totalOt += dayOt;
-          totalTachSum += dayTach;
-        }
-
-        const dateObj = new Date(dateStr);
-        const dayName =
-          list[0]?.day ||
-          (!isNaN(dateObj.getTime())
-            ? dateObj.toLocaleDateString("en-US", { weekday: "short" })
-            : "");
-
-        summaries.push({
-          date: dateStr,
-          dayName,
-          formattedDate: formatDate(dateStr),
-          isToday: dateStr === todayStr,
-          isYesterday: dateStr === yesterdayStr,
-          workingCount,
-          totalOtHours: dayOt,
-          totalTach: dayTach,
-          entries: list,
-        });
-      }
-
-      // Sort by date
-      summaries.sort((a, b) => {
-        const timeA = new Date(a.date).getTime();
-        const timeB = new Date(b.date).getTime();
-        return sortOrder === "desc" ? timeB - timeA : timeA - timeB;
-      });
-
-      // Total days of work done = count of dates where at least one labour worked
-      const daysWithWork = summaries.filter((s) => s.workingCount > 0).length;
-
-      return {
-        daySummaries: summaries,
-        totalWorkDays: daysWithWork,
-        totalLaboursDeployments: totalDeployments,
-        totalOtHoursAll: totalOt,
-        totalTachAll: totalTachSum,
-      };
-    }, [entries, projectId, sortOrder]);
-
-  // Filter summaries based on search query (by date or worker name)
-  const filteredSummaries = useMemo(() => {
-    if (!searchQuery.trim()) return daySummaries;
+  // Filtered entries for "workers" mode
+  const filteredWorkerEntries = useMemo(() => {
+    if (!searchQuery.trim()) return projectEntries;
     const q = searchQuery.toLowerCase().trim();
-
-    return daySummaries.filter((summary) => {
-      if (summary.date.toLowerCase().includes(q)) return true;
-      if (summary.formattedDate.toLowerCase().includes(q)) return true;
-      if (summary.dayName.toLowerCase().includes(q)) return true;
-
-      // Search worker names on this date
-      return summary.entries.some((e) =>
-        (e.worker_name || "").toLowerCase().includes(q)
+    return projectEntries.filter((e) => {
+      const name = (e.worker_name || "").toLowerCase();
+      const date = (e.date || "").toLowerCase();
+      const day = (e.day || "").toLowerCase();
+      const notes = (e.notes || "").toLowerCase();
+      const status = (e.attendance_status || "").toLowerCase();
+      return (
+        name.includes(q) ||
+        date.includes(q) ||
+        day.includes(q) ||
+        notes.includes(q) ||
+        status.includes(q)
       );
     });
-  }, [daySummaries, searchQuery]);
+  }, [projectEntries, searchQuery]);
 
-  const toggleExpand = (date: string) => {
-    setExpandedDates((prev) => ({
-      ...prev,
-      [date]: !prev[date],
-    }));
-  };
-
-  const expandAll = () => {
-    const next: Record<string, boolean> = {};
-    for (const s of filteredSummaries) {
-      next[s.date] = true;
+  // Grouped summaries for "days" mode
+  const daySummaries = useMemo(() => {
+    const map: Record<string, LabourEntry[]> = {};
+    for (const e of projectEntries) {
+      if (!e.date) continue;
+      const d = e.date.split("T")[0];
+      if (!map[d]) map[d] = [];
+      map[d].push(e);
     }
-    setExpandedDates(next);
-  };
 
-  const collapseAll = () => {
-    setExpandedDates({});
-  };
+    const list = Object.entries(map).map(([date, items]) => {
+      const working = items.filter(
+        (it) => it.attendance_status !== "absent" && (Number(it.tach) > 0 || Number(it.ot) > 0)
+      );
+      const shifts = working.reduce((sum, it) => sum + (Number(it.tach) || 0), 0);
+      const ot = working.reduce((sum, it) => sum + (Number(it.ot) || 0), 0);
+      const workerNames = working.map((w) => w.worker_name || "Worker").filter(Boolean);
 
-  // Export to Excel / CSV
+      const dateObj = new Date(date);
+      const dayName = items[0]?.day || (!isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString("en-US", { weekday: "short" }) : "");
+
+      return {
+        date,
+        formattedDate: formatDate(date),
+        dayName,
+        workersCount: working.length,
+        workerNames,
+        shifts,
+        ot,
+        items,
+      };
+    });
+
+    list.sort((a, b) => b.date.localeCompare(a.date));
+
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase().trim();
+    return list.filter(
+      (d) =>
+        d.date.includes(q) ||
+        d.dayName.toLowerCase().includes(q) ||
+        d.workerNames.some((n) => n.toLowerCase().includes(q))
+    );
+  }, [projectEntries, searchQuery]);
+
+  // Export to CSV
   const handleExportCsv = () => {
-    if (daySummaries.length === 0) {
+    if (projectEntries.length === 0) {
       alert("No work records to export.");
       return;
     }
 
     const headers = [
-      "Row",
-      "Work Date",
+      "#",
+      "Date",
       "Day",
-      "Labours Worked",
-      "Extra Hours (OT)",
-      "Total Shifts (Tach)",
+      "Worker Name",
+      "Attendance Status",
+      "Shift (Tach)",
+      "Overtime (OT Hours)",
+      "Notes",
     ];
 
-    const rows = daySummaries.map((s, idx) => {
-      return [
-        idx + 1,
-        `"${s.date}"`,
-        `"${s.dayName}"`,
-        s.workingCount,
-        s.totalOtHours,
-        s.totalTach.toFixed(1),
-      ];
-    });
+    const rows = projectEntries.map((e, idx) => [
+      idx + 1,
+      `"${e.date || ""}"`,
+      `"${e.day || ""}"`,
+      `"${(e.worker_name || "").replace(/"/g, '""')}"`,
+      `"${e.attendance_status || "full_day"}"`,
+      Number(e.tach) || 0,
+      Number(e.ot) || 0,
+      `"${(e.notes || "").replace(/"/g, '""')}"`,
+    ]);
 
     const csvContent =
       "data:text/csv;charset=utf-8," +
@@ -245,451 +203,454 @@ export function ProjectWorkTable({
     document.body.removeChild(link);
   };
 
+  const getStatusBadge = (status?: string, tach?: string, ot?: string) => {
+    const s = status || "full_day";
+    const tachNum = Number(tach) || 0;
+    const otNum = Number(ot) || 0;
+
+    if (s === "half_day" || tachNum === 0.5) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap">
+          <Sunset className="w-3 h-3" /> Half Day
+        </span>
+      );
+    }
+    if (s === "overtime" || otNum > 0) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30 whitespace-nowrap">
+          <Zap className="w-3 h-3" /> Overtime
+        </span>
+      );
+    }
+    if (s === "absent") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap">
+          <XCircle className="w-3 h-3" /> Absent
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
+        <Sun className="w-3 h-3" /> Full Day
+      </span>
+    );
+  };
+
   return (
-    <div className="space-y-3 font-sans select-none">
+    <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950 font-sans select-none">
       {/* ======================================================== */}
-      {/* EXCEL SHEET TOP TOOLBAR / TITLE BAR                      */}
+      {/* 1. GREEN EXCEL RIBBON TOP BAR                            */}
       {/* ======================================================== */}
-      <div className="rounded-t-xl bg-[#1e222b] border border-[#2f3542] border-b-0 shadow-sm overflow-hidden">
-        {/* Excel Header Strip */}
-        <div className="px-3 py-2 bg-[#1b1e26] border-b border-[#2a2f3b] flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            {/* Excel Green Brand Icon */}
-            <div className="w-6 h-6 rounded bg-[#107c41] text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0 font-mono">
-              X
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-100 font-mono truncate">
-                  {projectName.replace(/[^a-zA-Z0-9_-]/g, "_")}_Work_Timesheet.xlsx
-                </span>
-                <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
-                  {totalWorkDays} Working {totalWorkDays === 1 ? "Day" : "Days"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Excel Toolbar Actions */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={handleExportCsv}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#272c38] hover:bg-[#313745] text-slate-200 border border-[#373e4e] text-xs font-medium transition-colors font-mono"
-              title="Download as Excel CSV"
-            >
-              <Download className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden xs:inline">Export CSV</span>
-            </button>
-
-            {onAddAttendance && (
-              <Button
-                type="button"
-                onClick={onAddAttendance}
-                className="h-7 px-2.5 bg-[#107c41] hover:bg-[#0e6b37] text-white text-xs font-bold gap-1 shadow-xs font-mono"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Log Day</span>
-              </Button>
-            )}
-          </div>
+      <div className="bg-[#107c41] px-4 py-2 flex flex-wrap items-center justify-between text-white border-b border-emerald-800 text-xs gap-2">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <FileSpreadsheet className="w-4 h-4 text-emerald-200 shrink-0" />
+          <span className="font-bold tracking-wide font-mono truncate">
+            {projectName.replace(/\s+/g, "_")}_Work_Timesheet.xlsx
+          </span>
+          <span className="text-[10px] bg-emerald-900/60 text-emerald-200 px-2 py-0.5 rounded font-mono font-semibold">
+            AutoSave: On
+          </span>
+          <span className="text-[11px] text-emerald-100 hidden sm:inline">
+            Showing {viewMode === "workers" ? filteredWorkerEntries.length : daySummaries.length} rows
+          </span>
         </div>
 
-        {/* Excel Formula / Summary Bar */}
-        <div className="px-3 py-1.5 bg-[#181a20] border-b border-[#2a2f3b] flex items-center gap-2 text-xs font-mono">
-          <div className="px-1.5 py-0.5 rounded bg-[#242833] text-slate-400 font-bold text-[11px] border border-[#313645] shrink-0">
-            fx
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Mode Switcher */}
+          <div className="inline-flex rounded-lg bg-emerald-900/70 p-0.5 border border-emerald-700 text-[11px] font-semibold">
+            <button
+              type="button"
+              onClick={() => setViewMode("workers")}
+              className={`px-2.5 py-0.5 rounded-md transition-all ${
+                viewMode === "workers"
+                  ? "bg-white text-emerald-950 font-bold shadow-xs"
+                  : "text-emerald-100 hover:text-white"
+              }`}
+            >
+              All Workers
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("days")}
+              className={`px-2.5 py-0.5 rounded-md transition-all ${
+                viewMode === "days"
+                  ? "bg-white text-emerald-950 font-bold shadow-xs"
+                  : "text-emerald-100 hover:text-white"
+              }`}
+            >
+              Daily Summary
+            </button>
           </div>
-          <div className="flex-1 text-[11px] text-slate-300 truncate">
-            <span className="text-amber-400 font-semibold">DAYS_WORKED</span> ={" "}
-            <span className="text-white font-bold">{totalWorkDays}</span> |{" "}
-            <span className="text-purple-400 font-semibold">TOTAL_OT</span> ={" "}
-            <span className="text-white font-bold">{totalOtHoursAll.toFixed(1)} hrs</span> |{" "}
-            <span className="text-slate-400 font-semibold">TOTAL_SHIFTS</span> ={" "}
-            <span className="text-white font-bold">{totalTachAll.toFixed(1)}</span>
-          </div>
-        </div>
 
-        {/* Search & View Controls Bar */}
-        <div className="px-3 py-2 bg-[#1c2028] flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter by date..."
-              className="w-full pl-8 pr-3 py-1 rounded bg-[#14161d] border border-[#2e3442] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#107c41] font-mono"
-            />
-          </div>
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            className="flex items-center gap-1.5 px-3 py-1 bg-emerald-800 hover:bg-emerald-700 text-white rounded font-bold text-xs shadow-sm transition-colors border border-emerald-600 cursor-pointer"
+            title="Export to Excel CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Export CSV</span>
+          </button>
 
-          <div className="flex items-center gap-1.5">
-            <button
+          {onAddAttendance && (
+            <Button
               type="button"
-              onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
-              className="px-2 py-1 rounded bg-[#232733] hover:bg-[#2d3241] border border-[#333949] text-[11px] font-mono text-slate-300 transition-colors"
+              size="xs"
+              onClick={onAddAttendance}
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 shadow-sm active:scale-95 transition-all"
             >
-              Date: {sortOrder === "desc" ? "Newest ↓" : "Oldest ↑"}
-            </button>
-            <button
-              type="button"
-              onClick={expandAll}
-              className="px-2 py-1 rounded bg-[#232733] hover:bg-[#2d3241] border border-[#333949] text-[11px] font-mono text-slate-400 hover:text-slate-200 transition-colors"
-            >
-              Expand [+]
-            </button>
-            <button
-              type="button"
-              onClick={collapseAll}
-              className="px-2 py-1 rounded bg-[#232733] hover:bg-[#2d3241] border border-[#333949] text-[11px] font-mono text-slate-400 hover:text-slate-200 transition-colors"
-            >
-              Collapse [-]
-            </button>
-          </div>
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Log Attendance</span>
+            </Button>
+          )}
         </div>
       </div>
 
       {/* ======================================================== */}
-      {/* EXCEL SPREADSHEET TABLE GRID                             */}
+      {/* 2. SEARCH & SUMMARY SUB-BAR                              */}
       {/* ======================================================== */}
-      <div className="rounded-b-xl border border-[#2f3542] overflow-hidden bg-[#16181f] shadow-lg">
-        {filteredSummaries.length === 0 ? (
-          <div className="p-12 text-center space-y-2 bg-[#16181f]">
-            <FileSpreadsheet className="w-10 h-10 text-slate-600 mx-auto" />
-            <h4 className="text-sm font-bold text-white font-mono">Empty Timesheet</h4>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto font-mono">
-              {searchQuery
-                ? "No rows matched the search query."
-                : "No work records logged yet. Click '+ Log Day' to start the work table."}
-            </p>
-            {onAddAttendance && (
-              <Button
-                type="button"
-                onClick={onAddAttendance}
-                className="bg-[#107c41] hover:bg-[#0e6b37] text-white text-xs font-bold gap-1 mt-2 font-mono"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Log First Working Day</span>
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse font-mono text-xs">
-              {/* Column Alphabets Row (A, B, C, D, E) - True Excel Style */}
-              <thead>
-                <tr className="bg-[#1b1e26] text-slate-400 text-[10px] font-bold border-b border-[#2e3340]">
-                  <th className="py-1 px-2 border-r border-[#2e3340] text-center w-10 text-slate-400 bg-[#16181f]">
-                    #
+      <div className="bg-slate-900/90 px-4 py-2 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by worker name, date, or status..."
+            className="w-full pl-8 pr-3 py-1 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"
+          />
+        </div>
+
+        <div className="flex items-center gap-3 text-xs font-mono text-slate-400">
+          <span>
+            Total Days: <strong className="text-amber-400 font-bold">{totalWorkDays}</strong>
+          </span>
+          <span>•</span>
+          <span>
+            Total Shifts: <strong className="text-emerald-400 font-bold">{totalShifts.toFixed(1)}</strong>
+          </span>
+          <span>•</span>
+          <span>
+            Overtime: <strong className="text-purple-400 font-bold">+{totalOtHours.toFixed(1)}h</strong>
+          </span>
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* 3. MINIMAL EXCEL SPREADSHEET TABLE                       */}
+      {/* ======================================================== */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[650px] font-sans text-xs">
+          {/* Column Alphabet Index Row (A, B, C, D, E...) */}
+          <thead>
+            <tr className="bg-slate-900 border-b border-slate-700 text-slate-300 text-[11px] font-mono select-none">
+              <th className="w-12 py-2 px-3 text-center border-r border-slate-700/80 bg-slate-900 text-slate-500 font-bold text-[10px]">
+                ◢
+              </th>
+
+              {viewMode === "workers" ? (
+                <>
+                  <th className="py-2 px-3 border-r border-slate-700/80 font-bold w-40">
+                    <div className="text-[10px] text-emerald-400 font-mono">A</div>
+                    DATE &amp; DAY
                   </th>
-                  <th className="py-1 px-3 border-r border-[#2e3340] text-center">
-                    A
+                  <th className="py-2 px-3 border-r border-slate-700/80 font-bold">
+                    <div className="text-[10px] text-emerald-400 font-mono">B</div>
+                    WORKER NAME
                   </th>
-                  <th className="py-1 px-3 border-r border-[#2e3340] text-center">
-                    B
+                  <th className="py-2 px-3 border-r border-slate-700/80 font-bold text-center w-36">
+                    <div className="text-[10px] text-emerald-400 font-mono">C</div>
+                    ATTENDANCE
                   </th>
-                  <th className="py-1 px-3 border-r border-[#2e3340] text-center">
-                    C
+                  <th className="py-2 px-3 border-r border-slate-700/80 font-bold text-center w-28">
+                    <div className="text-[10px] text-emerald-400 font-mono">D</div>
+                    SHIFT (TACH)
                   </th>
-                  <th className="py-1 px-3 border-r border-[#2e3340] text-center">
-                    D
+                  <th className="py-2 px-3 border-r border-slate-700/80 font-bold text-center w-32">
+                    <div className="text-[10px] text-emerald-400 font-mono">E</div>
+                    EXTRA (OT)
                   </th>
-                  <th className="py-1 px-3 border-r border-[#2e3340] text-center">
-                    E
+                  <th className="py-2 px-3 border-r border-slate-700/80 font-bold">
+                    <div className="text-[10px] text-emerald-400 font-mono">F</div>
+                    REMARKS / NOTES
                   </th>
-                  <th className="py-1 px-2 text-center w-12">
-                    —
+                  {onDeleteEntry && (
+                    <th className="py-2 px-2 font-bold text-center w-14">
+                      <div className="text-[10px] text-emerald-400 font-mono">G</div>
+                      ACTION
+                    </th>
+                  )}
+                </>
+              ) : (
+                <>
+                  <th className="py-2 px-3 border-r border-slate-700/80 font-bold w-44">
+                    <div className="text-[10px] text-emerald-400 font-mono">A</div>
+                    WORK DATE
                   </th>
+                  <th className="py-2 px-3 border-r border-slate-700/80 font-bold text-center w-24">
+                    <div className="text-[10px] text-emerald-400 font-mono">B</div>
+                    DAY
+                  </th>
+                  <th className="py-2 px-3 border-r border-slate-700/80 font-bold">
+                    <div className="text-[10px] text-emerald-400 font-mono">C</div>
+                    WORKERS DEPLOYED
+                  </th>
+                  <th className="py-2 px-3 border-r border-slate-700/80 font-bold text-center w-32">
+                    <div className="text-[10px] text-emerald-400 font-mono">D</div>
+                    TOTAL SHIFTS
+                  </th>
+                  <th className="py-2 px-3 border-r border-slate-700/80 font-bold text-center w-32">
+                    <div className="text-[10px] text-emerald-400 font-mono">E</div>
+                    EXTRA (OT)
+                  </th>
+                  <th className="py-2 px-3 font-bold text-center w-28">
+                    <div className="text-[10px] text-emerald-400 font-mono">F</div>
+                    STATUS
+                  </th>
+                </>
+              )}
+            </tr>
+          </thead>
+
+          {/* Table Body */}
+          <tbody className="divide-y divide-slate-800 text-xs">
+            {viewMode === "workers" ? (
+              filteredWorkerEntries.length === 0 ? (
+                <tr>
+                  <td colSpan={onDeleteEntry ? 7 : 6} className="py-12 text-center text-slate-500 font-mono">
+                    No work entries logged yet. Click &quot;+ Log Attendance&quot; above to add work records.
+                  </td>
                 </tr>
-
-                {/* Primary Column Headers */}
-                <tr className="bg-[#212631] text-slate-200 text-[11px] font-bold uppercase tracking-wider border-b-2 border-[#383e4d]">
-                  <th className="py-2.5 px-2 border-r border-[#2e3340] text-center text-slate-400 bg-[#1b1e26]">
-                    Row
-                  </th>
-                  <th className="py-2.5 px-3 border-r border-[#2e3340]">
-                    Date
-                  </th>
-                  <th className="py-2.5 px-3 border-r border-[#2e3340] text-center">
-                    Day
-                  </th>
-                  <th className="py-2.5 px-3 border-r border-[#2e3340] text-center">
-                    Labours Worked
-                  </th>
-                  <th className="py-2.5 px-3 border-r border-[#2e3340] text-center">
-                    Extra Hours (OT)
-                  </th>
-                  <th className="py-2.5 px-3 border-r border-[#2e3340] text-center">
-                    Total Shifts
-                  </th>
-                  <th className="py-2.5 px-2 text-center">
-                    View
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredSummaries.map((summary, idx) => {
-                  const isExpanded = !!expandedDates[summary.date];
-                  const hasOt = summary.totalOtHours > 0;
-                  const isWorkDay = summary.workingCount > 0;
-                  const rowNumber = idx + 1;
-
-                  // Zebra stripe rows like an Excel worksheet
-                  const rowBg =
-                    isExpanded
-                      ? "bg-[#222834]"
-                      : idx % 2 === 0
-                      ? "bg-[#16181f]"
-                      : "bg-[#191c24]";
+              ) : (
+                filteredWorkerEntries.map((entry, idx) => {
+                  const tachNum = Number(entry.tach) || 0;
+                  const otNum = Number(entry.ot) || 0;
 
                   return (
-                    <React.Fragment key={summary.date}>
-                      <tr
-                        onClick={() => toggleExpand(summary.date)}
-                        className={`cursor-pointer transition-colors hover:bg-[#252b38] border-b border-[#282d38] ${rowBg}`}
-                      >
-                        {/* Excel Row Number Column */}
-                        <td className="py-2 px-2 border-r border-[#282d38] text-center text-slate-400 text-[11px] bg-[#1a1d26] select-none font-semibold">
-                          {rowNumber}
-                        </td>
+                    <tr
+                      key={entry.id}
+                      className="hover:bg-slate-900/60 transition-colors text-slate-100 border-b border-slate-800/80"
+                    >
+                      {/* Row Index */}
+                      <td className="py-2.5 px-3 text-center border-r border-slate-800 text-slate-500 font-mono text-[11px] select-none bg-slate-950">
+                        {idx + 1}
+                      </td>
 
-                        {/* Col A: Date */}
-                        <td className="py-2 px-3 border-r border-[#282d38] whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-slate-100">
-                              {summary.formattedDate}
+                      {/* Date & Day */}
+                      <td className="py-2.5 px-3 border-r border-slate-800 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 font-mono">
+                          <span className="font-bold text-white">{formatDate(entry.date)}</span>
+                          {entry.day && (
+                            <span className="text-[10px] text-slate-400 uppercase bg-slate-900 px-1 py-0.2 rounded border border-slate-800">
+                              {entry.day}
                             </span>
-                            {summary.isToday && (
-                              <span className="px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-400 font-bold text-[9px] uppercase">
-                                Today
-                              </span>
-                            )}
-                            {summary.isYesterday && (
-                              <span className="px-1.5 py-0.2 rounded bg-slate-700 text-slate-300 font-bold text-[9px] uppercase">
-                                Yday
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Col B: Day */}
-                        <td className="py-2 px-3 border-r border-[#282d38] text-center text-slate-300 whitespace-nowrap">
-                          <span className="px-1.5 py-0.5 rounded bg-[#1c202a] border border-[#2c3240] text-[11px]">
-                            {summary.dayName || "—"}
-                          </span>
-                        </td>
-
-                        {/* Col C: Labours Worked (Count) - Clean Excel Number Cell */}
-                        <td className="py-2 px-3 border-r border-[#282d38] text-center whitespace-nowrap font-bold text-slate-100">
-                          {isWorkDay ? (
-                            <span>{summary.workingCount}</span>
-                          ) : (
-                            <span className="text-slate-500 font-normal">0</span>
                           )}
-                        </td>
+                        </div>
+                      </td>
 
-                        {/* Col D: Extra Hours (OT) */}
-                        <td className="py-2 px-3 border-r border-[#282d38] text-center whitespace-nowrap">
-                          {hasOt ? (
-                            <span className="font-bold text-purple-300">
-                              +{summary.totalOtHours}h OT
-                            </span>
-                          ) : (
-                            <span className="text-slate-500 text-xs font-mono">0.0</span>
-                          )}
-                        </td>
+                      {/* Worker Name */}
+                      <td className="py-2.5 px-3 border-r border-slate-800 font-bold text-slate-100">
+                        {entry.worker_name || "Worker"}
+                      </td>
 
-                        {/* Col E: Total Shifts (Tach) */}
-                        <td className="py-2 px-3 border-r border-[#282d38] text-center whitespace-nowrap text-slate-200 font-bold">
-                          {summary.totalTach.toFixed(1)}
-                        </td>
+                      {/* Attendance Badge */}
+                      <td className="py-2.5 px-3 border-r border-slate-800 text-center select-none">
+                        {getStatusBadge(entry.attendance_status, entry.tach, entry.ot)}
+                      </td>
 
-                        {/* View / Expand Chevron */}
-                        <td className="py-2 px-2 text-center">
+                      {/* Shift (Tach) */}
+                      <td className="py-2.5 px-3 border-r border-slate-800 text-center font-mono font-bold text-amber-300">
+                        {tachNum > 0 ? `${tachNum.toFixed(1)} Shift` : "0.0"}
+                      </td>
+
+                      {/* Extra Hours (OT) */}
+                      <td className="py-2.5 px-3 border-r border-slate-800 text-center font-mono">
+                        {otNum > 0 ? (
+                          <span className="font-bold text-purple-400">+{otNum.toFixed(1)} hrs</span>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
+                      </td>
+
+                      {/* Remarks / Notes */}
+                      <td className="py-2.5 px-3 border-r border-slate-800 text-slate-400 truncate max-w-xs">
+                        {entry.notes || "—"}
+                      </td>
+
+                      {/* Action */}
+                      {onDeleteEntry && (
+                        <td className="py-2.5 px-2 text-center">
                           <button
                             type="button"
-                            aria-label={isExpanded ? "Collapse" : "Expand"}
-                            className="p-1 rounded hover:bg-[#323847] text-slate-400 hover:text-white transition-colors"
+                            onClick={() =>
+                              onDeleteEntry(
+                                entry.id,
+                                entry.worker_name || "Worker",
+                                formatDate(entry.date)
+                              )
+                            }
+                            title="Delete this work log"
+                            className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
                           >
-                            {isExpanded ? (
-                              <ChevronUp className="w-3.5 h-3.5 text-amber-400" />
-                            ) : (
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            )}
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </td>
-                      </tr>
-
-                      {/* Sub-Sheet Breakdown Row when expanded */}
-                      {isExpanded && (
-                        <tr className="bg-[#14161d] border-b-2 border-[#2f3544]">
-                          <td
-                            colSpan={7}
-                            className="p-3 bg-[#13151b] border-l-4 border-l-emerald-500 border-r border-[#282d38]"
-                          >
-                            <div className="space-y-2 text-xs">
-                              <div className="flex items-center justify-between pb-1.5 border-b border-[#262b37]">
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                                  <Layers className="w-3.5 h-3.5" />
-                                  Timesheet Log Details for {summary.formattedDate} ({summary.dayName})
-                                </span>
-                                <span className="text-[10px] text-slate-400">
-                                  {summary.entries.length} {summary.entries.length === 1 ? "Worker Record" : "Worker Records"}
-                                </span>
-                              </div>
-
-                              {/* Mini Excel sub-table for individual workers */}
-                              <div className="border border-[#2a2f3d] rounded-lg overflow-hidden bg-[#181a22]">
-                                <table className="w-full text-left border-collapse text-xs">
-                                  <thead>
-                                    <tr className="bg-[#1f2430] text-slate-400 text-[10px] font-bold uppercase border-b border-[#2a2f3d]">
-                                      <th className="py-1.5 px-3 border-r border-[#2a2f3d]">Worker Name</th>
-                                      <th className="py-1.5 px-3 border-r border-[#2a2f3d] text-center">Shift Type</th>
-                                      <th className="py-1.5 px-3 border-r border-[#2a2f3d] text-center">Tach (Shift)</th>
-                                      <th className="py-1.5 px-3 border-r border-[#2a2f3d] text-center">Extra Hours (OT)</th>
-                                      {onDeleteEntry && <th className="py-1.5 px-2 text-center w-16">Action</th>}
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-[#262b38]">
-                                    {summary.entries.map((entry) => {
-                                      const tach = Number(entry.tach);
-                                      const ot = Number(entry.ot) || 0;
-
-                                      let shiftBadge = (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                                          <Sun className="w-3 h-3" /> Full Day
-                                        </span>
-                                      );
-
-                                      if (entry.attendance_status === "half_day" || tach === 0.5) {
-                                        shiftBadge = (
-                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                                            <Sunset className="w-3 h-3" /> Half Day
-                                          </span>
-                                        );
-                                      } else if (entry.attendance_status === "overtime" || ot > 0) {
-                                        shiftBadge = (
-                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30">
-                                            <Zap className="w-3 h-3" /> Over Time
-                                          </span>
-                                        );
-                                      } else if (entry.attendance_status === "absent") {
-                                        shiftBadge = (
-                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30">
-                                            <XCircle className="w-3 h-3" /> Absent
-                                          </span>
-                                        );
-                                      }
-
-                                      return (
-                                        <tr key={entry.id} className="hover:bg-[#202532]">
-                                          <td className="py-2 px-3 border-r border-[#2a2f3d] font-bold text-white">
-                                            {entry.worker_name || "Worker"}
-                                          </td>
-                                          <td className="py-2 px-3 border-r border-[#2a2f3d] text-center">
-                                            {shiftBadge}
-                                          </td>
-                                          <td className="py-2 px-3 border-r border-[#2a2f3d] text-center font-bold text-slate-200">
-                                            {entry.tach}
-                                          </td>
-                                          <td className="py-2 px-3 border-r border-[#2a2f3d] text-center">
-                                            {ot > 0 ? (
-                                              <span className="font-bold text-purple-300">
-                                                +{ot} hrs
-                                              </span>
-                                            ) : (
-                                              <span className="text-slate-400">0.0</span>
-                                            )}
-                                          </td>
-                                          {onDeleteEntry && (
-                                            <td className="py-2 px-2 text-center">
-                                              <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  onDeleteEntry(
-                                                    entry.id,
-                                                    entry.worker_name || "Labour",
-                                                    summary.formattedDate
-                                                  );
-                                                }}
-                                                title="Delete this work log"
-                                                className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
-                                              >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                              </button>
-                                            </td>
-                                          )}
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
                       )}
-                    </React.Fragment>
+                    </tr>
                   );
-                })}
-              </tbody>
+                })
+              )
+            ) : daySummaries.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-slate-500 font-mono">
+                  No work days recorded yet.
+                </td>
+              </tr>
+            ) : (
+              daySummaries.map((day, idx) => (
+                <tr
+                  key={day.date}
+                  className="hover:bg-slate-900/60 transition-colors text-slate-100 border-b border-slate-800/80"
+                >
+                  {/* Row Index */}
+                  <td className="py-2.5 px-3 text-center border-r border-slate-800 text-slate-500 font-mono text-[11px] select-none bg-slate-950">
+                    {idx + 1}
+                  </td>
 
-              {/* ======================================================== */}
-              {/* EXCEL TOTAL ROW (=SUM FORMULA FOOTER)                    */}
-              {/* ======================================================== */}
-              <tfoot>
-                <tr className="bg-[#1e232e] text-slate-100 font-bold border-t-2 border-b-4 border-double border-slate-500 text-xs">
-                  <td className="py-2.5 px-2 border-r border-[#2e3340] text-center bg-[#181a22] text-emerald-400 font-extrabold">
-                    ∑
+                  {/* Work Date */}
+                  <td className="py-2.5 px-3 border-r border-slate-800 font-bold text-white font-mono whitespace-nowrap">
+                    {day.formattedDate}
                   </td>
-                  <td className="py-2.5 px-3 border-r border-[#2e3340] text-emerald-400 uppercase tracking-wider font-extrabold">
-                    TOTAL (SUM)
+
+                  {/* Day */}
+                  <td className="py-2.5 px-3 border-r border-slate-800 text-center font-mono text-slate-300">
+                    <span className="text-[11px] bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                      {day.dayName || "—"}
+                    </span>
                   </td>
-                  <td className="py-2.5 px-3 border-r border-[#2e3340] text-center text-slate-400 font-normal">
-                    {totalWorkDays} days
+
+                  {/* Workers Deployed */}
+                  <td className="py-2.5 px-3 border-r border-slate-800">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                        <Users className="w-3 h-3" /> {day.workersCount} {day.workersCount === 1 ? "Worker" : "Workers"}
+                      </span>
+                      <span className="text-slate-400 text-xs truncate max-w-sm">
+                        {day.workerNames.join(", ")}
+                      </span>
+                    </div>
                   </td>
-                  <td className="py-2.5 px-3 border-r border-[#2e3340] text-center text-amber-300 font-extrabold">
-                    {totalLaboursDeployments}
+
+                  {/* Total Shifts */}
+                  <td className="py-2.5 px-3 border-r border-slate-800 text-center font-mono font-bold text-amber-300">
+                    {day.shifts.toFixed(1)} Shifts
                   </td>
-                  <td className="py-2.5 px-3 border-r border-[#2e3340] text-center text-purple-300 font-extrabold">
-                    +{totalOtHoursAll.toFixed(1)} hrs OT
+
+                  {/* Overtime (OT) */}
+                  <td className="py-2.5 px-3 border-r border-slate-800 text-center font-mono">
+                    {day.ot > 0 ? (
+                      <span className="font-bold text-purple-400">+{day.ot.toFixed(1)} hrs</span>
+                    ) : (
+                      <span className="text-slate-600">—</span>
+                    )}
                   </td>
-                  <td className="py-2.5 px-3 border-r border-[#2e3340] text-center text-slate-100 font-extrabold">
-                    {totalTachAll.toFixed(1)} shifts
-                  </td>
-                  <td className="py-2.5 px-2 text-center text-[10px] text-slate-400 font-normal">
-                    ✓
+
+                  {/* Status */}
+                  <td className="py-2.5 px-3 text-center select-none">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      <CheckCircle2 className="w-3 h-3" /> Logged
+                    </span>
                   </td>
                 </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
+              ))
+            )}
+          </tbody>
 
-        {/* Excel Worksheet Status Bar & Sheet Tabs */}
-        <div className="px-3 py-2 bg-[#1b1e26] border-t border-[#2a2f3b] flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-400">
-          <div className="flex items-center gap-1.5">
-            {/* Sheet Tab button */}
-            <div className="flex items-center gap-1 px-3 py-1 bg-[#16181f] border-t-2 border-t-[#107c41] border-x border-[#2a2f3b] text-slate-200 font-bold rounded-t text-[11px]">
-              <TableIcon className="w-3 h-3 text-[#107c41]" />
-              <span>Sheet1: Work_Log</span>
-            </div>
-            <span className="text-[11px] text-slate-400">
-              ({filteredSummaries.length} rows)
-            </span>
-          </div>
+          {/* ======================================================== */}
+          {/* 4. EXCEL TOTAL ROW (=SUM FORMULA FOOTER WITH Σ)          */}
+          {/* ======================================================== */}
+          <tfoot>
+            <tr className="bg-slate-900 border-t-2 border-slate-700 text-slate-200 font-bold text-xs font-mono">
+              <td className="py-2.5 px-3 text-center border-r border-slate-700 text-emerald-400 font-extrabold text-sm select-none">
+                Σ
+              </td>
 
-          <div className="flex items-center gap-3 text-[11px]">
-            <span>
-              Work Days: <strong className="text-amber-400">{totalWorkDays}</strong>
-            </span>
-            <span>•</span>
-            <span>
-              Extra OT: <strong className="text-purple-400">{totalOtHoursAll.toFixed(1)} hrs</strong>
-            </span>
+              {viewMode === "workers" ? (
+                <>
+                  <td className="py-2.5 px-3 border-r border-slate-700 text-emerald-400 font-bold tracking-wider">
+                    TOTAL WORK
+                  </td>
+                  <td className="py-2.5 px-3 border-r border-slate-700 text-slate-300 font-bold">
+                    {totalDeployments} {totalDeployments === 1 ? "Worker Entry" : "Worker Entries"}
+                  </td>
+                  <td className="py-2.5 px-3 border-r border-slate-700 text-center text-slate-400">
+                    {totalWorkDays} Working Days
+                  </td>
+                  <td className="py-2.5 px-3 border-r border-slate-700 text-center text-amber-300 font-extrabold text-sm">
+                    {totalShifts.toFixed(1)} Shifts
+                  </td>
+                  <td className="py-2.5 px-3 border-r border-slate-700 text-center text-purple-300 font-extrabold text-sm">
+                    +{totalOtHours.toFixed(1)} hrs
+                  </td>
+                  <td colSpan={onDeleteEntry ? 2 : 1} className="py-2.5 px-3 text-slate-400 text-[11px] font-normal">
+                    Verified site attendance logs
+                  </td>
+                </>
+              ) : (
+                <>
+                  <td className="py-2.5 px-3 border-r border-slate-700 text-emerald-400 font-bold tracking-wider">
+                    TOTAL ({totalWorkDays} DAYS)
+                  </td>
+                  <td className="py-2.5 px-3 border-r border-slate-700 text-center text-slate-400">
+                    —
+                  </td>
+                  <td className="py-2.5 px-3 border-r border-slate-700 text-slate-300 font-bold">
+                    {totalDeployments} Deployments
+                  </td>
+                  <td className="py-2.5 px-3 border-r border-slate-700 text-center text-amber-300 font-extrabold text-sm">
+                    {totalShifts.toFixed(1)} Shifts
+                  </td>
+                  <td className="py-2.5 px-3 border-r border-slate-700 text-center text-purple-300 font-extrabold text-sm">
+                    +{totalOtHours.toFixed(1)} hrs
+                  </td>
+                  <td className="py-2.5 px-3 text-center text-emerald-400 text-xs font-bold">
+                    ✓ Complete
+                  </td>
+                </>
+              )}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* ======================================================== */}
+      {/* 5. BOTTOM SHEET STATUS BAR                               */}
+      {/* ======================================================== */}
+      <div className="bg-slate-900 px-4 py-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs font-mono select-none">
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 px-2.5 py-0.5 bg-slate-950 border border-slate-700 text-emerald-400 font-bold rounded text-[11px]">
+            <TableIcon className="w-3 h-3 text-emerald-400" />
+            <span>Sheet1 - Work Table</span>
           </div>
+          <span className="text-[11px] text-slate-400">
+            ({viewMode === "workers" ? filteredWorkerEntries.length : daySummaries.length} records)
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3 text-[11px] text-slate-400">
+          <span className="text-emerald-400 font-bold">READY</span>
+          <span>•</span>
+          <span>
+            WORK DAYS: <strong className="text-slate-200">{totalWorkDays}</strong>
+          </span>
+          <span>•</span>
+          <span>
+            TOTAL SHIFTS: <strong className="text-amber-400">{totalShifts.toFixed(1)}</strong>
+          </span>
+          <span>•</span>
+          <span>
+            TOTAL OT: <strong className="text-purple-400">+{totalOtHours.toFixed(1)} hrs</strong>
+          </span>
         </div>
       </div>
     </div>

@@ -1,10 +1,13 @@
--- Materials Data Insert Script
--- Generated: 2026-11-06T09:26:29.767Z
--- Total Items: 524
--- Electrical Items: 204
--- Plumbing Items: 320
+-- ====================================================================
+-- MATERIALS MASTER DATA INSERT SCRIPT (ALL 524 ITEMS)
+-- Includes:
+--   - 204 Electrical materials
+--   - 320 Plumbing materials
+-- Target Table: public.materials (name, cat, brand, unit)
+-- Generated: 2026-11-11T12:06:51.662Z
+-- ====================================================================
 
--- If table does not exist:
+-- 1. Ensure table and columns exist in Supabase / PostgreSQL:
 CREATE TABLE IF NOT EXISTS public.materials (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -15,9 +18,15 @@ CREATE TABLE IF NOT EXISTS public.materials (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ====================================================================
--- ELECTRICAL MATERIALS (204 items)
--- ====================================================================
+-- Ensure columns exist if table was previously created with different schema
+ALTER TABLE public.materials ADD COLUMN IF NOT EXISTS cat TEXT;
+ALTER TABLE public.materials ADD COLUMN IF NOT EXISTS brand TEXT;
+ALTER TABLE public.materials ADD COLUMN IF NOT EXISTS unit TEXT;
+
+-- Optional: ensure material_list_items also supports category
+ALTER TABLE IF EXISTS public.material_list_items ADD COLUMN IF NOT EXISTS cat TEXT;
+
+-- 2. Single Unified INSERT query containing ALL items:
 INSERT INTO public.materials (name, cat, brand, unit) VALUES
   ('1 sq mm wire (Red, Black, Blue, Yellow, Green, Grey)', 'Electrical', 'V-Guard', 'Coil'),
   ('1.5 sq mm wire (Red, Black, Blue, Yellow, Green, Grey)', 'Electrical', 'V-Guard', 'Coil'),
@@ -222,12 +231,7 @@ INSERT INTO public.materials (name, cat, brand, unit) VALUES
   ('Photo Light', 'Electrical', NULL, 'No'),
   ('Fan Rod 1 Ft', 'Electrical', NULL, 'No'),
   ('Fan Rod 1.5 Ft', 'Electrical', NULL, 'No'),
-  ('Fan Rod 2 Ft', 'Electrical', NULL, 'No');
-
--- ====================================================================
--- PLUMBING MATERIALS (320 items)
--- ====================================================================
-INSERT INTO public.materials (name, cat, brand, unit) VALUES
+  ('Fan Rod 2 Ft', 'Electrical', NULL, 'No'),
   ('4" PVC Pipe ISI 4kg', 'Plumbing', 'Supreme', 'Meter'),
   ('3" PVC Pipe ISI 4kg', 'Plumbing', NULL, 'Meter'),
   ('2 1/2" PVC Pipe ISI 4kg', 'Plumbing', NULL, 'Meter'),

@@ -590,7 +590,7 @@ const plumbingMaterials = [
 
 const allMaterials = [...electricalMaterials, ...plumbingMaterials];
 
-// 1. Generate Excel (.xlsx) with dedicated Categorised Sheets
+// 1. Generate Excel (.xlsx)
 const wb = XLSX.utils.book_new();
 
 const columnWidths = [
@@ -624,18 +624,18 @@ XLSX.utils.book_append_sheet(wb, wsPlumb, 'Plumbing');
 const xlsxPath = path.resolve('materials.xlsx');
 XLSX.writeFile(wb, xlsxPath);
 console.log(`Excel file updated at: ${xlsxPath}`);
-console.log(`- Total Items: ${allMaterials.length}`);
-console.log(`- Electrical: ${electricalMaterials.length}`);
-console.log(`- Plumbing: ${plumbingMaterials.length}`);
 
-// 2. Generate SQL (.sql)
-let sqlContent = `-- Materials Data Insert Script
+// 2. Generate SQL (.sql) - Single Unified INSERT Statement for all 524 items
+let sqlContent = `-- ====================================================================
+-- MATERIALS MASTER DATA INSERT SCRIPT (ALL 524 ITEMS)
+-- Includes:
+--   - 204 Electrical materials
+--   - 320 Plumbing materials
+-- Target Table: public.materials (name, cat, brand, unit)
 -- Generated: ${new Date().toISOString()}
--- Total Items: ${allMaterials.length}
--- Electrical Items: ${electricalMaterials.length}
--- Plumbing Items: ${plumbingMaterials.length}
+-- ====================================================================
 
--- If table does not exist:
+-- 1. Ensure table and columns exist in Supabase / PostgreSQL:
 CREATE TABLE IF NOT EXISTS public.materials (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -646,40 +646,26 @@ CREATE TABLE IF NOT EXISTS public.materials (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ====================================================================
--- ELECTRICAL MATERIALS (${electricalMaterials.length} items)
--- ====================================================================
+-- Ensure columns exist if table was previously created with different schema
+ALTER TABLE public.materials ADD COLUMN IF NOT EXISTS cat TEXT;
+ALTER TABLE public.materials ADD COLUMN IF NOT EXISTS brand TEXT;
+ALTER TABLE public.materials ADD COLUMN IF NOT EXISTS unit TEXT;
+
+-- 2. Single Unified INSERT query containing ALL items:
 INSERT INTO public.materials (name, cat, brand, unit) VALUES
 `;
 
-const elecRows = electricalMaterials.map((m, idx) => {
+const valueRows = allMaterials.map((m, idx) => {
   const safeName = m.name.replace(/'/g, "''");
   const safeCat = m.cat.replace(/'/g, "''");
   const safeBrand = m.brand ? `'${m.brand.replace(/'/g, "''")}'` : 'NULL';
   const safeUnit = m.unit ? `'${m.unit.replace(/'/g, "''")}'` : 'NULL';
-  const comma = idx === electricalMaterials.length - 1 ? ';' : ',';
+  const comma = idx === allMaterials.length - 1 ? ';' : ',';
   return `  ('${safeName}', '${safeCat}', ${safeBrand}, ${safeUnit})${comma}`;
 });
 
-sqlContent += elecRows.join('\n') + '\n\n';
-
-sqlContent += `-- ====================================================================
--- PLUMBING MATERIALS (${plumbingMaterials.length} items)
--- ====================================================================
-INSERT INTO public.materials (name, cat, brand, unit) VALUES
-`;
-
-const plumbRows = plumbingMaterials.map((m, idx) => {
-  const safeName = m.name.replace(/'/g, "''");
-  const safeCat = m.cat.replace(/'/g, "''");
-  const safeBrand = m.brand ? `'${m.brand.replace(/'/g, "''")}'` : 'NULL';
-  const safeUnit = m.unit ? `'${m.unit.replace(/'/g, "''")}'` : 'NULL';
-  const comma = idx === plumbingMaterials.length - 1 ? ';' : ',';
-  return `  ('${safeName}', '${safeCat}', ${safeBrand}, ${safeUnit})${comma}`;
-});
-
-sqlContent += plumbRows.join('\n') + '\n';
+sqlContent += valueRows.join('\n') + '\n';
 
 const sqlPath = path.resolve('materials.sql');
 fs.writeFileSync(sqlPath, sqlContent, 'utf8');
-console.log(`SQL file updated at: ${sqlPath}`);
+console.log(`SQL file updated at: ${sqlPath} (Total items: ${allMaterials.length})`);

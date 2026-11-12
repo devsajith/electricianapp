@@ -131,6 +131,19 @@ export default function MaterialDetailPage({
           <div>
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <Package className="w-4 h-4 text-slate-500" />
+              {material.cat?.toLowerCase().includes("plumb") ? (
+                <span className="text-xs font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 px-2.5 py-0.5 rounded-full">
+                  🚰 Plumbing
+                </span>
+              ) : material.cat?.toLowerCase().includes("elec") ? (
+                <span className="text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 px-2.5 py-0.5 rounded-full">
+                  ⚡ Electrical
+                </span>
+              ) : material.cat ? (
+                <span className="text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-0.5 rounded-full">
+                  {material.cat}
+                </span>
+              ) : null}
               {material.brand && (
                 <span className="text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded">
                   Brand: {material.brand}

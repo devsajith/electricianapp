@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { login, signup } from "./actions";
 import { Zap, Eye, EyeOff, Lock, Mail, ShieldCheck, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -165,6 +166,16 @@ export default function LoginPage() {
               Secured by Supabase Authentication
             </div>
           </div>
+        </div>
+
+        {/* Back to Public Website */}
+        <div className="text-center mt-6">
+          <Link
+            href="/"
+            className="text-xs text-slate-400 hover:text-amber-400 transition-colors inline-flex items-center gap-1 font-medium"
+          >
+            ← Back to Public Website
+          </Link>
         </div>
       </div>
     </div>
