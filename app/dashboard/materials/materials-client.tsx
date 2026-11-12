@@ -17,6 +17,7 @@ import { deleteMaterialAction } from "./actions";
 export interface SafeMaterial {
   id: string;
   name: string;
+  cat?: string | null;
   brand: string | null;
   unit: string;
   created_at: string;
@@ -29,6 +30,7 @@ interface Props {
 export default function MaterialsClient({ initialMaterials }: Props) {
   const [materials, setMaterials] = useState<SafeMaterial[]>(initialMaterials);
   const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "Electrical" | "Plumbing">("all");
   const [isPending, startTransition] = useTransition();
 
   const handleDelete = (id: string, name: string) => {
@@ -47,21 +49,29 @@ export default function MaterialsClient({ initialMaterials }: Props) {
   const q = searchQuery.toLowerCase().trim();
 
   const filteredMaterials = materials.filter((item) => {
+    if (categoryFilter === "Electrical" && !item.cat?.toLowerCase().includes("elec")) return false;
+    if (categoryFilter === "Plumbing" && !item.cat?.toLowerCase().includes("plumb")) return false;
+
     if (!q) return true;
     return (
       item.name.toLowerCase().includes(q) ||
-      (item.brand ?? "").toLowerCase().includes(q)
+      (item.cat ?? "").toLowerCase().includes(q) ||
+      (item.brand ?? "").toLowerCase().includes(q) ||
+      item.unit.toLowerCase().includes(q)
     );
   });
 
   const totalItems = materials.length;
+  const electricalCount = materials.filter((m) => m.cat?.toLowerCase().includes("elec")).length;
+  const plumbingCount = materials.filter((m) => m.cat?.toLowerCase().includes("plumb")).length;
 
   const exportToCsv = () => {
     if (filteredMaterials.length === 0) return;
-    const headers = ["Row", "Name", "Brand", "Unit"];
+    const headers = ["Row", "Name", "Category", "Brand", "Unit"];
     const rows = filteredMaterials.map((item, idx) => [
       idx + 1,
       `"${item.name.replace(/"/g, '""')}"`,
+      `"${(item.cat || "—").replace(/"/g, '""')}"`,
       `"${(item.brand || "—").replace(/"/g, '""')}"`,
       `"${item.unit.replace(/"/g, '""')}"`,
     ]);
@@ -115,17 +125,56 @@ export default function MaterialsClient({ initialMaterials }: Props) {
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-        <div className="relative w-full">
+      {/* Search Bar & Category Filters */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name or brand..."
+            placeholder="Search by name, category, or brand..."
             className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
           />
+        </div>
+
+        {/* Category Filter Pills */}
+        <div className="flex items-center rounded-lg bg-slate-950 p-0.5 border border-slate-800">
+          <button
+            type="button"
+            onClick={() => setCategoryFilter("all")}
+            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+              categoryFilter === "all"
+                ? "bg-slate-800 text-white shadow-sm font-bold"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            All ({totalItems})
+          </button>
+          <button
+            type="button"
+            onClick={() => setCategoryFilter("Electrical")}
+            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1 ${
+              categoryFilter === "Electrical"
+                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm font-bold"
+                : "text-amber-400/80 hover:text-amber-300"
+            }`}
+          >
+            <span>⚡ Electrical</span>
+            <span className="text-[10px] opacity-75 font-mono">({electricalCount})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setCategoryFilter("Plumbing")}
+            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1 ${
+              categoryFilter === "Plumbing"
+                ? "bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm font-bold"
+                : "text-sky-400/80 hover:text-sky-300"
+            }`}
+          >
+            <span>🚰 Plumbing</span>
+            <span className="text-[10px] opacity-75 font-mono">({plumbingCount})</span>
+          </button>
         </div>
       </div>
 
@@ -192,16 +241,20 @@ export default function MaterialsClient({ initialMaterials }: Props) {
                     <div className="text-[10px] text-emerald-400 font-mono">A</div>
                     NAME
                   </th>
-                  <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-48">
+                  <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-36 text-center">
                     <div className="text-[10px] text-emerald-400 font-mono">B</div>
+                    CATEGORY
+                  </th>
+                  <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-48">
+                    <div className="text-[10px] text-emerald-400 font-mono">C</div>
                     BRAND
                   </th>
-                  <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-36">
-                    <div className="text-[10px] text-emerald-400 font-mono">C</div>
+                  <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-36 text-center">
+                    <div className="text-[10px] text-emerald-400 font-mono">D</div>
                     UNIT
                   </th>
                   <th className="py-2.5 px-4 font-bold text-center w-28">
-                    <div className="text-[10px] text-emerald-400 font-mono">D</div>
+                    <div className="text-[10px] text-emerald-400 font-mono">E</div>
                     ACTIONS
                   </th>
                 </tr>
@@ -223,6 +276,24 @@ export default function MaterialsClient({ initialMaterials }: Props) {
                       >
                         {item.name}
                       </Link>
+                    </td>
+
+                    <td className="py-2.5 px-4 border-r border-slate-800 text-center whitespace-nowrap font-sans">
+                      {item.cat?.toLowerCase().includes("plumb") ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                          🚰 Plumbing
+                        </span>
+                      ) : item.cat?.toLowerCase().includes("elec") ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          ⚡ Electrical
+                        </span>
+                      ) : item.cat ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                          {item.cat}
+                        </span>
+                      ) : (
+                        <span className="text-slate-600 font-mono text-[11px]">—</span>
+                      )}
                     </td>
 
                     <td className="py-2.5 px-4 border-r border-slate-800 whitespace-nowrap font-sans">

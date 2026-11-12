@@ -13,6 +13,7 @@ export default function NewMaterialPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
+  const [cat, setCat] = useState<string>("Electrical");
   const [brand, setBrand] = useState("");
   const [unit, setUnit] = useState<string>("Meter");
 
@@ -33,6 +34,7 @@ export default function NewMaterialPage() {
     startTransition(async () => {
       const result = await createMaterialAction({
         name: name.trim(),
+        cat: cat.trim() || null,
         brand: brand.trim() || null,
         unit: unit.trim(),
       });
@@ -99,6 +101,22 @@ export default function NewMaterialPage() {
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
                 required
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                Category <span className="text-rose-400">*</span>
+              </label>
+              <select
+                value={cat}
+                onChange={(e) => setCat(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500"
+                required
+              >
+                <option value="Electrical">⚡ Electrical</option>
+                <option value="Plumbing">🚰 Plumbing</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
 
             <div>

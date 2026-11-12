@@ -14,6 +14,10 @@ import {
   AlertTriangle,
   ListChecks,
   Check,
+  ChevronDown,
+  ChevronUp,
+  Edit3,
+  FileDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +31,7 @@ import {
   MATERIAL_UNITS,
   initialSampleMaterials,
 } from "@/lib/types/material";
+import { generateMaterialListPdf } from "@/lib/utils/pdf-generator";
 
 function NewItemListContent() {
   const router = useRouter();
@@ -37,6 +42,7 @@ function NewItemListContent() {
   const [selectedProjectId, setSelectedProjectId] = useState(defaultProjectId);
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
 
   const [projects, setProjects] = useState<
     { id: string; project_number: string; name: string; place?: string | null }[]
@@ -46,6 +52,7 @@ function NewItemListContent() {
   // Search & view filter for the material selection table
   const [searchTerm, setSearchTerm] = useState("");
   const [viewFilter, setViewFilter] = useState<"all" | "selected">("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "Electrical" | "Plumbing">("all");
 
   // Selection state map: materialId -> { qty: number, checked: boolean }
   const [selections, setSelections] = useState<Record<string, { qty: number; checked: boolean }>>({});
@@ -54,6 +61,7 @@ function NewItemListContent() {
   const [customItems, setCustomItems] = useState<CreateMaterialListItemDTO[]>([]);
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const [customName, setCustomName] = useState("");
+  const [customCat, setCustomCat] = useState("Electrical");
   const [customBrand, setCustomBrand] = useState("");
   const [customUnit, setCustomUnit] = useState("No");
   const [customQty, setCustomQty] = useState<number>(1);
@@ -151,6 +159,7 @@ function NewItemListContent() {
       {
         material_id: null,
         name: customName.trim(),
+        cat: customCat.trim() || null,
         brand: customBrand.trim() || null,
         unit: customUnit.trim() || "No",
         qty: Math.max(1, Number(customQty) || 1),
@@ -158,6 +167,7 @@ function NewItemListContent() {
     ]);
 
     setCustomName("");
+    setCustomCat("Electrical");
     setCustomBrand("");
     setCustomQty(1);
     setIsCustomModalOpen(false);
@@ -167,7 +177,9 @@ function NewItemListContent() {
     setCustomItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // Count total selected items
+  // Count total items by category & selections
+  const electricalCount = catalog.filter((m) => m.cat?.toLowerCase().includes("elec")).length;
+  const plumbingCount = catalog.filter((m) => m.cat?.toLowerCase().includes("plumb")).length;
   const selectedCatalogItemsCount = Object.values(selections).filter((s) => s.checked).length;
   const totalSelectedCount = selectedCatalogItemsCount + customItems.length;
 
@@ -176,14 +188,46 @@ function NewItemListContent() {
     const isChecked = selections[m.id]?.checked || false;
     if (viewFilter === "selected" && !isChecked) return false;
 
+    // Filter by category tab
+    if (categoryFilter === "Electrical" && !m.cat?.toLowerCase().includes("elec")) return false;
+    if (categoryFilter === "Plumbing" && !m.cat?.toLowerCase().includes("plumb")) return false;
+
     if (!searchTerm.trim()) return true;
     const q = searchTerm.toLowerCase();
     return (
       m.name.toLowerCase().includes(q) ||
+      (m.cat && m.cat.toLowerCase().includes(q)) ||
       (m.brand && m.brand.toLowerCase().includes(q)) ||
       m.unit.toLowerCase().includes(q)
     );
   });
+
+  // Quick Download PDF of current selection
+  const handleDownloadPdf = () => {
+    const selectedCatalogItems: CreateMaterialListItemDTO[] = catalog
+      .filter((m) => selections[m.id]?.checked)
+      .map((m) => ({
+        material_id: m.id,
+        name: m.name,
+        cat: m.cat || null,
+        brand: m.brand || null,
+        unit: m.unit,
+        qty: selections[m.id]?.qty || 1,
+      }));
+
+    const allItems = [...selectedCatalogItems, ...customItems];
+    if (allItems.length === 0) {
+      setErrorMsg("Please select or add at least one material to download PDF.");
+      return;
+    }
+
+    const matchedProject = projects.find((p) => p.id === selectedProjectId);
+
+    generateMaterialListPdf({
+      clientName: matchedProject?.name || null,
+      items: allItems,
+    });
+  };
 
   // Submit list
   const handleSubmit = (e: React.FormEvent) => {
@@ -205,6 +249,7 @@ function NewItemListContent() {
       .map((m) => ({
         material_id: m.id,
         name: m.name,
+        cat: m.cat || null,
         brand: m.brand || null,
         unit: m.unit,
         qty: selections[m.id]?.qty || 1,
@@ -260,104 +305,191 @@ function NewItemListContent() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Header Setup */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-5">
-          <div className="flex items-center gap-2.5 pb-4 border-b border-slate-800">
-            <span className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-              <ListChecks className="w-5 h-5" />
-            </span>
-            <div>
-              <h2 className="text-base font-bold text-white">Create Material List</h2>
-              <p className="text-xs text-slate-400">
-                Check materials from the list below and enter quantity needed.
-              </p>
+        {/* Header Setup (Collapsible / Minimizable) */}
+        {isHeaderCollapsed ? (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all">
+            <div className="flex items-start sm:items-center gap-3 min-w-0">
+              <span className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0 mt-0.5 sm:mt-0">
+                <ListChecks className="w-4 h-4" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    List Title:
+                  </span>
+                  <span className="text-sm font-bold text-white">
+                    {title.trim() || "(Untitled List)"}
+                  </span>
+                  {isProject ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                      <Building2 className="w-3 h-3" />
+                      <span>
+                        {projects.find((p) => p.id === selectedProjectId)
+                          ? `${projects.find((p) => p.id === selectedProjectId)?.project_number} • ${projects.find((p) => p.id === selectedProjectId)?.name}`
+                          : "Project List"}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                      <Layers className="w-3 h-3" />
+                      <span>General / Non-Project</span>
+                    </span>
+                  )}
+                </div>
+                {notes.trim() && (
+                  <p className="text-xs text-slate-400 truncate mt-1">
+                    📝 {notes.trim()}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Classification Toggle */}
-          <div>
-            <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
-              List Destination
-            </label>
-            <div className="grid grid-cols-2 gap-3 max-w-md">
+            <button
+              type="button"
+              onClick={() => setIsHeaderCollapsed(false)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-950 hover:bg-slate-800 text-xs font-semibold text-slate-200 hover:text-white transition-all shrink-0 self-end sm:self-center cursor-pointer shadow-sm hover:border-slate-600"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+              <span>Edit Details</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+          </div>
+        ) : (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-5 transition-all">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                  <ListChecks className="w-5 h-5" />
+                </span>
+                <div>
+                  <h2 className="text-base font-bold text-white">Create Material List</h2>
+                  <p className="text-xs text-slate-400">
+                    Check materials from the list below and enter quantity needed.
+                  </p>
+                </div>
+              </div>
+
+              {title.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setIsHeaderCollapsed(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-800 text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  title="Minimize form"
+                >
+                  <ChevronUp className="w-4 h-4" />
+                  <span className="hidden sm:inline">Minimize</span>
+                </button>
+              )}
+            </div>
+
+            {/* Classification Toggle */}
+            <div>
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
+                List Destination
+              </label>
+              <div className="grid grid-cols-2 gap-3 max-w-md">
+                <button
+                  type="button"
+                  onClick={() => setIsProject(true)}
+                  className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border text-xs font-bold transition-all ${
+                    isProject
+                      ? "bg-blue-600/20 border-blue-500 text-blue-400 shadow-sm"
+                      : "bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Building2 className="w-4 h-4" />
+                  <span>Project List</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsProject(false)}
+                  className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border text-xs font-bold transition-all ${
+                    !isProject
+                      ? "bg-indigo-600/20 border-indigo-500 text-indigo-400 shadow-sm"
+                      : "bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Layers className="w-4 h-4" />
+                  <span>General / Non-Project</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Project Selector (if Project List) */}
+            {isProject && (
+              <div>
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
+                  Select Client Project <span className="text-rose-400">*</span>
+                </label>
+                <select
+                  value={selectedProjectId}
+                  onChange={(e) => handleProjectSelect(e.target.value)}
+                  className="w-full sm:w-96 px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/40 cursor-pointer"
+                  required={isProject}
+                >
+                  <option value="">-- Choose Project --</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id} className="bg-slate-900 text-slate-200">
+                      {p.project_number} - {p.name} {p.place ? `(${p.place})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Title & Notes */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
+                  List Title <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Ground Floor Conduit Piping"
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
+                  Notes for Store / Workers (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="e.g. Deliver by Thursday morning"
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                />
+              </div>
+            </div>
+
+            {/* Minimize / Proceed Button */}
+            <div className="flex items-center justify-end pt-3 border-t border-slate-800/80">
               <button
                 type="button"
-                onClick={() => setIsProject(true)}
-                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border text-xs font-bold transition-all ${
-                  isProject
-                    ? "bg-blue-600/20 border-blue-500 text-blue-400 shadow-sm"
-                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200"
-                }`}
+                onClick={() => {
+                  if (isProject && !selectedProjectId) {
+                    setErrorMsg("Please select a project before continuing.");
+                    return;
+                  }
+                  if (!title.trim()) {
+                    setErrorMsg("Please enter a list title before minimizing.");
+                    return;
+                  }
+                  setErrorMsg(null);
+                  setIsHeaderCollapsed(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 hover:text-amber-300 text-xs font-bold transition-all shadow-sm cursor-pointer"
               >
-                <Building2 className="w-4 h-4" />
-                <span>Project List</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsProject(false)}
-                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border text-xs font-bold transition-all ${
-                  !isProject
-                    ? "bg-indigo-600/20 border-indigo-500 text-indigo-400 shadow-sm"
-                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <Layers className="w-4 h-4" />
-                <span>General / Non-Project</span>
+                <Check className="w-3.5 h-3.5" />
+                <span>Done • Minimize Form & Select Materials ↓</span>
               </button>
             </div>
           </div>
-
-          {/* Project Selector (if Project List) */}
-          {isProject && (
-            <div>
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
-                Select Client Project <span className="text-rose-400">*</span>
-              </label>
-              <select
-                value={selectedProjectId}
-                onChange={(e) => handleProjectSelect(e.target.value)}
-                className="w-full sm:w-96 px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/40 cursor-pointer"
-                required={isProject}
-              >
-                <option value="">-- Choose Project --</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id} className="bg-slate-900 text-slate-200">
-                    {p.project_number} - {p.name} {p.place ? `(${p.place})` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Title & Notes */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
-                List Title <span className="text-rose-400">*</span>
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Ground Floor Conduit Piping"
-                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
-                Notes for Store / Workers (Optional)
-              </label>
-              <input
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Deliver by Thursday morning"
-                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-              />
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* ==================================================== */}
         {/* MATERIAL SELECTION LIST (CHECKBOX + QUANTITY)       */}
@@ -401,21 +533,58 @@ function NewItemListContent() {
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* Category Filter Pills & Selection Toggle */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center rounded-lg bg-slate-950 p-0.5 border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoryFilter("all");
+                    if (viewFilter === "selected") setViewFilter("all");
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                    categoryFilter === "all" && viewFilter !== "selected"
+                      ? "bg-slate-800 text-white shadow-sm font-bold"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  All ({catalog.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoryFilter("Electrical");
+                    if (viewFilter === "selected") setViewFilter("all");
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1 ${
+                    categoryFilter === "Electrical" && viewFilter !== "selected"
+                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm font-bold"
+                      : "text-amber-400/80 hover:text-amber-300"
+                  }`}
+                >
+                  <span>⚡ Electrical</span>
+                  <span className="text-[10px] opacity-75 font-mono">({electricalCount})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoryFilter("Plumbing");
+                    if (viewFilter === "selected") setViewFilter("all");
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1 ${
+                    categoryFilter === "Plumbing" && viewFilter !== "selected"
+                      ? "bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm font-bold"
+                      : "text-sky-400/80 hover:text-sky-300"
+                  }`}
+                >
+                  <span>🚰 Plumbing</span>
+                  <span className="text-[10px] opacity-75 font-mono">({plumbingCount})</span>
+                </button>
+              </div>
+
               <button
                 type="button"
-                onClick={() => setViewFilter("all")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  viewFilter === "all"
-                    ? "bg-slate-800 text-white font-bold"
-                    : "bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800"
-                }`}
-              >
-                All Materials ({catalog.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewFilter("selected")}
+                onClick={() => setViewFilter((v) => (v === "selected" ? "all" : "selected"))}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                   viewFilter === "selected"
                     ? "bg-amber-500 text-slate-950 font-bold shadow-sm"
@@ -444,6 +613,19 @@ function NewItemListContent() {
                         </td>
                         <td className="py-2.5 px-3 font-semibold text-slate-100">
                           {ci.name}
+                        </td>
+                        <td className="py-2.5 px-3 text-center w-28">
+                          {ci.cat?.toLowerCase().includes("plumb") ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                              🚰 Plumbing
+                            </span>
+                          ) : ci.cat?.toLowerCase().includes("elec") ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                              ⚡ Electrical
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 text-[11px] font-mono">—</span>
+                          )}
                         </td>
                         <td className="py-2.5 px-3 text-slate-400 font-mono w-32">
                           {ci.brand || "—"}
@@ -481,16 +663,17 @@ function NewItemListContent() {
                       ADD
                     </th>
                     <th className="py-2.5 px-3 border-r border-slate-800">MATERIAL NAME</th>
+                    <th className="py-2.5 px-3 w-28 text-center border-r border-slate-800">CATEGORY</th>
                     <th className="py-2.5 px-3 w-36 border-r border-slate-800">BRAND</th>
-                    <th className="py-2.5 px-3 w-28 text-center border-r border-slate-800">UNIT</th>
-                    <th className="py-2.5 px-3 w-44 text-center">QUANTITY</th>
+                    <th className="py-2.5 px-3 w-24 text-center border-r border-slate-800">UNIT</th>
+                    <th className="py-2.5 px-3 w-40 text-center">QUANTITY</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/80">
                   {filteredMaterials.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-10 text-center text-slate-500 text-xs">
-                        No materials matching &quot;{searchTerm}&quot;
+                      <td colSpan={6} className="py-10 text-center text-slate-500 text-xs">
+                        No materials matching &quot;{searchTerm}&quot; {categoryFilter !== "all" ? `in ${categoryFilter}` : ""}
                       </td>
                     </tr>
                   ) : (
@@ -525,6 +708,25 @@ function NewItemListContent() {
                             <span className={isChecked ? "text-amber-400 font-bold" : ""}>
                               {m.name}
                             </span>
+                          </td>
+
+                          {/* Category */}
+                          <td className="py-2.5 px-3 text-center border-r border-slate-800 select-none">
+                            {m.cat?.toLowerCase().includes("plumb") ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 whitespace-nowrap">
+                                🚰 Plumbing
+                              </span>
+                            ) : m.cat?.toLowerCase().includes("elec") ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap">
+                                ⚡ Electrical
+                              </span>
+                            ) : m.cat ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700 whitespace-nowrap">
+                                {m.cat}
+                              </span>
+                            ) : (
+                              <span className="text-slate-600 font-mono text-[11px]">—</span>
+                            )}
                           </td>
 
                           {/* Brand */}
@@ -596,12 +798,23 @@ function NewItemListContent() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end flex-wrap">
             <Link href="/dashboard/item-list">
               <Button type="button" variant="outline" className="border-slate-800 text-slate-400 hover:text-white">
                 Cancel
               </Button>
             </Link>
+            <Button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={totalSelectedCount === 0}
+              variant="outline"
+              className="border-slate-700 bg-slate-800 text-slate-200 hover:text-white font-bold text-xs gap-1.5 shadow-sm active:scale-95 transition-all"
+              title="Download formatted PDF Requisition Document"
+            >
+              <FileDown className="w-4 h-4 text-amber-400" />
+              <span>Download PDF</span>
+            </Button>
             <Button
               type="submit"
               disabled={isPending || totalSelectedCount === 0}
@@ -642,6 +855,21 @@ function NewItemListContent() {
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
                   autoFocus
                 />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Category
+                </label>
+                <select
+                  value={customCat}
+                  onChange={(e) => setCustomCat(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                >
+                  <option value="Electrical">⚡ Electrical</option>
+                  <option value="Plumbing">🚰 Plumbing</option>
+                  <option value="General">General</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

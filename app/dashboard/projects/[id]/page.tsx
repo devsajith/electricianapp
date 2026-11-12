@@ -30,6 +30,7 @@ import {
   Paperclip,
   ExternalLink,
   Download,
+  FileDown,
   Image as ImageIcon,
   UploadCloud,
   Loader2,
@@ -82,6 +83,7 @@ import {
   PROJECT_STATUSES,
 } from "@/lib/project-utils";
 import { createClient } from "@/lib/supabase/client";
+import { generatePaymentStatementPdf } from "@/lib/utils/pdf-generator";
 
 function formatFileSize(bytes?: number): string {
   if (!bytes) return "";
@@ -831,19 +833,43 @@ function ProjectDetailContent({
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-2 flex-wrap">
                 <Button
                   onClick={() => setIsPaymentModalOpen(true)}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                  className="flex-1 min-w-[100px] bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" /> Payment
                 </Button>
                 <Button
                   onClick={() => setIsExpenseModalOpen(true)}
-                  className="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
+                  className="flex-1 min-w-[100px] bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" /> Expense
                 </Button>
+                {payments.length > 0 && (
+                  <Button
+                    onClick={() => {
+                      generatePaymentStatementPdf({
+                        clientName: project.name,
+                        projectNumber: project.project_number,
+                        projectPlace: project.place || null,
+                        payments: payments.map((p) => ({
+                          payment_date: p.payment_date,
+                          amount: p.amount,
+                          method: p.method,
+                          payment_info: p.payment_info,
+                          project_name: project.name,
+                          project_number: project.project_number,
+                        })),
+                      });
+                    }}
+                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold gap-1 shadow-sm active:scale-95 transition-all"
+                    title="Download Statement of Payments Received from this client"
+                  >
+                    <FileDown className="w-3.5 h-3.5" />
+                    <span>Statement (PDF)</span>
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -1039,13 +1065,40 @@ function ProjectDetailContent({
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab("details")}
-              className="text-xs font-bold text-[#8ab4f8] hover:text-blue-300 shrink-0"
-            >
-              View Full Details &gt;
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              {payments.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    generatePaymentStatementPdf({
+                      clientName: project.name,
+                      projectNumber: project.project_number,
+                      projectPlace: project.place || null,
+                      payments: payments.map((p) => ({
+                        payment_date: p.payment_date,
+                        amount: p.amount,
+                        method: p.method,
+                        payment_info: p.payment_info,
+                        project_name: project.name,
+                        project_number: project.project_number,
+                      })),
+                    });
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-sm transition-all active:scale-95"
+                  title="Download Statement of Payments Received from this client"
+                >
+                  <FileDown className="w-3.5 h-3.5" />
+                  <span>Statement (PDF)</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setActiveTab("details")}
+                className="text-xs font-bold text-[#8ab4f8] hover:text-blue-300 shrink-0"
+              >
+                View Full Details &gt;
+              </button>
+            </div>
           </div>
 
           {/* Transaction Timeline Feed (Left = Expense, Right = Payment) */}

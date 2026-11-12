@@ -16,7 +16,7 @@ export function isValidUUID(id?: string | null): boolean {
   return typeof id === "string" && UUID_REGEX.test(id.trim());
 }
 
-const MATERIAL_COLUMNS = "id, name, brand, unit, created_at, updated_at";
+const MATERIAL_COLUMNS = "id, name, cat, brand, unit, created_at, updated_at";
 const MATERIAL_LIST_COLUMNS =
   "id, project_id, title, status, notes, created_at, updated_at, projects(project_number, name)";
 const MATERIAL_LIST_ITEM_COLUMNS =
@@ -68,6 +68,7 @@ export async function getMaterialsService(): Promise<{ data: Material[]; error?:
         const formattedData: Material[] = ((data as unknown as Material[]) || []).map((row) => ({
           id: row.id,
           name: row.name,
+          cat: row.cat || null,
           brand: row.brand || null,
           unit: row.unit,
           created_at: row.created_at,
@@ -121,6 +122,7 @@ export async function createMaterialService(
       .from("materials")
       .insert({
         name: input.name,
+        cat: input.cat || null,
         brand: input.brand || null,
         unit: input.unit || "nos",
       })
@@ -141,7 +143,7 @@ export async function createMaterialService(
 
 export async function updateMaterialService(
   id: string,
-  input: Partial<{ name: string; brand: string; unit: string }>
+  input: Partial<{ name: string; cat: string; brand: string; unit: string }>
 ): Promise<{ data?: Material; error?: string }> {
   if (!isValidUUID(id)) {
     return { error: "Invalid material ID format." };
@@ -218,6 +220,7 @@ export async function getMaterialListsService(): Promise<{ data: MaterialList[];
           project_id: row.project_id || null,
           project_number: row.projects?.project_number,
           project_name: row.projects?.name,
+          client_name: row.projects?.name,
           title: row.title,
           status: row.status || "Draft",
           notes: row.notes || null,
@@ -279,6 +282,7 @@ export async function getMaterialListByIdService(
       project_id: listRow.project_id || null,
       project_number: listRow.projects?.project_number,
       project_name: listRow.projects?.name,
+      client_name: listRow.projects?.name,
       title: listRow.title,
       status: listRow.status || "Draft",
       notes: listRow.notes || null,
@@ -405,6 +409,38 @@ export async function toggleMaterialListItemPurchasedService(
   }
 }
 
+/**
+ * Service: Update the quantity of an item in the list
+ */
+export async function updateMaterialListItemQtyService(
+  itemId: string,
+  qty: number
+): Promise<{ success: boolean; error?: string }> {
+  if (!isValidUUID(itemId)) {
+    return { success: false, error: "Invalid item ID format." };
+  }
+  const validQty = Math.max(1, Number(qty) || 1);
+
+  try {
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("material_list_items")
+      .update({ qty: validQty })
+      .eq("id", itemId);
+
+    if (error) {
+      console.error("Error updating item qty:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Service error (updateMaterialListItemQty):", error);
+    return { success: false, error: "Internal server error" };
+  }
+}
+
 export async function deleteMaterialListItemService(id: string): Promise<{ success: boolean; error?: string }> {
   if (!isValidUUID(id)) {
     return { success: false, error: "Invalid material list item ID format." };
@@ -452,5 +488,152 @@ export async function deleteMaterialListService(id: string): Promise<{ success: 
   } catch (error) {
     console.error("Service error (deleteMaterialList):", error);
     return { success: false, error: "Internal server error" };
+  }
+}
+
+/**
+ * Service: Add a new item to an existing material list
+ */
+export async function addMaterialListItemService(
+  listId: string,
+  item: {
+    material_id?: string | null;
+    name: string;
+    cat?: string | null;
+    brand?: string | null;
+    unit: string;
+    qty: number;
+  }
+): Promise<{ data?: MaterialListItem; error?: string }> {
+  if (!isValidUUID(listId)) {
+    return { error: "Invalid material list ID format." };
+  }
+
+  try {
+    const supabase = await createClient();
+
+    const insertPayload: Record<string, unknown> = {
+      list_id: listId,
+      material_id: isValidUUID(item.material_id) ? item.material_id : null,
+      name: item.name.trim(),
+      brand: item.brand?.trim() || null,
+      unit: item.unit.trim() || "No",
+      qty: Number(item.qty) || 1,
+      is_purchased: false,
+    };
+
+    if (item.cat) {
+      insertPayload.cat = item.cat.trim();
+    }
+
+    const { data, error } = await supabase
+      .from("material_list_items")
+      .insert(insertPayload)
+      .select("id, list_id, material_id, name, brand, unit, qty, is_purchased, created_at")
+      .single();
+
+    if (error) {
+      if (error.message?.includes("cat")) {
+        delete insertPayload.cat;
+        const retryRes = await supabase
+          .from("material_list_items")
+          .insert(insertPayload)
+          .select("id, list_id, material_id, name, brand, unit, qty, is_purchased, created_at")
+          .single();
+        if (retryRes.error) {
+          return { error: retryRes.error.message };
+        }
+        return {
+          data: {
+            ...retryRes.data,
+            cat: item.cat || null,
+          } as MaterialListItem,
+        };
+      }
+      return { error: error.message };
+    }
+
+    return {
+      data: {
+        ...data,
+        cat: item.cat || null,
+      } as MaterialListItem,
+    };
+  } catch (error) {
+    console.error("Service error (addMaterialListItem):", error);
+    return { error: "Internal server error" };
+  }
+}
+
+/**
+ * Service: Batch add multiple items to an existing material list
+ */
+export async function addMaterialListItemsBatchService(
+  listId: string,
+  items: {
+    material_id?: string | null;
+    name: string;
+    cat?: string | null;
+    brand?: string | null;
+    unit: string;
+    qty: number;
+  }[]
+): Promise<{ data?: MaterialListItem[]; error?: string }> {
+  if (!isValidUUID(listId)) {
+    return { error: "Invalid material list ID format." };
+  }
+  if (!items || items.length === 0) {
+    return { data: [] };
+  }
+
+  try {
+    const supabase = await createClient();
+
+    const insertPayloads = items.map((item) => ({
+      list_id: listId,
+      material_id: isValidUUID(item.material_id) ? item.material_id : null,
+      name: item.name.trim(),
+      cat: item.cat?.trim() || null,
+      brand: item.brand?.trim() || null,
+      unit: item.unit.trim() || "No",
+      qty: Math.max(1, Number(item.qty) || 1),
+      is_purchased: false,
+    }));
+
+    const { data, error } = await supabase
+      .from("material_list_items")
+      .insert(insertPayloads)
+      .select("id, list_id, material_id, name, brand, unit, qty, is_purchased, created_at");
+
+    if (error) {
+      if (error.message?.includes("cat")) {
+        const fallbacks = insertPayloads.map(({ cat: _, ...rest }) => rest);
+        const retryRes = await supabase
+          .from("material_list_items")
+          .insert(fallbacks)
+          .select("id, list_id, material_id, name, brand, unit, qty, is_purchased, created_at");
+
+        if (retryRes.error) {
+          return { error: retryRes.error.message };
+        }
+        return {
+          data: (retryRes.data || []).map((row, idx) => ({
+            ...row,
+            cat: items[idx]?.cat || null,
+          })) as MaterialListItem[],
+        };
+      }
+      return { error: error.message };
+    }
+
+    return {
+      data: (data || []).map((row, idx) => ({
+        ...row,
+        cat: items[idx]?.cat || null,
+      })) as MaterialListItem[],
+    };
+  } catch (error) {
+    console.error("Service error (addMaterialListItemsBatch):", error);
+    return { error: "Internal server error" };
   }
 }

@@ -168,9 +168,15 @@ export default function PaymentsPage() {
     return filteredProjects.slice(0, 7);
   }, [filteredProjects, showAllAvatars]);
 
-  // Filtered payments by search, method, and date range
+  // Filtered payments by search, project selection, method, and date range
   const filteredPayments = useMemo(() => {
     return payments.filter((p) => {
+      // Selected Client / Project filter
+      if (selectedProjectId) {
+        const pid = p.project_id || p.projects?.id;
+        if (pid !== selectedProjectId) return false;
+      }
+
       // Search filter
       const q = searchQuery.toLowerCase();
       const matchesSearch =
@@ -191,7 +197,7 @@ export default function PaymentsPage() {
 
       return matchesSearch && matchesMethod && matchesFromDate && matchesToDate;
     });
-  }, [payments, searchQuery, selectedMethod, fromDate, toDate]);
+  }, [payments, searchQuery, selectedMethod, fromDate, toDate, selectedProjectId]);
 
   // Group filtered payments chronologically by date
   const groupedPayments = useMemo(() => {
@@ -520,6 +526,7 @@ export default function PaymentsPage() {
             const initial = p.name ? p.name.trim().charAt(0).toUpperCase() : "P";
             const colorClass = getAvatarColor(p.name);
             const stats = p.id ? projectPaymentStats[p.id] : null;
+            const isSelected = selectedProjectId === p.id;
 
             return (
               <Link
