@@ -96,18 +96,15 @@ export default function PaymentsPage() {
 
   const loadData = useCallback(() => {
     setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 2500);
 
     Promise.all([getPaymentsAction(), getProjectsAction()])
       .then(([payRes, projsRes]) => {
-        clearTimeout(timer);
         setPayments(payRes.data || []);
         setProjects(projsRes || []);
         setLoading(false);
       })
       .catch((err) => {
         console.error("Failed to load payments or projects:", err);
-        clearTimeout(timer);
         setLoading(false);
       });
   }, []);
@@ -590,10 +587,23 @@ export default function PaymentsPage() {
       </div>
 
       {/* 5. PAYMENTS TIMELINE & TRANSACTIONS FEED (Modern Card Feed replacing Excel Table) */}
-      {loading ? (
-        <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center">
-          <div className="inline-block animate-spin rounded-full h-7 w-7 border-2 border-emerald-500 border-t-transparent mb-3" />
-          <p className="text-xs text-slate-500 dark:text-slate-400">Loading client payment records...</p>
+      {loading && payments.length === 0 ? (
+        <div className="space-y-3 animate-pulse">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="p-4 rounded-2xl bg-white dark:bg-[#181a20] border border-slate-200 dark:border-[#282a33] flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 shrink-0" />
+                <div className="space-y-1.5">
+                  <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded" />
+                  <div className="h-3 w-48 bg-slate-200/60 dark:bg-slate-800/60 rounded" />
+                </div>
+              </div>
+              <div className="h-6 w-20 bg-slate-200 dark:bg-slate-800 rounded font-mono" />
+            </div>
+          ))}
         </div>
       ) : filteredPayments.length === 0 ? (
         <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center space-y-3">

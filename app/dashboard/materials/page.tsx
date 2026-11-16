@@ -12,7 +12,7 @@ export default async function MaterialsPage() {
     const result = await withTimeout(
       getMaterialsService(),
       { data: [] },
-      2500
+      8000
     );
     if (result.data && Array.isArray(result.data)) {
       materials = result.data;

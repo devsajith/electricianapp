@@ -22,7 +22,7 @@ export default async function DashboardPage() {
       }
     })(),
     null,
-    2000
+    6000
   );
 
   const dataPromise = withTimeout(
@@ -34,7 +34,7 @@ export default async function DashboardPage() {
       getLabourEntriesAction(),
     ]),
     [[], { data: [] }, { data: [] }, [], []],
-    2500
+    8000
   );
 
   const [user, [projectsRes, paymentsRes, expensesRes, laboursRes, labourEntriesRes]] = await Promise.all([

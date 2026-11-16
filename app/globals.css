@@ -525,3 +525,17 @@ html.dark .bg-slate-950 {
 .overflow-y-auto {
   -webkit-overflow-scrolling: touch;
 }
+
+/* Prevent unwanted iOS Safari auto-zoom on input focus while maintaining compact styling */
+@media screen and (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Remove default mobile tap highlight flash */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
