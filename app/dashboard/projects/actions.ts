@@ -10,6 +10,12 @@ import {
   Project,
   ProjectPlanFile,
 } from "@/services/project.service";
+import { getExpensesByProjectIdService } from "@/services/expense.service";
+import { getPaymentsByProjectIdService } from "@/services/payment.service";
+import { getLabourEntriesByProjectService, getLaboursService } from "@/services/labour.service";
+import { Expense } from "@/lib/types/expense";
+import { Payment } from "@/lib/types/payment";
+import { Labour, LabourEntry } from "@/lib/types/labour";
 import { validateIndianPhone, PROJECT_TYPES, PROJECT_STATUSES } from "@/lib/project-utils";
 
 export type ProjectRecord = Project;
@@ -124,6 +130,19 @@ export async function updateProjectStatusAction(id: string, status: string) {
   }
 }
 
+export async function updateProjectDescriptionAction(id: string, description: string) {
+  try {
+    const { data, error } = await updateProjectService(id, { description });
+    if (error) return { error };
+    revalidatePath(`/dashboard/projects/${id}`);
+    revalidatePath("/dashboard/projects");
+    return { success: true, data };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to update project description.";
+    return { error: message };
+  }
+}
+
 export async function deleteProjectAction(id: string) {
   try {
     const { error } = await deleteProjectService(id);
@@ -146,6 +165,47 @@ export async function updateProjectPlansAction(id: string, plans: ProjectPlanFil
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to update project plans.";
     return { error: message };
+  }
+}
+
+export interface ProjectBundle {
+  project: ProjectRecord | null;
+  expenses: Expense[];
+  payments: Payment[];
+  labourEntries: LabourEntry[];
+  workers: Labour[];
+}
+
+/**
+ * Server Action: Fetches all project data (project, expenses, payments, labour, workers)
+ * in parallel in a single server-side invocation, reducing 5 network roundtrips to 1.
+ */
+export async function getProjectBundleAction(id: string): Promise<ProjectBundle> {
+  try {
+    const [projRes, expRes, payRes, labourRes, laboursList] = await Promise.all([
+      getProjectByIdService(id),
+      getExpensesByProjectIdService(id),
+      getPaymentsByProjectIdService(id),
+      getLabourEntriesByProjectService(id),
+      getLaboursService(),
+    ]);
+
+    return {
+      project: projRes.data || null,
+      expenses: expRes.data || [],
+      payments: payRes.data || [],
+      labourEntries: labourRes.data || [],
+      workers: laboursList.data || [],
+    };
+  } catch (err) {
+    console.error("Error in getProjectBundleAction:", err);
+    return {
+      project: null,
+      expenses: [],
+      payments: [],
+      labourEntries: [],
+      workers: [],
+    };
   }
 }
 
