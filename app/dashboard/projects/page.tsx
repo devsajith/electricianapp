@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getStatusStyle, PROJECT_STATUSES, PROJECT_TYPES } from "@/lib/project-utils";
+import { ProjectRowSkeleton } from "@/components/project-skeleton";
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
@@ -310,12 +311,9 @@ export default function ProjectsPage() {
               </thead>
               <tbody className="divide-y divide-slate-800/80 text-xs">
                 {initialLoading && projects.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-12 text-center text-slate-500 text-xs">
-                      <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-amber-400" />
-                      Loading projects...
-                    </td>
-                  </tr>
+                  Array.from({ length: 6 }).map((_, idx) => (
+                    <ProjectRowSkeleton key={idx} index={idx + 1} />
+                  ))
                 ) : filteredProjects.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-12 text-center text-slate-400 text-xs">

@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HeaderSlot } from "@/components/header-context";
+import { ProjectDetailSkeleton } from "@/components/project-skeleton";
 import {
   getProjectByIdAction,
   updateProjectStatusAction,
@@ -414,30 +415,7 @@ function ProjectDetailContent({
   }, [timelineItems]);
 
   if (loading) {
-    return (
-      <>
-        <HeaderSlot>
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Link
-              href="/dashboard/projects"
-              aria-label="Back to Projects"
-              className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 animate-pulse shrink-0" />
-            <div className="space-y-1.5 min-w-0">
-              <div className="h-4 w-28 bg-slate-800 rounded animate-pulse" />
-              <div className="h-3 w-36 bg-slate-800/60 rounded animate-pulse" />
-            </div>
-          </div>
-        </HeaderSlot>
-        <div className="p-16 text-center text-slate-400 text-xs">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          Loading project details &amp; timeline...
-        </div>
-      </>
-    );
+    return <ProjectDetailSkeleton showHeaderSlot={true} />;
   }
 
   if (!project) {
@@ -1312,14 +1290,7 @@ export default function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense
-      fallback={
-        <div className="p-16 text-center text-slate-400 text-xs">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          Opening project paperwork &amp; timeline...
-        </div>
-      }
-    >
+    <Suspense fallback={<ProjectDetailSkeleton showHeaderSlot={true} />}>
       <ProjectDetailContent params={params} />
     </Suspense>
   );
