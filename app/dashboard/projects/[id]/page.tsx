@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HeaderSlot } from "@/components/header-context";
+import { ProjectDetailSkeleton } from "@/components/project-skeleton";
 import {
   getProjectByIdAction,
   updateProjectStatusAction,
@@ -154,7 +155,7 @@ function ProjectDetailContent({
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 2500);
+    setErrorMsg(null);
 
     try {
       const [projData, expRes, payRes, labourData, laboursList] = await Promise.all([
@@ -164,9 +165,9 @@ function ProjectDetailContent({
         getLabourEntriesByProjectAction(id),
         getLaboursAction(),
       ]);
-      clearTimeout(timer);
       if (projData) {
         setProject(projData);
+        setErrorMsg(null);
       } else {
         setErrorMsg("Project not found.");
       }
@@ -176,7 +177,6 @@ function ProjectDetailContent({
       setWorkers(laboursList || []);
     } catch (err) {
       console.error("Error loading project detail:", err);
-      clearTimeout(timer);
       setErrorMsg("Failed to load project details.");
     } finally {
       setLoading(false);
@@ -414,29 +414,31 @@ function ProjectDetailContent({
   }, [timelineItems]);
 
   if (loading) {
+    return <ProjectDetailSkeleton showHeaderSlot={true} />;
+  }
+
+  if (errorMsg && !project) {
     return (
-      <>
-        <HeaderSlot>
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Link
-              href="/dashboard/projects"
-              aria-label="Back to Projects"
-              className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 animate-pulse shrink-0" />
-            <div className="space-y-1.5 min-w-0">
-              <div className="h-4 w-28 bg-slate-800 rounded animate-pulse" />
-              <div className="h-3 w-36 bg-slate-800/60 rounded animate-pulse" />
-            </div>
-          </div>
-        </HeaderSlot>
-        <div className="p-16 text-center text-slate-400 text-xs">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          Loading project details &amp; timeline...
+      <div className="max-w-md mx-auto space-y-4 text-center py-16 px-4">
+        <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto" />
+        <h2 className="text-xl font-bold text-white">Unable to Load Project</h2>
+        <p className="text-xs text-slate-400">
+          {errorMsg}
+        </p>
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <Button
+            onClick={() => loadData()}
+            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs"
+          >
+            Try Again
+          </Button>
+          <Link href="/dashboard/projects">
+            <Button variant="outline" className="border-slate-800 text-xs text-slate-300">
+              <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Return to Projects
+            </Button>
+          </Link>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -1312,14 +1314,7 @@ export default function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense
-      fallback={
-        <div className="p-16 text-center text-slate-400 text-xs">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          Opening project paperwork &amp; timeline...
-        </div>
-      }
-    >
+    <Suspense fallback={<ProjectDetailSkeleton showHeaderSlot={true} />}>
       <ProjectDetailContent params={params} />
     </Suspense>
   );
