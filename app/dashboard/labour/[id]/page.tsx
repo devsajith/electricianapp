@@ -97,7 +97,7 @@ export default function LabourDetailPage({
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 2500);
+    setErrorMsg(null);
 
     try {
       const [allLabours, workerEntries, projs] = await Promise.all([
@@ -105,7 +105,6 @@ export default function LabourDetailPage({
         getLabourEntriesAction(id),
         getProjectsAction(),
       ]);
-      clearTimeout(timer);
 
       const found = allLabours.find((l) => l.id === id);
       if (found) {
@@ -118,7 +117,6 @@ export default function LabourDetailPage({
       setProjects(projs || []);
     } catch (err) {
       console.error("Error loading worker detail:", err);
-      clearTimeout(timer);
       setErrorMsg("Failed to load worker records.");
     } finally {
       setLoading(false);

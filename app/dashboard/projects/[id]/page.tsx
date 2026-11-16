@@ -155,7 +155,7 @@ function ProjectDetailContent({
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 2500);
+    setErrorMsg(null);
 
     try {
       const [projData, expRes, payRes, labourData, laboursList] = await Promise.all([
@@ -165,9 +165,9 @@ function ProjectDetailContent({
         getLabourEntriesByProjectAction(id),
         getLaboursAction(),
       ]);
-      clearTimeout(timer);
       if (projData) {
         setProject(projData);
+        setErrorMsg(null);
       } else {
         setErrorMsg("Project not found.");
       }
@@ -177,7 +177,6 @@ function ProjectDetailContent({
       setWorkers(laboursList || []);
     } catch (err) {
       console.error("Error loading project detail:", err);
-      clearTimeout(timer);
       setErrorMsg("Failed to load project details.");
     } finally {
       setLoading(false);
@@ -416,6 +415,31 @@ function ProjectDetailContent({
 
   if (loading) {
     return <ProjectDetailSkeleton showHeaderSlot={true} />;
+  }
+
+  if (errorMsg && !project) {
+    return (
+      <div className="max-w-md mx-auto space-y-4 text-center py-16 px-4">
+        <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto" />
+        <h2 className="text-xl font-bold text-white">Unable to Load Project</h2>
+        <p className="text-xs text-slate-400">
+          {errorMsg}
+        </p>
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <Button
+            onClick={() => loadData()}
+            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs"
+          >
+            Try Again
+          </Button>
+          <Link href="/dashboard/projects">
+            <Button variant="outline" className="border-slate-800 text-xs text-slate-300">
+              <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Return to Projects
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   if (!project) {
