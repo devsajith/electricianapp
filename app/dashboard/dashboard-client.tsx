@@ -275,21 +275,20 @@ export function DashboardClient({
         </Link>
       </div>
 
-      {/* 3. The 4 Primary Action Buttons */}
-      <div className="grid grid-cols-4 gap-2 sm:gap-4 pt-1">
-        {/* Action 1: Add project */}
-        <button
-          type="button"
-          onClick={() => setProjectModalOpen(true)}
+      {/* 3. The 4 Primary Action Buttons - Unified Module Navigation */}
+      <div className="grid grid-cols-4 gap-2.5 sm:gap-4 md:gap-6 pt-1">
+        {/* Action 1: Projects */}
+        <Link
+          href="/dashboard/projects"
           className="flex flex-col items-center group active:scale-95 transition-transform"
         >
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#0b57d0] group-hover:bg-[#1a73e8] flex items-center justify-center text-white shadow-md shadow-[#0b57d0]/25 transition-colors">
-            <FolderPlus className="w-7 h-7 stroke-[2]" />
+            <FolderKanban className="w-7 h-7 stroke-[2]" />
           </div>
           <span className="text-xs font-bold text-slate-100 mt-2 text-center leading-tight">
-            Add project
+            Projects
           </span>
-        </button>
+        </Link>
 
         {/* Action 2: Quotations */}
         <Link
@@ -297,7 +296,7 @@ export function DashboardClient({
           className="flex flex-col items-center group active:scale-95 transition-transform"
         >
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#0b57d0] group-hover:bg-[#1a73e8] flex items-center justify-center text-white shadow-md shadow-[#0b57d0]/25 transition-colors">
-            <FileText className="w-7 h-7 stroke-[2]" />
+            <FileSpreadsheet className="w-7 h-7 stroke-[2]" />
           </div>
           <span className="text-xs font-bold text-slate-100 mt-2 text-center leading-tight">
             Quotations
@@ -305,12 +304,8 @@ export function DashboardClient({
         </Link>
 
         {/* Action 3: Payments */}
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedProjectId(undefined);
-            setPaymentModalOpen(true);
-          }}
+        <Link
+          href="/dashboard/payments"
           className="flex flex-col items-center group active:scale-95 transition-transform"
         >
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#0b57d0] group-hover:bg-[#1a73e8] flex items-center justify-center text-white shadow-md shadow-[#0b57d0]/25 transition-colors">
@@ -319,24 +314,20 @@ export function DashboardClient({
           <span className="text-xs font-bold text-slate-100 mt-2 text-center leading-tight">
             Payments
           </span>
-        </button>
+        </Link>
 
-        {/* Action 4: Expense */}
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedProjectId(undefined);
-            setExpenseModalOpen(true);
-          }}
+        {/* Action 4: Expenses */}
+        <Link
+          href="/dashboard/expenses"
           className="flex flex-col items-center group active:scale-95 transition-transform"
         >
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#0b57d0] group-hover:bg-[#1a73e8] flex items-center justify-center text-white shadow-md shadow-[#0b57d0]/25 transition-colors">
-            <ReceiptIndianRupee className="w-7 h-7 stroke-[2]" />
+            <Receipt className="w-7 h-7 stroke-[2]" />
           </div>
           <span className="text-xs font-bold text-slate-100 mt-2 text-center leading-tight">
-            Expense
+            Expenses
           </span>
-        </button>
+        </Link>
       </div>
 
       {/* 4. Secondary Quick Metric Pills Row (Like Tap & Pay, UPI Lite, Rewards in GPay) */}
