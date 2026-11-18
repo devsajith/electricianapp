@@ -437,7 +437,7 @@ export function ProjectDetailClient({
   )}&projectType=${encodeURIComponent(project.type || "Wiring")}`;
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col min-h-[calc(100vh-8rem)] relative pb-28 select-none">
+    <div className="max-w-5xl lg:max-w-6xl mx-auto flex flex-col relative pb-8 md:pb-6 select-none">
       {/* 1. Project details injected into Navbar itself */}
       <HeaderSlot>
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -517,7 +517,7 @@ export function ProjectDetailClient({
       </HeaderSlot>
 
       {/* 2. Full Page Navigation Tabs */}
-      <div className="flex items-center gap-1.5 p-1 bg-slate-900/90 border border-slate-800 rounded-2xl mb-4 shadow-sm">
+      <div className="flex items-center gap-1.5 p-1.5 bg-slate-900/90 border border-slate-800 rounded-2xl mb-5 shadow-sm">
         <button
           type="button"
           onClick={() => setActiveTab("details")}

@@ -258,7 +258,7 @@ export function LabourDetailClient({
   const phoneDigits = worker.phone ? worker.phone.replace(/[^0-9+]/g, "") : "";
 
   return (
-    <div className="max-w-2xl mx-auto flex flex-col min-h-[calc(100vh-8rem)] relative pb-28 select-none">
+    <div className="max-w-4xl lg:max-w-5xl mx-auto flex flex-col relative pb-8 md:pb-6 select-none">
       {/* 1. Details injected into Navbar itself */}
       <HeaderSlot>
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -334,7 +334,7 @@ export function LabourDetailClient({
       </HeaderSlot>
 
       {/* 2. Top Summary Banner with Quick Actions */}
-      <div className="mt-3 mb-3 p-4 rounded-2xl bg-gradient-to-r from-[#1a1c22] to-[#15171d] border border-[#282a33] flex items-center justify-between gap-3 shadow-sm flex-wrap sm:flex-nowrap">
+      <div className="mt-2 mb-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#1a1c22] to-[#15171d] border border-[#282a33] flex items-center justify-between gap-3 shadow-sm flex-wrap sm:flex-nowrap">
         <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
           {/* Attendance metric */}
           <button

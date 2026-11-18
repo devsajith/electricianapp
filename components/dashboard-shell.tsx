@@ -36,9 +36,11 @@ export function DashboardShell({ userEmail, children }: DashboardShellProps) {
         {/* Page Content with safe padding for mobile bottom bar */}
         <main
           id="main-content"
-          className="flex-1 overflow-y-auto overscroll-y-contain p-3 sm:p-5 md:p-6 pb-24 md:pb-8"
+          className="flex-1 overflow-y-auto overscroll-y-contain px-3.5 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 pb-28 md:pb-12"
         >
-          {children}
+          <div className="mx-auto w-full max-w-7xl">
+            {children}
+          </div>
         </main>
       </div>
 

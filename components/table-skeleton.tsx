@@ -99,7 +99,7 @@ export function ExpensesPageSkeleton() {
 
 export function PaymentsPageSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse select-none">
+    <div className="max-w-5xl mx-auto space-y-5 sm:space-y-6 animate-pulse select-none">
       {/* Header Banner */}
       <div className="p-4 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-2">

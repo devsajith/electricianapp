@@ -19,7 +19,7 @@ export default async function DashboardLayout({
       }
     })(),
     null,
-    2500
+    8000
   );
 
   // If user is not authenticated, redirect to login page

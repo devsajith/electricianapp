@@ -55,24 +55,27 @@ export function SettingsClient() {
   ];
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl mx-auto">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-white tracking-tight">App & Business Settings</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="p-1.5 rounded-md bg-amber-500/10 text-amber-400">
+              <ShieldCheck className="w-5 h-5" />
+            </span>
+            <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">App &amp; Business Settings</h1>
             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
               Preferences
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-400">
             Choose your preferred color theme, manage company info, and customize trade defaults.
           </p>
         </div>
 
         <Button
           onClick={handleSave}
-          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 shadow-md active:scale-95"
+          className="h-10 sm:h-9 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 shadow-md active:scale-95"
         >
           {saved ? (
             <>

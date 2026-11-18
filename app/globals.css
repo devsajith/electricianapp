@@ -526,6 +526,14 @@ html.dark .bg-slate-950 {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Safe area padding utilities for mobile devices */
+.safe-bottom {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 /* Prevent unwanted iOS Safari auto-zoom on input focus while maintaining compact styling */
 @media screen and (max-width: 640px) {
   input:not([type="checkbox"]):not([type="radio"]),

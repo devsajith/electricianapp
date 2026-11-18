@@ -39,7 +39,7 @@ export function LabourDetailSkeleton({ showHeaderSlot = true }: { showHeaderSlot
         </HeaderSlot>
       )}
 
-      <div className="max-w-3xl mx-auto flex flex-col min-h-[calc(100vh-8rem)] relative pb-24 select-none space-y-4">
+      <div className="max-w-4xl lg:max-w-5xl mx-auto flex flex-col relative pb-8 md:pb-6 select-none space-y-4">
         {/* Toggle Pills Skeleton */}
         <div className="flex items-center gap-1.5 p-1 bg-slate-900/90 border border-slate-800 rounded-2xl mb-1 shadow-sm">
           <div className="h-8 flex-1 rounded-xl bg-slate-800/70 animate-pulse" />

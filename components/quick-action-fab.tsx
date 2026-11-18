@@ -39,7 +39,7 @@ export function QuickActionFAB() {
   return (
     <>
       {/* Floating Action Button (FAB) */}
-      <div className="fixed bottom-20 md:bottom-6 right-4 z-40 flex flex-col items-end gap-3 select-none no-print">
+      <div className="fixed bottom-20 md:bottom-8 right-4 sm:right-6 z-40 flex flex-col items-end gap-3 select-none no-print">
         {/* Quick Actions Speed Dial Menu */}
         {menuOpen && (
           <div

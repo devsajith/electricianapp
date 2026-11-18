@@ -320,7 +320,7 @@ export default function PaymentsPage() {
   ];
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12 select-none">
+    <div className="space-y-5 sm:space-y-6 max-w-5xl mx-auto select-none">
       {/* 1. Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -364,7 +364,7 @@ export default function PaymentsPage() {
       </div>
 
       {/* 2. Top Search, Date Range & Payment Method Filter Bar */}
-      <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between bg-white dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+      <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between bg-white dark:bg-slate-900/60 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input

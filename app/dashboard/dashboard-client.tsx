@@ -237,7 +237,7 @@ export function DashboardClient({
     : filteredProjects.slice(0, 7);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-2 select-none">
+    <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 pb-4 select-none">
       {/* 1. Google Pay Style Search Pill with Client Name Search + Settings Avatar */}
       <div className="relative flex items-center gap-2">
         <div className="relative flex-1">
@@ -385,8 +385,8 @@ export function DashboardClient({
           </Link>
         </div>
 
-        {/* 4-Column Avatar Grid like Google Pay */}
-        <div className="grid grid-cols-4 gap-y-4 gap-x-2 sm:gap-x-4">
+        {/* Responsive Avatar Grid */}
+        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-y-4 sm:gap-y-6 gap-x-2.5 sm:gap-x-4">
           {displayedAvatars.map((p) => {
             const initial = p.name ? p.name.trim().charAt(0).toUpperCase() : "P";
             const colorClass = getAvatarColor(p.name);
@@ -479,8 +479,8 @@ export function DashboardClient({
           </Link>
         </div>
 
-        {/* 4-Column Avatar Grid like Google Pay (Image 1) */}
-        <div className="grid grid-cols-4 gap-y-4 gap-x-2 sm:gap-x-4">
+        {/* Responsive Labours Avatar Grid */}
+        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-y-4 sm:gap-y-6 gap-x-2.5 sm:gap-x-4">
           {filteredLabours.map((worker) => {
             const initial = worker.name ? worker.name.trim().charAt(0).toUpperCase() : "W";
             const colorClass = getAvatarColor(worker.name);
@@ -552,7 +552,7 @@ export function DashboardClient({
       </div>
 
       {/* 7. Floating Blue "Add Project" Pill */}
-      <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-30">
+      <div className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-30 pointer-events-auto">
         <button
           type="button"
           onClick={() => setProjectModalOpen(true)}
