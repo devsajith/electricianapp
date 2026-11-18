@@ -239,22 +239,22 @@ export function DashboardClient({
   return (
     <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 pb-4 select-none">
       {/* 1. Google Pay Style Search Pill with Client Name Search + Settings Avatar */}
-      <div className="relative flex items-center gap-2">
+      <div className="relative flex items-center gap-2.5 sm:gap-3">
         <div className="relative flex-1">
-          <div className="flex items-center w-full h-12 px-4 rounded-full bg-[#1e2025] hover:bg-[#24262c] focus-within:bg-[#252830] border border-[#2e323b] focus-within:border-[#1a73e8] transition-all shadow-sm">
-            <Search className="w-5 h-5 text-slate-400 mr-3 shrink-0" />
+          <div className="group flex items-center w-full h-12 px-4 rounded-full bg-[#1e2025] hover:bg-[#252830] focus-within:bg-[#252830] border border-[#2e323b] focus-within:border-[#1a73e8] focus-within:ring-2 focus-within:ring-[#1a73e8]/25 transition-all shadow-sm">
+            <Search className="w-5 h-5 text-slate-400 group-focus-within:text-[#8ab4f8] mr-3 shrink-0 transition-colors" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by client name or project..."
-              className="w-full bg-transparent text-sm text-slate-100 placeholder-slate-400 focus:outline-none"
+              className="w-full h-full bg-transparent border-0 outline-none ring-0 shadow-none text-sm font-sans text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-0 focus:border-none"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-700/50"
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors shrink-0 ml-1"
               >
                 <X className="w-4 h-4" />
               </button>
