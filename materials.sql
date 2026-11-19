@@ -28,11 +28,39 @@ ALTER TABLE IF EXISTS public.material_list_items ADD COLUMN IF NOT EXISTS cat TE
 
 -- 2. Single Unified INSERT query containing ALL items:
 INSERT INTO public.materials (name, cat, brand, unit) VALUES
-  ('1 sq mm wire (Red, Black, Blue, Yellow, Green, Grey)', 'Electrical', 'V-Guard', 'Coil'),
-  ('1.5 sq mm wire (Red, Black, Blue, Yellow, Green, Grey)', 'Electrical', 'V-Guard', 'Coil'),
-  ('2.5 sq mm wire (Red, Black, Green)', 'Electrical', 'V-Guard', 'Coil'),
-  ('4 sq mm wire (Red, Black)', 'Electrical', 'V-Guard', 'Coil'),
-  ('6 sq mm wire (Red, Black, Blue, Yellow)', 'Electrical', 'V-Guard', 'Meter'),
+  -- 1 sq mm Wire by Color
+  ('1 sq mm wire (Red)', 'Electrical', 'V-Guard', 'Coil'),
+  ('1 sq mm wire (Black)', 'Electrical', 'V-Guard', 'Coil'),
+  ('1 sq mm wire (Blue)', 'Electrical', 'V-Guard', 'Coil'),
+  ('1 sq mm wire (Yellow)', 'Electrical', 'V-Guard', 'Coil'),
+  ('1 sq mm wire (Green)', 'Electrical', 'V-Guard', 'Coil'),
+  ('1 sq mm wire (Grey)', 'Electrical', 'V-Guard', 'Coil'),
+  -- 1.5 sq mm Wire by Color
+  ('1.5 sq mm wire (Red)', 'Electrical', 'V-Guard', 'Coil'),
+  ('1.5 sq mm wire (Black)', 'Electrical', 'V-Guard', 'Coil'),
+  ('1.5 sq mm wire (Blue)', 'Electrical', 'V-Guard', 'Coil'),
+  ('1.5 sq mm wire (Yellow)', 'Electrical', 'V-Guard', 'Coil'),
+  ('1.5 sq mm wire (Green)', 'Electrical', 'V-Guard', 'Coil'),
+  ('1.5 sq mm wire (Grey)', 'Electrical', 'V-Guard', 'Coil'),
+  -- 2.5 sq mm Wire by Color
+  ('2.5 sq mm wire (Red)', 'Electrical', 'V-Guard', 'Coil'),
+  ('2.5 sq mm wire (Black)', 'Electrical', 'V-Guard', 'Coil'),
+  ('2.5 sq mm wire (Blue)', 'Electrical', 'V-Guard', 'Coil'),
+  ('2.5 sq mm wire (Yellow)', 'Electrical', 'V-Guard', 'Coil'),
+  ('2.5 sq mm wire (Green)', 'Electrical', 'V-Guard', 'Coil'),
+  ('2.5 sq mm wire (Grey)', 'Electrical', 'V-Guard', 'Coil'),
+  -- 4 sq mm Wire by Color
+  ('4 sq mm wire (Red)', 'Electrical', 'V-Guard', 'Coil'),
+  ('4 sq mm wire (Black)', 'Electrical', 'V-Guard', 'Coil'),
+  ('4 sq mm wire (Blue)', 'Electrical', 'V-Guard', 'Coil'),
+  ('4 sq mm wire (Yellow)', 'Electrical', 'V-Guard', 'Coil'),
+  ('4 sq mm wire (Green)', 'Electrical', 'V-Guard', 'Coil'),
+  -- 6 sq mm Wire by Color
+  ('6 sq mm wire (Red)', 'Electrical', 'V-Guard', 'Meter'),
+  ('6 sq mm wire (Black)', 'Electrical', 'V-Guard', 'Meter'),
+  ('6 sq mm wire (Blue)', 'Electrical', 'V-Guard', 'Meter'),
+  ('6 sq mm wire (Yellow)', 'Electrical', 'V-Guard', 'Meter'),
+  ('6 sq mm wire (Green)', 'Electrical', 'V-Guard', 'Meter'),
   ('One way Switch', 'Electrical', NULL, 'No'),
   ('Two way Switch', 'Electrical', NULL, 'No'),
   ('2 in 1 Socket', 'Electrical', NULL, 'No'),
