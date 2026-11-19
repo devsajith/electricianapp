@@ -52,6 +52,24 @@ export async function getLaboursService(): Promise<{ data: Labour[]; error?: str
   );
 }
 
+export async function getLabourByIdService(id: string): Promise<{ data?: Labour; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("workers")
+      .select(WORKER_COLUMNS)
+      .eq("id", id)
+      .single();
+
+    if (error) {
+      return { error: error.message };
+    }
+    return { data: data as Labour };
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : "Error fetching worker" };
+  }
+}
+
 export async function createLabourService(input: CreateLabourDTO): Promise<{ data?: Labour; error?: string }> {
   try {
     const supabase = await createClient();

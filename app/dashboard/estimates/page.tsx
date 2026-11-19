@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Quotation, QuotationStatus } from "@/lib/types/quotation";
 import { getQuotationsAction, updateQuotationStatusAction } from "./actions";
+import { TableRowsSkeleton } from "@/components/table-skeleton";
 
 export default function EstimatesPage() {
   const [estimates, setEstimates] = useState<Quotation[]>([]);
@@ -294,7 +295,42 @@ export default function EstimatesPage() {
             </div>
           </div>
 
-          {filteredEstimates.length === 0 ? (
+          {loading && estimates.length === 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-700">
+                    <th className="py-2 px-3 w-12 text-center border-r border-slate-700/80 bg-slate-900/90 text-slate-500 font-mono select-none">
+                      ◢
+                    </th>
+                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-40">
+                      <div className="text-[10px] text-emerald-400 font-mono">A</div>
+                      QUOTE #
+                    </th>
+                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
+                      <div className="text-[10px] text-emerald-400 font-mono">B</div>
+                      CLIENT & LOCATION
+                    </th>
+                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-48">
+                      <div className="text-[10px] text-emerald-400 font-mono">C</div>
+                      ITEMS SCHEDULE
+                    </th>
+                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-center w-36">
+                      <div className="text-[10px] text-emerald-400 font-mono">D</div>
+                      STATUS
+                    </th>
+                    <th className="py-2.5 px-4 font-bold text-center w-28">
+                      <div className="text-[10px] text-emerald-400 font-mono">E</div>
+                      DOCUMENT
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 text-xs font-mono">
+                  <TableRowsSkeleton columns={6} rows={6} />
+                </tbody>
+              </table>
+            </div>
+          ) : filteredEstimates.length === 0 ? (
             <div className="p-12 text-center text-slate-400 space-y-3">
               <FileText className="w-10 h-10 mx-auto text-slate-600" />
               <p className="text-sm font-semibold text-slate-300">No matching quotations found</p>

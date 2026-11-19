@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Expense, ExpenseType } from "@/lib/types/expense";
 import { getExpensesAction, deleteExpenseAction } from "./actions";
 import { RecordExpenseModal } from "@/components/record-expense-modal";
+import { ExpensesPageSkeleton } from "@/components/table-skeleton";
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -31,19 +32,11 @@ export default function ExpensesPage() {
 
   const loadExpenses = useCallback(async () => {
     setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 2500);
-
     try {
       const res = await getExpensesAction();
-      clearTimeout(timer);
-      if (res.data && res.data.length > 0) {
-        setExpenses(res.data);
-      } else {
-        setExpenses([]);
-      }
+      setExpenses(res.data || []);
     } catch (e) {
       console.error("Error loading expenses:", e);
-      clearTimeout(timer);
     } finally {
       setLoading(false);
     }
@@ -51,13 +44,8 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     let isMounted = true;
-    const timer = setTimeout(() => {
-      if (isMounted) setLoading(false);
-    }, 2500);
-
     getExpensesAction()
       .then((res) => {
-        clearTimeout(timer);
         if (isMounted) {
           setExpenses(res.data || []);
           setLoading(false);
@@ -65,7 +53,6 @@ export default function ExpensesPage() {
       })
       .catch((e) => {
         console.error("Error loading expenses:", e);
-        clearTimeout(timer);
         if (isMounted) {
           setExpenses([]);
           setLoading(false);
@@ -74,7 +61,6 @@ export default function ExpensesPage() {
 
     return () => {
       isMounted = false;
-      clearTimeout(timer);
     };
   }, []);
 
@@ -365,11 +351,8 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="py-20 text-center text-slate-500 text-xs space-y-2">
-          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-amber-400" />
-          <p>Loading expenses records...</p>
-        </div>
+      {loading && expenses.length === 0 ? (
+        <ExpensesPageSkeleton />
       ) : (
         <div className="space-y-8">
           {/* ======================================================== */}

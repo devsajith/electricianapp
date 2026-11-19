@@ -50,9 +50,9 @@ export function ProjectDetailSkeleton({ showHeaderSlot = true }: ProjectDetailSk
         </HeaderSlot>
       )}
 
-      <div className="max-w-3xl mx-auto flex flex-col min-h-[calc(100vh-8rem)] relative pb-28 select-none space-y-4">
+      <div className="max-w-5xl lg:max-w-6xl mx-auto flex flex-col relative pb-8 md:pb-6 select-none space-y-4">
         {/* Tab Navigation Bar Skeleton */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-900/90 border border-slate-800 rounded-2xl mb-1 shadow-sm">
+        <div className="flex items-center gap-1.5 p-1.5 bg-slate-900/90 border border-slate-800 rounded-2xl mb-1 shadow-sm">
           <div className="h-8 flex-1 rounded-xl bg-slate-800/50 animate-pulse" />
           <div className="h-8 flex-1 rounded-xl bg-slate-800/30 animate-pulse" />
           <div className="h-8 flex-1 rounded-xl bg-slate-800/70 animate-pulse" />

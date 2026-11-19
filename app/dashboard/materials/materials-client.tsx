@@ -91,20 +91,25 @@ export default function MaterialsClient({ initialMaterials }: Props) {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Materials
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Browse and manage all electrical inventory materials.
+          <div className="flex items-center gap-2 mb-1">
+            <span className="p-1.5 rounded-md bg-amber-500/10 text-amber-400">
+              <Package className="w-5 h-5" />
+            </span>
+            <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+              Materials Catalog
+            </h1>
+          </div>
+          <p className="text-xs text-slate-400">
+            Browse and manage all electrical inventory materials and units.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-start">
           <Link href="/dashboard/materials/new">
-            <Button className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 shadow-md">
+            <Button className="h-10 sm:h-9 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 shadow-md">
               <Plus className="w-4 h-4" />
               <span>Add Material</span>
             </Button>

@@ -96,18 +96,15 @@ export default function PaymentsPage() {
 
   const loadData = useCallback(() => {
     setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 2500);
 
     Promise.all([getPaymentsAction(), getProjectsAction()])
       .then(([payRes, projsRes]) => {
-        clearTimeout(timer);
         setPayments(payRes.data || []);
         setProjects(projsRes || []);
         setLoading(false);
       })
       .catch((err) => {
         console.error("Failed to load payments or projects:", err);
-        clearTimeout(timer);
         setLoading(false);
       });
   }, []);
@@ -323,7 +320,7 @@ export default function PaymentsPage() {
   ];
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12 select-none">
+    <div className="space-y-5 sm:space-y-6 max-w-5xl mx-auto select-none">
       {/* 1. Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -367,7 +364,7 @@ export default function PaymentsPage() {
       </div>
 
       {/* 2. Top Search, Date Range & Payment Method Filter Bar */}
-      <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between bg-white dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+      <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between bg-white dark:bg-slate-900/60 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -590,10 +587,23 @@ export default function PaymentsPage() {
       </div>
 
       {/* 5. PAYMENTS TIMELINE & TRANSACTIONS FEED (Modern Card Feed replacing Excel Table) */}
-      {loading ? (
-        <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center">
-          <div className="inline-block animate-spin rounded-full h-7 w-7 border-2 border-emerald-500 border-t-transparent mb-3" />
-          <p className="text-xs text-slate-500 dark:text-slate-400">Loading client payment records...</p>
+      {loading && payments.length === 0 ? (
+        <div className="space-y-3 animate-pulse">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="p-4 rounded-2xl bg-white dark:bg-[#181a20] border border-slate-200 dark:border-[#282a33] flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 shrink-0" />
+                <div className="space-y-1.5">
+                  <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded" />
+                  <div className="h-3 w-48 bg-slate-200/60 dark:bg-slate-800/60 rounded" />
+                </div>
+              </div>
+              <div className="h-6 w-20 bg-slate-200 dark:bg-slate-800 rounded font-mono" />
+            </div>
+          ))}
         </div>
       ) : filteredPayments.length === 0 ? (
         <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center space-y-3">

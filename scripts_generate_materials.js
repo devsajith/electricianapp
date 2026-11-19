@@ -6,12 +6,39 @@ const XLSX = require('xlsx');
 // 1. ELECTRICAL MATERIALS (204 items)
 // ==========================================
 const electricalMaterials = [
-  // Page 1: Wires (#1 - 5)
-  { name: '1 sq mm wire (Red, Black, Blue, Yellow, Green, Grey)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
-  { name: '1.5 sq mm wire (Red, Black, Blue, Yellow, Green, Grey)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
-  { name: '2.5 sq mm wire (Red, Black, Green)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
-  { name: '4 sq mm wire (Red, Black)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
-  { name: '6 sq mm wire (Red, Black, Blue, Yellow)', cat: 'Electrical', brand: 'V-Guard', unit: 'Meter' },
+  // Page 1: Wires (Expanded by Color)
+  { name: '1 sq mm wire (Red)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '1 sq mm wire (Black)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '1 sq mm wire (Blue)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '1 sq mm wire (Yellow)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '1 sq mm wire (Green)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '1 sq mm wire (Grey)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+
+  { name: '1.5 sq mm wire (Red)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '1.5 sq mm wire (Black)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '1.5 sq mm wire (Blue)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '1.5 sq mm wire (Yellow)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '1.5 sq mm wire (Green)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '1.5 sq mm wire (Grey)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+
+  { name: '2.5 sq mm wire (Red)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '2.5 sq mm wire (Black)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '2.5 sq mm wire (Blue)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '2.5 sq mm wire (Yellow)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '2.5 sq mm wire (Green)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '2.5 sq mm wire (Grey)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+
+  { name: '4 sq mm wire (Red)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '4 sq mm wire (Black)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '4 sq mm wire (Blue)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '4 sq mm wire (Yellow)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+  { name: '4 sq mm wire (Green)', cat: 'Electrical', brand: 'V-Guard', unit: 'Coil' },
+
+  { name: '6 sq mm wire (Red)', cat: 'Electrical', brand: 'V-Guard', unit: 'Meter' },
+  { name: '6 sq mm wire (Black)', cat: 'Electrical', brand: 'V-Guard', unit: 'Meter' },
+  { name: '6 sq mm wire (Blue)', cat: 'Electrical', brand: 'V-Guard', unit: 'Meter' },
+  { name: '6 sq mm wire (Yellow)', cat: 'Electrical', brand: 'V-Guard', unit: 'Meter' },
+  { name: '6 sq mm wire (Green)', cat: 'Electrical', brand: 'V-Guard', unit: 'Meter' },
 
   // Page 2: Switches, Sockets & Accessories (#6 - 24)
   { name: 'One way Switch', cat: 'Electrical', brand: '', unit: 'No' },

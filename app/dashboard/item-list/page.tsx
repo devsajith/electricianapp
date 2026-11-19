@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { MaterialList } from "@/lib/types/material";
 import { getMaterialListsAction, deleteMaterialListAction } from "./actions";
+import { TableRowsSkeleton } from "@/components/table-skeleton";
 
 export default function ItemListPage() {
   const [lists, setLists] = useState<MaterialList[]>([]);
@@ -234,10 +235,40 @@ export default function ItemListPage() {
             </div>
           </div>
 
-          {loading ? (
-            <div className="py-16 text-center text-slate-400 text-xs">
-              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-amber-400" />
-              Loading material lists...
+          {loading && lists.length === 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[700px] font-sans">
+                <thead>
+                  <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-700">
+                    <th className="py-2.5 px-3 w-12 text-center border-r border-slate-700/80 bg-slate-900 text-slate-500 font-mono select-none">
+                      ◢
+                    </th>
+                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
+                      <div className="text-[10px] text-emerald-400 font-mono">A</div>
+                      LIST TITLE
+                    </th>
+                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-64">
+                      <div className="text-[10px] text-emerald-400 font-mono">B</div>
+                      CLASSIFICATION / SITE
+                    </th>
+                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-center w-28">
+                      <div className="text-[10px] text-emerald-400 font-mono">C</div>
+                      ITEMS
+                    </th>
+                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-center w-32">
+                      <div className="text-[10px] text-emerald-400 font-mono">D</div>
+                      CREATED
+                    </th>
+                    <th className="py-2.5 px-3 font-bold text-center w-24">
+                      <div className="text-[10px] text-emerald-400 font-mono">E</div>
+                      ACTIONS
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 text-xs">
+                  <TableRowsSkeleton columns={6} rows={6} />
+                </tbody>
+              </table>
             </div>
           ) : filteredLists.length === 0 ? (
             <div className="p-12 text-center text-slate-400 space-y-3">

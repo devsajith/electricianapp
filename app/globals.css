@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-heading: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -269,9 +269,9 @@ html.light .border-\[\#383c48\]\/60 {
 }
 
 /* Inputs, Selects, and Textareas */
-html.light input:not([type="checkbox"]):not([type="radio"]),
+html.light input:not([type="checkbox"]):not([type="radio"]):not(.bg-transparent),
 html.light select,
-html.light textarea {
+html.light textarea:not(.bg-transparent) {
   background-color: #ffffff !important;
   color: #0f172a !important;
   border-color: #cbd5e1 !important;
@@ -442,12 +442,33 @@ html.dark {
 }
 
 /* High contrast inputs and selects in dark mode */
-html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark input:not([type="checkbox"]):not([type="radio"]):not(.bg-transparent),
 html.dark select,
-html.dark textarea {
+html.dark textarea:not(.bg-transparent) {
   background-color: #060608 !important;
   color: #ffffff !important;
   border-color: #27272a !important;
+}
+
+/* Explicit styling for transparent search inputs and embedded form controls */
+input.bg-transparent,
+textarea.bg-transparent {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Ensure all form controls use modern sans-serif typography */
+input,
+button,
+select,
+textarea {
+  font-family: inherit;
 }
 
 html.dark select option {
@@ -524,4 +545,26 @@ html.dark .bg-slate-950 {
 .overflow-x-auto,
 .overflow-y-auto {
   -webkit-overflow-scrolling: touch;
+}
+
+/* Safe area padding utilities for mobile devices */
+.safe-bottom {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Prevent unwanted iOS Safari auto-zoom on input focus while maintaining compact styling */
+@media screen and (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Remove default mobile tap highlight flash */
+* {
+  -webkit-tap-highlight-color: transparent;
 }

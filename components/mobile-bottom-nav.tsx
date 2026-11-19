@@ -41,6 +41,11 @@ export function MobileBottomNav() {
       exact: true,
     },
     {
+      name: "Projects",
+      href: "/dashboard/projects",
+      icon: FolderKanban,
+    },
+    {
       name: "Material List",
       href: "/dashboard/item-list",
       icon: ListChecks,
@@ -50,19 +55,14 @@ export function MobileBottomNav() {
       href: "/dashboard/labour",
       icon: Users,
     },
-    {
-      name: "Reports",
-      href: "/dashboard/reports",
-      icon: BarChart3,
-    },
   ];
 
   const moreItems = [
     {
-      name: "Material List",
-      description: "Project and shop material procurement lists",
-      href: "/dashboard/item-list",
-      icon: ListChecks,
+      name: "Estimates & Quotes",
+      description: "Create client electrical quotes and proposals",
+      href: "/dashboard/estimates",
+      icon: FileSpreadsheet,
       color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
     },
     {
@@ -73,25 +73,25 @@ export function MobileBottomNav() {
       color: "text-rose-400 bg-rose-500/10 border-rose-500/20",
     },
     {
-      name: "Materials",
+      name: "Payments Received",
+      description: "Client payments, UPI receipts & ledger",
+      href: "/dashboard/payments",
+      icon: Wallet,
+      color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+    },
+    {
+      name: "Materials Catalog",
       description: "Stock levels and inventory tracking",
       href: "/dashboard/materials",
       icon: Package,
-      color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+      color: "text-sky-400 bg-sky-500/10 border-sky-500/20",
     },
     {
-      name: "Labour",
-      description: "Workers, daily wages, and hours",
-      href: "/dashboard/labour",
-      icon: Users,
-      color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-    },
-    {
-      name: "Reports",
+      name: "Reports & Analytics",
       description: "Revenue, payments, and profit & loss",
       href: "/dashboard/reports",
       icon: BarChart3,
-      color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+      color: "text-purple-400 bg-purple-500/10 border-purple-500/20",
     },
     {
       name: "Settings",
@@ -103,12 +103,12 @@ export function MobileBottomNav() {
   ];
 
   const isMoreActive = [
+    "/dashboard/estimates",
     "/dashboard/expenses",
+    "/dashboard/payments",
     "/dashboard/materials",
-    "/dashboard/labour",
     "/dashboard/reports",
     "/dashboard/settings",
-    "/dashboard/item-list",
   ].some((path) => pathname.startsWith(path));
 
   return (

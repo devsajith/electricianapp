@@ -3,13 +3,40 @@
 import { revalidatePath } from "next/cache";
 import {
   getLaboursService,
+  getLabourByIdService,
   createLabourService,
   deleteLabourService,
   getLabourEntriesService,
   createLabourEntryService,
   deleteLabourEntryService,
 } from "@/services/labour.service";
+import { getProjectsService, Project } from "@/services/project.service";
 import { Labour, CreateLabourDTO, LabourEntry, CreateLabourEntryDTO } from "@/lib/types/labour";
+
+export interface LabourBundle {
+  worker: Labour | null;
+  entries: LabourEntry[];
+  projects: Project[];
+}
+
+export async function getLabourBundleAction(id: string): Promise<LabourBundle> {
+  try {
+    const [workerRes, entriesRes, projsRes] = await Promise.all([
+      getLabourByIdService(id),
+      getLabourEntriesService(id),
+      getProjectsService(),
+    ]);
+
+    return {
+      worker: workerRes.data || null,
+      entries: entriesRes.data || [],
+      projects: projsRes.data || [],
+    };
+  } catch (err) {
+    console.error("Error in getLabourBundleAction:", err);
+    return { worker: null, entries: [], projects: [] };
+  }
+}
 
 export async function getLaboursAction(): Promise<Labour[]> {
   try {

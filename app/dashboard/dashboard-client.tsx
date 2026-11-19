@@ -237,24 +237,24 @@ export function DashboardClient({
     : filteredProjects.slice(0, 7);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-2 select-none">
+    <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 pb-4 select-none">
       {/* 1. Google Pay Style Search Pill with Client Name Search + Settings Avatar */}
-      <div className="relative flex items-center gap-2">
+      <div className="relative flex items-center gap-2.5 sm:gap-3">
         <div className="relative flex-1">
-          <div className="flex items-center w-full h-12 px-4 rounded-full bg-[#1e2025] hover:bg-[#24262c] focus-within:bg-[#252830] border border-[#2e323b] focus-within:border-[#1a73e8] transition-all shadow-sm">
-            <Search className="w-5 h-5 text-slate-400 mr-3 shrink-0" />
+          <div className="group flex items-center w-full h-12 px-4 rounded-full bg-[#1e2025] hover:bg-[#252830] focus-within:bg-[#252830] border border-[#2e323b] focus-within:border-[#1a73e8] focus-within:ring-2 focus-within:ring-[#1a73e8]/25 transition-all shadow-sm">
+            <Search className="w-5 h-5 text-slate-400 group-focus-within:text-[#8ab4f8] mr-3 shrink-0 transition-colors" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by client name or project..."
-              className="w-full bg-transparent text-sm text-slate-100 placeholder-slate-400 focus:outline-none"
+              className="w-full h-full bg-transparent border-0 outline-none ring-0 shadow-none text-sm font-sans text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-0 focus:border-none"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-700/50"
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors shrink-0 ml-1"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -275,21 +275,20 @@ export function DashboardClient({
         </Link>
       </div>
 
-      {/* 3. The 4 Primary Action Buttons */}
-      <div className="grid grid-cols-4 gap-2 sm:gap-4 pt-1">
-        {/* Action 1: Add project */}
-        <button
-          type="button"
-          onClick={() => setProjectModalOpen(true)}
+      {/* 3. The 4 Primary Action Buttons - Unified Module Navigation */}
+      <div className="grid grid-cols-4 gap-2.5 sm:gap-4 md:gap-6 pt-1">
+        {/* Action 1: Projects */}
+        <Link
+          href="/dashboard/projects"
           className="flex flex-col items-center group active:scale-95 transition-transform"
         >
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#0b57d0] group-hover:bg-[#1a73e8] flex items-center justify-center text-white shadow-md shadow-[#0b57d0]/25 transition-colors">
-            <FolderPlus className="w-7 h-7 stroke-[2]" />
+            <FolderKanban className="w-7 h-7 stroke-[2]" />
           </div>
           <span className="text-xs font-bold text-slate-100 mt-2 text-center leading-tight">
-            Add project
+            Projects
           </span>
-        </button>
+        </Link>
 
         {/* Action 2: Quotations */}
         <Link
@@ -297,7 +296,7 @@ export function DashboardClient({
           className="flex flex-col items-center group active:scale-95 transition-transform"
         >
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#0b57d0] group-hover:bg-[#1a73e8] flex items-center justify-center text-white shadow-md shadow-[#0b57d0]/25 transition-colors">
-            <FileText className="w-7 h-7 stroke-[2]" />
+            <FileSpreadsheet className="w-7 h-7 stroke-[2]" />
           </div>
           <span className="text-xs font-bold text-slate-100 mt-2 text-center leading-tight">
             Quotations
@@ -305,12 +304,8 @@ export function DashboardClient({
         </Link>
 
         {/* Action 3: Payments */}
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedProjectId(undefined);
-            setPaymentModalOpen(true);
-          }}
+        <Link
+          href="/dashboard/payments"
           className="flex flex-col items-center group active:scale-95 transition-transform"
         >
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#0b57d0] group-hover:bg-[#1a73e8] flex items-center justify-center text-white shadow-md shadow-[#0b57d0]/25 transition-colors">
@@ -319,24 +314,20 @@ export function DashboardClient({
           <span className="text-xs font-bold text-slate-100 mt-2 text-center leading-tight">
             Payments
           </span>
-        </button>
+        </Link>
 
-        {/* Action 4: Expense */}
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedProjectId(undefined);
-            setExpenseModalOpen(true);
-          }}
+        {/* Action 4: Expenses */}
+        <Link
+          href="/dashboard/expenses"
           className="flex flex-col items-center group active:scale-95 transition-transform"
         >
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#0b57d0] group-hover:bg-[#1a73e8] flex items-center justify-center text-white shadow-md shadow-[#0b57d0]/25 transition-colors">
-            <ReceiptIndianRupee className="w-7 h-7 stroke-[2]" />
+            <Receipt className="w-7 h-7 stroke-[2]" />
           </div>
           <span className="text-xs font-bold text-slate-100 mt-2 text-center leading-tight">
-            Expense
+            Expenses
           </span>
-        </button>
+        </Link>
       </div>
 
       {/* 4. Secondary Quick Metric Pills Row (Like Tap & Pay, UPI Lite, Rewards in GPay) */}
@@ -385,8 +376,8 @@ export function DashboardClient({
           </Link>
         </div>
 
-        {/* 4-Column Avatar Grid like Google Pay */}
-        <div className="grid grid-cols-4 gap-y-4 gap-x-2 sm:gap-x-4">
+        {/* Responsive Avatar Grid */}
+        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-y-4 sm:gap-y-6 gap-x-2.5 sm:gap-x-4">
           {displayedAvatars.map((p) => {
             const initial = p.name ? p.name.trim().charAt(0).toUpperCase() : "P";
             const colorClass = getAvatarColor(p.name);
@@ -479,8 +470,8 @@ export function DashboardClient({
           </Link>
         </div>
 
-        {/* 4-Column Avatar Grid like Google Pay (Image 1) */}
-        <div className="grid grid-cols-4 gap-y-4 gap-x-2 sm:gap-x-4">
+        {/* Responsive Labours Avatar Grid */}
+        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-y-4 sm:gap-y-6 gap-x-2.5 sm:gap-x-4">
           {filteredLabours.map((worker) => {
             const initial = worker.name ? worker.name.trim().charAt(0).toUpperCase() : "W";
             const colorClass = getAvatarColor(worker.name);
@@ -552,7 +543,7 @@ export function DashboardClient({
       </div>
 
       {/* 7. Floating Blue "Add Project" Pill */}
-      <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-30">
+      <div className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-30 pointer-events-auto">
         <button
           type="button"
           onClick={() => setProjectModalOpen(true)}
