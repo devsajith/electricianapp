@@ -132,6 +132,19 @@ export async function getProjectsService(): Promise<{ data: Project[]; error?: s
           .select(PROJECT_COLUMNS)
           .order("created_at", { ascending: false });
 
+        // Fallback for clock skew (JWT issued at future / PGRST303)
+        if (error && (error.code === "PGRST303" || error.message?.includes("JWT issued at future"))) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          const retry = await supabase
+            .from("projects")
+            .select(PROJECT_COLUMNS)
+            .order("created_at", { ascending: false });
+          if (!retry.error) {
+            data = retry.data;
+            error = null;
+          }
+        }
+
         // Fallback if 'plans' column has not been migrated in the database
         if (error && (error.code === "42703" || error.message?.toLowerCase().includes("plans"))) {
           console.warn("[ProjectService] 'plans' column not found, falling back to base columns.");
@@ -157,7 +170,7 @@ export async function getProjectsService(): Promise<{ data: Project[]; error?: s
       }
     })(),
     { data: [], error: "timeout" },
-    2500
+    5000
   );
 }
 

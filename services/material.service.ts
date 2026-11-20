@@ -55,10 +55,22 @@ export async function getMaterialsService(): Promise<{ data: Material[]; error?:
       try {
         const supabase = await createClient();
 
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from("materials")
           .select(MATERIAL_COLUMNS)
           .order("created_at", { ascending: false });
+
+        if (error && (error.code === "PGRST303" || error.message?.includes("JWT issued at future"))) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          const retry = await supabase
+            .from("materials")
+            .select(MATERIAL_COLUMNS)
+            .order("created_at", { ascending: false });
+          if (!retry.error) {
+            data = retry.data;
+            error = null;
+          }
+        }
 
         if (error) {
           console.error("Error fetching materials:", error.message || error);
@@ -82,7 +94,7 @@ export async function getMaterialsService(): Promise<{ data: Material[]; error?:
       }
     })(),
     { data: [], error: "timeout" },
-    2500
+    5000
   );
 }
 
@@ -236,7 +248,7 @@ export async function getMaterialListsService(): Promise<{ data: MaterialList[];
       }
     })(),
     { data: [], error: "timeout" },
-    2500
+    5000
   );
 }
 

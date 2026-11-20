@@ -22,10 +22,22 @@ export async function getLaboursService(): Promise<{ data: Labour[]; error?: str
       try {
         const supabase = await createClient();
 
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from("workers")
           .select(WORKER_COLUMNS)
           .order("created_at", { ascending: false });
+
+        if (error && (error.code === "PGRST303" || error.message?.includes("JWT issued at future"))) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          const retry = await supabase
+            .from("workers")
+            .select(WORKER_COLUMNS)
+            .order("created_at", { ascending: false });
+          if (!retry.error) {
+            data = retry.data;
+            error = null;
+          }
+        }
 
         if (error) {
           console.error("Error fetching workers:", error.message || error);
@@ -48,7 +60,7 @@ export async function getLaboursService(): Promise<{ data: Labour[]; error?: str
       }
     })(),
     { data: [], error: "timeout" },
-    3000
+    5000
   );
 }
 
@@ -163,6 +175,18 @@ export async function getLabourEntriesService(
     const initialRes = await query;
     let data: unknown = initialRes.data;
     let error: { message?: string; code?: string } | null = initialRes.error;
+
+    // Fallback: Clock skew retry (JWT issued at future / PGRST303)
+    if (error && (error.code === "PGRST303" || error.message?.includes("JWT issued at future"))) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const retryRes = await query;
+      if (!retryRes.error) {
+        data = retryRes.data;
+        error = null;
+      } else {
+        error = retryRes.error;
+      }
+    }
 
     // Fallback 1: If balance_amount column does not exist yet, query with LABOUR_LOG_COLUMNS_NO_BALANCE
     if (error && (error.message?.includes("balance_amount") || error.code === "42703")) {

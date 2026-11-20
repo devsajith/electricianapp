@@ -35,10 +35,22 @@ export async function getExpensesService(): Promise<{ data: Expense[]; error?: s
       try {
         const supabase = await createClient();
 
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from("expenses")
           .select(EXPENSE_WITH_PROJECT_COLUMNS)
           .order("date", { ascending: false });
+
+        if (error && (error.code === "PGRST303" || error.message?.includes("JWT issued at future"))) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          const retry = await supabase
+            .from("expenses")
+            .select(EXPENSE_WITH_PROJECT_COLUMNS)
+            .order("date", { ascending: false });
+          if (!retry.error) {
+            data = retry.data;
+            error = null;
+          }
+        }
 
         if (error) {
           console.error("Error fetching expenses:", error.message || error);
@@ -65,7 +77,7 @@ export async function getExpensesService(): Promise<{ data: Expense[]; error?: s
       }
     })(),
     { data: [], error: "timeout" },
-    2500
+    5000
   );
 }
 

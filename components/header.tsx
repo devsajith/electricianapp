@@ -1,9 +1,10 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Search, Menu } from "lucide-react";
+import { Search, Menu, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useHeader } from "@/components/header-context";
+import { logout } from "@/app/login/actions";
 
 interface HeaderProps {
   userEmail?: string | null;
@@ -53,6 +54,18 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
                 </div>
                 <span className="hidden md:inline truncate max-w-[80px]">Settings</span>
               </a>
+
+              <form action={logout}>
+                <button
+                  type="submit"
+                  title="Log Out"
+                  aria-label="Log Out"
+                  className="h-9 px-2.5 sm:px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/20 flex items-center gap-1.5 text-xs font-semibold transition-all active:scale-95"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </form>
             </div>
           </div>
         ) : (
@@ -107,6 +120,19 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
                   Settings
                 </span>
               </a>
+
+              {/* Logout Button */}
+              <form action={logout}>
+                <button
+                  type="submit"
+                  title="Log Out"
+                  aria-label="Log Out"
+                  className="h-9 px-2.5 sm:px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/20 flex items-center gap-1.5 text-xs font-semibold transition-all active:scale-95"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </form>
             </div>
           </>
         )}

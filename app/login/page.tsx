@@ -2,16 +2,13 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { login, signup } from "./actions";
+import { login } from "./actions";
 import { Zap, Eye, EyeOff, Lock, Mail, ShieldCheck, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [showPassword, setShowPassword] = useState(false);
-
-  const action = mode === "login" ? login : signup;
-  const [state, formAction, pending] = useActionState(action, null);
+  const [state, formAction, pending] = useActionState(login, null);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 px-4 py-12 text-slate-100">
@@ -25,40 +22,12 @@ export default function LoginPage() {
             Electrician App
           </h1>
           <p className="text-sm text-slate-400 mt-2">
-            {mode === "login"
-              ? "Welcome back! Access your account dashboard."
-              : "Get started by creating a new account."}
+            Welcome back! Sign in to access your account dashboard.
           </p>
         </div>
 
         {/* Card Container */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-sm p-6 sm:p-8">
-          {/* Mode Switcher Tabs */}
-          <div className="grid grid-cols-2 p-1 bg-slate-950 rounded-xl mb-6 border border-slate-800">
-            <button
-              type="button"
-              onClick={() => setMode("login")}
-              className={`py-2 text-sm font-semibold rounded-lg transition-all ${
-                mode === "login"
-                  ? "bg-amber-500 text-slate-950 shadow-md"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("signup")}
-              className={`py-2 text-sm font-semibold rounded-lg transition-all ${
-                mode === "signup"
-                  ? "bg-amber-500 text-slate-950 shadow-md"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Create Account
-            </button>
-          </div>
-
           {/* Error Banner */}
           {state?.error && (
             <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium">
@@ -100,18 +69,16 @@ export default function LoginPage() {
                 >
                   Password
                 </label>
-                {mode === "login" && (
-                  <a
-                    href="#forgot"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      alert("Password reset functionality can be configured via Supabase auth.");
-                    }}
-                    className="text-xs text-amber-400 hover:underline font-medium"
-                  >
-                    Forgot password?
-                  </a>
-                )}
+                <a
+                  href="#forgot"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    alert("Password reset functionality can be configured via Supabase auth.");
+                  }}
+                  className="text-xs text-amber-400 hover:underline font-medium"
+                >
+                  Forgot password?
+                </a>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -143,16 +110,16 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={pending}
-              className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-[0.99] disabled:opacity-50"
+              className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
             >
               {pending ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Processing...
+                  Signing In...
                 </>
               ) : (
                 <>
-                  {mode === "login" ? "Sign In to Account" : "Create New Account"}
+                  Sign In to Account
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
