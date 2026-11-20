@@ -27,8 +27,11 @@ import {
   HardHat,
   Flame,
   ChevronRight,
+  LogOut,
+  LayoutDashboard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { logout } from "@/app/login/actions";
 
 interface LandingPageProps {
   user?: {
@@ -239,12 +242,41 @@ export function LandingPage({ user }: LandingPageProps) {
 
           {/* Right Action Buttons */}
           <div className="hidden sm:flex items-center gap-3">
-            <a
-              href="#contact"
-              className="h-10 px-5 inline-flex items-center justify-center text-xs font-bold uppercase tracking-wider rounded-xl bg-[#f59e0b] hover:bg-[#fbbf24] text-zinc-950 shadow-md shadow-[#f59e0b]/20 transition-all hover:scale-[1.02]"
-            >
-              Request a Quote
-            </a>
+            {user ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="h-10 px-4 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition-all"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  Dashboard
+                </Link>
+                <form action={logout}>
+                  <button
+                    type="submit"
+                    className="h-10 px-4 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-all cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="h-10 px-3.5 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors"
+                >
+                  Admin Login
+                </Link>
+                <a
+                  href="#contact"
+                  className="h-10 px-5 inline-flex items-center justify-center text-xs font-bold uppercase tracking-wider rounded-xl bg-[#f59e0b] hover:bg-[#fbbf24] text-zinc-950 shadow-md shadow-[#f59e0b]/20 transition-all hover:scale-[1.02]"
+                >
+                  Request a Quote
+                </a>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -299,13 +331,44 @@ export function LandingPage({ user }: LandingPageProps) {
             </a>
 
             <div className="pt-3 border-t border-zinc-800 flex flex-col gap-2">
-              <a
-                href="#contact"
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full h-10 inline-flex items-center justify-center rounded-xl bg-[#f59e0b] text-zinc-950 font-bold text-xs"
-              >
-                Request a Quote
-              </a>
+              {user ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full h-10 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 text-zinc-950 font-bold text-xs"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    Dashboard
+                  </Link>
+                  <form action={logout}>
+                    <button
+                      type="submit"
+                      className="w-full h-10 inline-flex items-center justify-center gap-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold text-xs hover:bg-rose-500/20"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <a
+                    href="#contact"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full h-10 inline-flex items-center justify-center rounded-xl bg-[#f59e0b] text-zinc-950 font-bold text-xs"
+                  >
+                    Request a Quote
+                  </a>
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full h-10 inline-flex items-center justify-center rounded-xl border border-zinc-700 text-zinc-300 font-semibold text-xs hover:bg-zinc-800"
+                  >
+                    Admin Login
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -963,6 +1026,15 @@ export function LandingPage({ user }: LandingPageProps) {
               <a href="#contact" className="hover:text-white transition-colors">
                 Contact
               </a>
+              {user ? (
+                <Link href="/dashboard" className="text-[#f59e0b] hover:underline font-bold">
+                  Dashboard
+                </Link>
+              ) : (
+                <Link href="/login" className="hover:text-white transition-colors">
+                  Admin Portal
+                </Link>
+              )}
             </div>
           </div>
 

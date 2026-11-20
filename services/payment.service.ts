@@ -23,10 +23,22 @@ export async function getPaymentsService(): Promise<{ data: Payment[]; error?: s
       try {
         const supabase = await createClient();
 
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from("payments")
           .select(PAYMENT_COLUMNS)
           .order("payment_date", { ascending: false });
+
+        if (error && (error.code === "PGRST303" || error.message?.includes("JWT issued at future"))) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          const retry = await supabase
+            .from("payments")
+            .select(PAYMENT_COLUMNS)
+            .order("payment_date", { ascending: false });
+          if (!retry.error) {
+            data = retry.data;
+            error = null;
+          }
+        }
 
         if (error) {
           console.error("[PaymentService] Error fetching payments:", error.message || error);
@@ -68,7 +80,7 @@ export async function getPaymentsService(): Promise<{ data: Payment[]; error?: s
       }
     })(),
     { data: [], error: "timeout" },
-    2500
+    5000
   );
 }
 

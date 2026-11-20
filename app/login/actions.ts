@@ -23,8 +23,11 @@ export async function login(prevState: unknown, formData: FormData) {
     return { error: error.message };
   }
 
+  // Grace period to absorb clock drift between Supabase Auth and PostgREST containers
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
   revalidatePath("/", "layout");
-  redirect("/");
+  redirect("/dashboard");
 }
 
 export async function signup(prevState: unknown, formData: FormData) {
@@ -47,7 +50,7 @@ export async function signup(prevState: unknown, formData: FormData) {
   }
 
   revalidatePath("/", "layout");
-  redirect("/");
+  redirect("/dashboard");
 }
 
 export async function logout() {

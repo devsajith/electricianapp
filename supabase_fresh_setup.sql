@@ -321,3 +321,17 @@ CREATE POLICY "Anyone can delete project plans"
 ON storage.objects FOR DELETE
 TO public
 USING (bucket_id = 'project-plans');
+
+-- ====================================================================
+-- 7. GRANT PERMISSIONS TO POSTGREST ROLES (anon, authenticated, service_role)
+-- Fixes "permission denied for table ..." error
+-- ====================================================================
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
+

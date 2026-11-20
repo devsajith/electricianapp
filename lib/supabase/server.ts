@@ -1,12 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabaseConfig } from "./config";
+import { fetchWithClockSkewRetry } from "./fetch";
 
 export async function createClient() {
   const cookieStore = await cookies();
   const { url, anonKey } = getSupabaseConfig();
 
   return createServerClient(url, anonKey, {
+    global: {
+      fetch: fetchWithClockSkewRetry,
+    },
     cookies: {
       getAll() {
         return cookieStore.getAll();
