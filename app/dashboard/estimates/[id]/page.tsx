@@ -17,6 +17,7 @@ import {
   Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/toast";
 import { Quotation, QuotationStatus } from "@/lib/types/quotation";
 import {
   getQuotationByIdAction,
@@ -44,15 +45,16 @@ export default function QuotationDetailPage({
     try {
       const res = await convertQuotationToProjectAction(quotation.id);
       if (res.error) {
-        alert(res.error);
+        toast.error(res.error);
         setAddingToProject(false);
         return;
       }
+      toast.success("Converted quotation to project successfully!");
       setQuotation({ ...quotation, status: "Approved" });
       router.push("/dashboard/projects");
     } catch (err) {
       console.error("Error adding to project:", err);
-      alert("Failed to add to project. Please try again.");
+      toast.error("Failed to add to project. Please try again.");
     } finally {
       setAddingToProject(false);
     }
@@ -105,7 +107,7 @@ export default function QuotationDetailPage({
       window.print();
     } catch (err) {
       console.error("PDF Print error:", err);
-      alert("Failed to open print / PDF dialog.");
+      toast.error("Failed to open print / PDF dialog.");
     } finally {
       setTimeout(() => setDownloadingPdf(false), 600);
     }

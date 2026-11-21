@@ -13,9 +13,13 @@ import {
 import { getExpensesByProjectIdService } from "@/services/expense.service";
 import { getPaymentsByProjectIdService } from "@/services/payment.service";
 import { getLabourEntriesByProjectService, getLaboursService } from "@/services/labour.service";
+import { getMaterialListsByProjectIdService } from "@/services/material.service";
+import { getQuotationsService } from "@/services/quotation.service";
 import { Expense } from "@/lib/types/expense";
 import { Payment } from "@/lib/types/payment";
 import { Labour, LabourEntry } from "@/lib/types/labour";
+import { MaterialList } from "@/lib/types/material";
+import { Quotation } from "@/lib/types/quotation";
 import { validateIndianPhone, PROJECT_TYPES, PROJECT_STATUSES } from "@/lib/project-utils";
 
 export type ProjectRecord = Project;
@@ -174,21 +178,42 @@ export interface ProjectBundle {
   payments: Payment[];
   labourEntries: LabourEntry[];
   workers: Labour[];
+  materialLists: MaterialList[];
+  quotations: Quotation[];
 }
 
 /**
- * Server Action: Fetches all project data (project, expenses, payments, labour, workers)
- * in parallel in a single server-side invocation, reducing 5 network roundtrips to 1.
+ * Server Action: Fetches all project data (project, expenses, payments, labour, workers, material lists, quotations)
+ * in parallel in a single server-side invocation, reducing multiple roundtrips to 1.
  */
 export async function getProjectBundleAction(id: string): Promise<ProjectBundle> {
   try {
-    const [projRes, expRes, payRes, labourRes, laboursList] = await Promise.all([
+    const [projRes, expRes, payRes, labourRes, laboursList, matListsRes, quotesRes] = await Promise.all([
       getProjectByIdService(id),
       getExpensesByProjectIdService(id),
       getPaymentsByProjectIdService(id),
       getLabourEntriesByProjectService(id),
       getLaboursService(),
+      getMaterialListsByProjectIdService(id),
+      getQuotationsService(),
     ]);
+
+    const proj = projRes.data;
+    const matchingQuotes = (quotesRes.data || []).filter((q) => {
+      if (!proj) return false;
+      if (proj.description && q.quotation_number && proj.description.includes(q.quotation_number)) {
+        return true;
+      }
+      const cleanQPhone = (q.client_phone || "").replace(/\D/g, "");
+      const cleanPPhone = (proj.phone || "").replace(/\D/g, "");
+      if (cleanQPhone && cleanPPhone && (cleanQPhone.endsWith(cleanPPhone.slice(-10)) || cleanPPhone.endsWith(cleanQPhone.slice(-10)))) {
+        return true;
+      }
+      if (q.client_name && proj.name && q.client_name.trim().toLowerCase() === proj.name.trim().toLowerCase()) {
+        return true;
+      }
+      return false;
+    });
 
     return {
       project: projRes.data || null,
@@ -196,6 +221,8 @@ export async function getProjectBundleAction(id: string): Promise<ProjectBundle>
       payments: payRes.data || [],
       labourEntries: labourRes.data || [],
       workers: laboursList.data || [],
+      materialLists: matListsRes.data || [],
+      quotations: matchingQuotes,
     };
   } catch (err) {
     console.error("Error in getProjectBundleAction:", err);
@@ -205,6 +232,8 @@ export async function getProjectBundleAction(id: string): Promise<ProjectBundle>
       payments: [],
       labourEntries: [],
       workers: [],
+      materialLists: [],
+      quotations: [],
     };
   }
 }

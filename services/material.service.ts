@@ -253,6 +253,55 @@ export async function getMaterialListsService(): Promise<{ data: MaterialList[];
 }
 
 /**
+ * Service: Fetch material lists created under a specific project
+ */
+export async function getMaterialListsByProjectIdService(
+  projectId: string
+): Promise<{ data: MaterialList[]; error?: string }> {
+  if (!isValidUUID(projectId)) {
+    return { data: [] };
+  }
+  return withTimeout(
+    (async () => {
+      try {
+        const supabase = await createClient();
+
+        const { data, error } = await supabase
+          .from("material_lists")
+          .select("id, project_id, title, status, notes, created_at, updated_at, projects(project_number, name), material_list_items(id)")
+          .eq("project_id", projectId)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching project material lists:", error);
+          return { data: [], error: error.message || "Failed to fetch material lists" };
+        }
+
+        const formattedData: MaterialList[] = ((data as unknown as MaterialListDbRow[]) || []).map((row) => ({
+          id: row.id,
+          project_id: row.project_id || null,
+          project_number: row.projects?.project_number,
+          project_name: row.projects?.name,
+          title: row.title || "Untitled List",
+          status: row.status || "Draft",
+          notes: row.notes,
+          item_count: Array.isArray(row.material_list_items) ? row.material_list_items.length : 0,
+          created_at: row.created_at || new Date().toISOString(),
+          updated_at: row.updated_at,
+        }));
+
+        return { data: formattedData };
+      } catch (error) {
+        console.error("Service error (getMaterialListsByProjectIdService):", error);
+        return { data: [], error: "Internal server error" };
+      }
+    })(),
+    { data: [], error: "timeout" },
+    5000
+  );
+}
+
+/**
  * Service: Fetch a single material list with all its line items
  */
 export async function getMaterialListByIdService(

@@ -39,6 +39,8 @@ export default async function ProjectDetailPage({
       initialPayments={bundle.payments}
       initialLabourEntries={bundle.labourEntries}
       initialWorkers={bundle.workers}
+      initialMaterialLists={bundle.materialLists}
+      initialQuotations={bundle.quotations}
     />
   );
 }

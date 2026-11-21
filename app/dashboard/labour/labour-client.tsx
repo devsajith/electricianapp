@@ -21,6 +21,7 @@ import {
   Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/toast";
 import { Labour, LabourEntry } from "@/lib/types/labour";
 import {
   createLabourAction,
@@ -143,8 +144,9 @@ export default function LabourClient({
         if (selectedLabour?.id === id) {
           setSelectedLabour(null);
         }
+        toast.success(`Labour "${labourName}" deleted.`);
       } else {
-        alert(res.error || "Failed to delete labour.");
+        toast.error(res.error || "Failed to delete labour.");
       }
     });
   };
@@ -201,8 +203,9 @@ export default function LabourClient({
       const res = await deleteLabourEntryAction(entryId);
       if (res.success) {
         setEntries((prev) => prev.filter((item) => item.id !== entryId));
+        toast.success("Work log entry deleted.");
       } else {
-        alert(res.error || "Failed to delete entry.");
+        toast.error(res.error || "Failed to delete entry.");
       }
     });
   };

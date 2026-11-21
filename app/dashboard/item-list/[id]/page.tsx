@@ -32,6 +32,7 @@ import {
 } from "../actions";
 import { MaterialList, MaterialListItem, Material, MATERIAL_UNITS } from "@/lib/types/material";
 import { generateMaterialListPdf } from "@/lib/utils/pdf-generator";
+import { toast } from "@/lib/toast";
 
 export default function MaterialListDetailPage({
   params,
@@ -150,9 +151,10 @@ export default function MaterialListDetailPage({
         clientName,
         items,
       });
+      toast.success("Material list PDF downloaded successfully!");
     } catch (err) {
       console.error("PDF generation failed:", err);
-      alert("Failed to generate PDF document.");
+      toast.error("Failed to generate PDF document.");
     } finally {
       setIsGeneratingPdf(false);
     }
