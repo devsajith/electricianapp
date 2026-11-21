@@ -3,7 +3,6 @@
 import { usePathname } from "next/navigation";
 import { Menu, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { useHeader } from "@/components/header-context";
 import { logout } from "@/app/login/actions";
 
 interface HeaderProps {
@@ -13,12 +12,11 @@ interface HeaderProps {
 
 export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
   const pathname = usePathname();
-  const { hasCustomHeader } = useHeader();
 
   const isDetailPage =
     /^\/dashboard\/(labour|projects)\/[^/]+$/.test(pathname) &&
     !pathname.endsWith("/new");
-  const showCustom = isDetailPage || hasCustomHeader;
+  const showCustom = isDetailPage;
 
   // Format page title from pathname
   const getPageTitle = () => {
@@ -29,14 +27,14 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
   };
 
   return (
-    <header className="h-16 shrink-0 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md px-3.5 sm:px-6 lg:px-8 flex items-center z-20 transition-colors">
+    <header className="h-16 shrink-0 border-b border-slate-200 dark:border-slate-800/80 bg-white/95 dark:bg-slate-900/90 backdrop-blur-md px-3.5 sm:px-6 lg:px-8 flex items-center z-20 transition-colors">
       <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-3">
         {showCustom ? (
           <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
             {/* Custom Slot rendered by HeaderSlot */}
             <div
               id="navbar-custom-content"
-              className="flex-1 min-w-0 flex items-center justify-between gap-2"
+              className="flex-1 min-w-0 flex items-center justify-between gap-2 min-h-[36px]"
             />
 
             {/* Persistent Utility Controls */}
@@ -47,7 +45,7 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
                 href="/dashboard/settings"
                 title="Settings"
                 aria-label="Settings"
-                className="hidden sm:flex h-9 px-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 items-center gap-2 text-xs font-semibold text-slate-200 transition-colors"
+                className="hidden sm:flex h-9 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700/60 items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-colors"
               >
                 <div className="w-6 h-6 rounded-full bg-[#1a73e8] text-white flex items-center justify-center font-bold text-xs shadow-sm">
                   {userEmail ? userEmail.charAt(0).toUpperCase() : "E"}
@@ -60,7 +58,7 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
                   type="submit"
                   title="Log Out"
                   aria-label="Log Out"
-                  className="h-9 px-2.5 sm:px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/20 flex items-center gap-1.5 text-xs font-semibold transition-all active:scale-95"
+                  className="h-9 px-2.5 sm:px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 border border-rose-500/20 flex items-center gap-1.5 text-xs font-semibold transition-all active:scale-95"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Logout</span>
@@ -77,17 +75,17 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
                   type="button"
                   onClick={onMobileMenuToggle}
                   aria-label="Open Mobile Menu"
-                  className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-800 md:hidden transition-colors"
+                  className="p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 md:hidden transition-colors"
                 >
                   <Menu className="w-5 h-5" />
                 </button>
               )}
 
               <div>
-                <h2 className="text-base sm:text-lg font-bold text-white tracking-tight leading-tight">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
                   {getPageTitle()}
                 </h2>
-                <p className="text-[10px] sm:text-xs text-slate-400">Electrician Management Portal</p>
+                <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">Electrician Management Portal</p>
               </div>
             </div>
 
@@ -101,7 +99,7 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
                 href="/dashboard/settings"
                 title="Settings"
                 aria-label="Settings"
-                className="h-9 px-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 flex items-center gap-2 text-xs font-semibold text-slate-200 transition-colors"
+                className="h-9 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700/60 flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-colors"
               >
                 <div className="w-6 h-6 rounded-full bg-[#1a73e8] text-white flex items-center justify-center font-bold text-xs shadow-sm">
                   {userEmail ? userEmail.charAt(0).toUpperCase() : "E"}
@@ -117,7 +115,7 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
                   type="submit"
                   title="Log Out"
                   aria-label="Log Out"
-                  className="h-9 px-2.5 sm:px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/20 flex items-center gap-1.5 text-xs font-semibold transition-all active:scale-95"
+                  className="h-9 px-2.5 sm:px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 border border-rose-500/20 flex items-center gap-1.5 text-xs font-semibold transition-all active:scale-95"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Logout</span>

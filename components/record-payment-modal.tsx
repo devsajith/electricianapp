@@ -178,11 +178,11 @@ function RecordPaymentModalContent({
           {/* 1. Project Selector */}
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Select Client / Project <span className="text-amber-400">*</span>
+              Select Client <span className="text-amber-400">*</span>
             </label>
             {loadingProjects ? (
               <div className="h-10 bg-slate-800/50 rounded-xl animate-pulse flex items-center px-3 text-xs text-slate-500">
-                Loading projects...
+                Loading clients...
               </div>
             ) : (
               <select
@@ -191,17 +191,18 @@ function RecordPaymentModalContent({
                 required
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
               >
-                <option value="">-- Choose Project --</option>
+                <option value="">-- Choose Client --</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} — {p.project_number} ({p.type})
+                    {p.name}{p.place ? ` (${p.place})` : ""}
                   </option>
                 ))}
               </select>
             )}
             {selectedProj && (
               <p className="mt-1 text-[11px] text-slate-500">
-                Client: <span className="text-slate-300 font-medium">{selectedProj.name}</span> • Place: {selectedProj.place || "N/A"}
+                Client: <span className="text-slate-300 font-medium">{selectedProj.name}</span>
+                {selectedProj.place && <span> • Place: <span className="text-slate-300 font-medium">{selectedProj.place}</span></span>}
               </p>
             )}
           </div>

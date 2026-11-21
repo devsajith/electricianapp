@@ -1033,8 +1033,22 @@ export function ProjectDetailClient({
                 </div>
               </div>
 
-              {payments.length > 0 && (
-                <div className="pt-1">
+              <div className="flex gap-2.5 pt-1 flex-wrap">
+                <Button
+                  type="button"
+                  onClick={() => setIsPaymentModalOpen(true)}
+                  className="flex-1 min-w-[110px] bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-xs font-extrabold shadow-sm active:scale-95 transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Payment
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setIsExpenseModalOpen(true)}
+                  className="flex-1 min-w-[110px] bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white text-xs font-extrabold shadow-sm active:scale-95 transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Expense
+                </Button>
+                {payments.length > 0 && (
                   <Button
                     type="button"
                     onClick={() => {
@@ -1057,14 +1071,14 @@ export function ProjectDetailClient({
                         toast.error(err instanceof Error ? err.message : "Failed to download statement PDF.");
                       }
                     }}
-                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
                     title="Download Statement of Payments Received from this client"
                   >
                     <FileDown className="w-3.5 h-3.5" />
-                    <span>Download Statement (PDF)</span>
+                    <span>Statement (PDF)</span>
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
@@ -1385,7 +1399,7 @@ export function ProjectDetailClient({
           </div>
 
           {/* Transaction Timeline Feed (Left = Expense, Right = Payment) */}
-          <div className="flex-1 space-y-5 pt-2 pb-8">
+          <div className="flex-1 space-y-5 pt-2 pb-28">
             {timelineItems.length === 0 ? (
               <div className="text-center py-16 px-4 space-y-3">
                 <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-[#1a1c22] border border-slate-200 dark:border-[#292c36] flex items-center justify-center mx-auto text-slate-400 dark:text-slate-500">
@@ -1505,6 +1519,33 @@ export function ProjectDetailClient({
                 </div>
               ))
             )}
+          </div>
+
+          {/* Fixed Bottom-Center Bar: Payment (Green) + Expense (Red) Action Buttons */}
+          <div className="fixed bottom-6 left-0 right-0 md:left-64 z-30 flex justify-center px-4 pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-lg p-2 sm:p-2.5 rounded-2xl bg-white/95 dark:bg-[#181a20]/95 border border-slate-200 dark:border-[#282b35] shadow-2xl backdrop-blur-md">
+              <div className="flex items-center justify-center gap-2.5 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsPaymentModalOpen(true)}
+                  className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-black text-xs sm:text-sm tracking-wide shadow-md shadow-emerald-900/20 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span>PAYMENT</span>
+                  <span className="text-[11px] font-medium opacity-85 hidden sm:inline">(Cash In)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsExpenseModalOpen(true)}
+                  className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white font-black text-xs sm:text-sm tracking-wide shadow-md shadow-rose-900/20 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span>EXPENSE</span>
+                  <span className="text-[11px] font-medium opacity-85 hidden sm:inline">(Cash Out)</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
