@@ -135,7 +135,9 @@ function RecordExpenseModalContent({
                 Record Expense
               </h3>
               <p className="text-[11px] text-slate-400">
-                Log project site expenses or personal &amp; shop overhead
+                {defaultProjectId
+                  ? `Log site expense for ${selectedProj?.name || "this project"}`
+                  : "Log project site expenses or personal & shop overhead"}
               </p>
             </div>
           </div>
@@ -164,83 +166,96 @@ function RecordExpenseModalContent({
             </div>
           )}
 
-          {/* Expense Type Segmented Control */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-              Expense Classification:
-            </label>
-            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950/80 rounded-xl border border-slate-800">
-              <button
-                type="button"
-                onClick={() => setExpenseType("project")}
-                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                  expenseType === "project"
-                    ? "bg-amber-500 text-slate-950 shadow-sm"
-                    : "text-slate-400 hover:text-white hover:bg-slate-900"
-                }`}
-              >
-                <Briefcase className="w-3.5 h-3.5" />
-                <span>Project Expense</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setExpenseType("self")}
-                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                  expenseType === "self"
-                    ? "bg-emerald-500 text-slate-950 shadow-sm"
-                    : "text-slate-400 hover:text-white hover:bg-slate-900"
-                }`}
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>Self Expense</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Project Selection (Visible ONLY for Project Expense) */}
-          {expenseType === "project" ? (
+          {/* When opened from a specific project, lock to this project with NO self expense option */}
+          {defaultProjectId ? (
             <div className="space-y-1.5 animate-in fade-in duration-150">
               <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                 <FolderKanban className="w-3.5 h-3.5 text-amber-400" />
-                Select Project:
+                Project / Client:
               </label>
-              {defaultProjectId && selectedProj ? (
-                <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs flex items-center justify-between">
-                  <div>
-                    <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 font-mono font-bold text-[10px] mr-2">
-                      {selectedProj.project_number}
-                    </span>
-                    <strong className="text-white">{selectedProj.name}</strong>
-                  </div>
-                  <span className="text-[11px] text-slate-400">{selectedProj.type}</span>
+              <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs flex items-center justify-between">
+                <div>
+                  <strong className="text-white text-sm">{selectedProj ? selectedProj.name : "Selected Project"}</strong>
+                  {selectedProj?.place && (
+                    <span className="text-slate-400 text-xs ml-2">• {selectedProj.place}</span>
+                  )}
                 </div>
-              ) : (
-                <select
-                  value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
-                  disabled={loadingProjects}
-                  className="w-full px-3 py-2 bg-slate-950/70 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-                >
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.project_number} - {p.name} ({p.type})
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          ) : (
-            /* Self Expense notice */
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
-              <User className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-              <div>
-                <strong className="block text-emerald-200">Self Expense (Independent)</strong>
-                <span className="text-[11px] text-emerald-400/90 leading-relaxed">
-                  This expense is for your own company/shop overhead, personal draw, vehicle, or general tools, and will be tracked separately from client jobs.
-                </span>
+                {selectedProj?.type && (
+                  <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px] font-medium border border-slate-700">
+                    {selectedProj.type}
+                  </span>
+                )}
               </div>
             </div>
+          ) : (
+            <>
+              {/* Expense Type Segmented Control for Global Expense Screen */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                  Expense Classification:
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950/80 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setExpenseType("project")}
+                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                      expenseType === "project"
+                        ? "bg-amber-500 text-slate-950 shadow-sm"
+                        : "text-slate-400 hover:text-white hover:bg-slate-900"
+                    }`}
+                  >
+                    <Briefcase className="w-3.5 h-3.5" />
+                    <span>Project Expense</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setExpenseType("self")}
+                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                      expenseType === "self"
+                        ? "bg-emerald-500 text-slate-950 shadow-sm"
+                        : "text-slate-400 hover:text-white hover:bg-slate-900"
+                    }`}
+                  >
+                    <User className="w-3.5 h-3.5" />
+                    <span>Self Expense</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Project Selection (Visible ONLY for Project Expense) */}
+              {expenseType === "project" ? (
+                <div className="space-y-1.5 animate-in fade-in duration-150">
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <FolderKanban className="w-3.5 h-3.5 text-amber-400" />
+                    Select Project:
+                  </label>
+                  <select
+                    value={projectId}
+                    onChange={(e) => setProjectId(e.target.value)}
+                    disabled={loadingProjects}
+                    className="w-full px-3 py-2 bg-slate-950/70 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                  >
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}{p.place ? ` (${p.place})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                /* Self Expense notice */
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
+                  <User className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block text-emerald-200">Self Expense (Independent)</strong>
+                    <span className="text-[11px] text-emerald-400/90 leading-relaxed">
+                      This expense is for your own company/shop overhead, personal draw, vehicle, or general tools, and will be tracked separately from client jobs.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Description */}
