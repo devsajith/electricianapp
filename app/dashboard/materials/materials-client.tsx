@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { deleteMaterialAction } from "./actions";
+import { toast } from "@/lib/toast";
 
 export interface SafeMaterial {
   id: string;
@@ -40,8 +41,9 @@ export default function MaterialsClient({ initialMaterials }: Props) {
       const res = await deleteMaterialAction(id);
       if (res.success) {
         setMaterials((prev) => prev.filter((m) => m.id !== id));
+        toast.success(`Material "${name}" deleted.`);
       } else {
-        alert(res.error || "Failed to delete material.");
+        toast.error(res.error || "Failed to delete material.");
       }
     });
   };

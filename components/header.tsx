@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Search, Menu, LogOut } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useHeader } from "@/components/header-context";
 import { logout } from "@/app/login/actions";
@@ -93,16 +93,6 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
 
             {/* Right Controls */}
             <div className="flex items-center gap-2.5 sm:gap-4">
-              {/* Search Bar (Hidden on small mobile screens to save space) */}
-              <div className="relative hidden md:block w-56 lg:w-64">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
-                  type="text"
-                  placeholder="Search projects, quotations..."
-                  className="w-full pl-9 pr-4 py-1.5 bg-slate-950/60 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500/40 transition-all"
-                />
-              </div>
-
               {/* Theme Toggle Button (Dark / Light) */}
               <ThemeToggle />
 

@@ -412,3 +412,216 @@ export function generatePaymentStatementPdf({
   const dateStr = new Date().toISOString().slice(0, 10);
   doc.save(`Payment_Statement_${safeClient}_${dateStr}.pdf`);
 }
+
+export interface DailyWorkSummaryPdfItem {
+  date: string;
+  formattedDate: string;
+  dayName: string;
+  workersCount: number;
+  workerNames: string[];
+  shifts: number;
+  ot: number;
+}
+
+export interface GenerateDailyWorkSummaryPdfOptions {
+  projectName: string;
+  totalWorkDays: number;
+  totalDeployments: number;
+  totalShifts: number;
+  totalOtHours: number;
+  days: DailyWorkSummaryPdfItem[];
+}
+
+export function generateDailyWorkSummaryPdf({
+  projectName,
+  totalWorkDays,
+  totalDeployments,
+  totalShifts,
+  totalOtHours,
+  days,
+}: GenerateDailyWorkSummaryPdfOptions) {
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const projTitle = projectName && projectName.trim() ? projectName.trim() : "Project";
+
+  // 1. Document Header
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(30, 58, 95); // Corporate Navy #1e3a5f
+  doc.text("DAILY WORK SUMMARY", 15, 18);
+
+  // Decorative Accent Line
+  doc.setDrawColor(30, 58, 95);
+  doc.setLineWidth(0.6);
+  doc.line(15, 22, pageWidth - 15, 22);
+
+  // 2. Header Info: Project Name (Left) & Pandali Electricals (Right)
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(15, 23, 42); // Slate-900
+  doc.text(projTitle, 15, 30);
+
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 116, 139);
+  doc.text("Site Attendance & Daily Labor Logs", 15, 34);
+
+  // Right Header: Pandali Electricals
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 58, 95);
+  doc.text("Pandali Electricals", pageWidth - 15, 30, { align: "right" });
+
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 116, 139);
+  doc.text("Contractor & Electrical Works", pageWidth - 15, 34, { align: "right" });
+
+  // Divider Line
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(15, 37, pageWidth - 15, 37);
+
+  // 3. Metric Summary Box
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(15, 40, pageWidth - 30, 15, 2, 2, "F");
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(15, 40, pageWidth - 30, 15, 2, 2, "S");
+
+  const colWidth = (pageWidth - 30) / 4;
+
+  const metrics = [
+    { label: "WORK DAYS", val: `${totalWorkDays} Days` },
+    { label: "DEPLOYMENTS", val: `${totalDeployments}` },
+    { label: "TOTAL SHIFTS", val: `${totalShifts.toFixed(1)} Shifts` },
+    { label: "OVERTIME", val: `+${totalOtHours.toFixed(1)} hrs` },
+  ];
+
+  metrics.forEach((m, idx) => {
+    const x = 15 + idx * colWidth + colWidth / 2;
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text(m.label, x, 45, { align: "center" });
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text(m.val, x, 51, { align: "center" });
+  });
+
+  // 4. Daily Summary Table
+  const tableData = days.map((d, idx) => [
+    String(idx + 1),
+    d.formattedDate,
+    d.dayName || "—",
+    `${d.workersCount} ${d.workersCount === 1 ? "Worker" : "Workers"}${
+      d.workerNames.length > 0 ? ` (${d.workerNames.join(", ")})` : ""
+    }`,
+    `${d.shifts.toFixed(1)}`,
+    d.ot > 0 ? `+${d.ot.toFixed(1)}h` : "—",
+  ]);
+
+  autoTable(doc, {
+    startY: 59,
+    head: [["#", "Work Date", "Day", "Workers Deployed", "Shifts", "Extra (OT)"]],
+    body: tableData,
+    theme: "grid",
+    headStyles: {
+      fillColor: [30, 58, 95], // #1e3a5f Corporate navy
+      textColor: [255, 255, 255],
+      fontSize: 8.5,
+      fontStyle: "bold",
+      halign: "left",
+      cellPadding: 3,
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: "center" },
+      1: { cellWidth: 26, fontStyle: "bold" },
+      2: { cellWidth: 16, halign: "center" },
+      3: { cellWidth: "auto" },
+      4: { cellWidth: 20, halign: "center", fontStyle: "bold" },
+      5: { cellWidth: 22, halign: "center", fontStyle: "bold" },
+    },
+    styles: {
+      fontSize: 8,
+      cellPadding: 2.8,
+      textColor: [15, 23, 42],
+      lineColor: [203, 213, 225],
+      lineWidth: 0.15,
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    foot: [
+      [
+        "",
+        `TOTAL (${totalWorkDays} DAYS)`,
+        "—",
+        `${totalDeployments} Total Deployments`,
+        `${totalShifts.toFixed(1)} Shifts`,
+        `+${totalOtHours.toFixed(1)} hrs`,
+      ],
+    ],
+    footStyles: {
+      fillColor: [241, 245, 249],
+      textColor: [15, 23, 42],
+      fontStyle: "bold",
+      fontSize: 8.5,
+      halign: "center",
+      lineColor: [203, 213, 225],
+      lineWidth: 0.15,
+    },
+    margin: { left: 15, right: 15 },
+  });
+
+  // 5. Signatory Block
+  const autoTableDoc = doc as unknown as { lastAutoTable?: { finalY?: number } };
+  const finalY = autoTableDoc.lastAutoTable?.finalY || 180;
+
+  let signY = finalY + 14;
+  if (signY > pageHeight - 35) {
+    doc.addPage();
+    signY = 30;
+  }
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(51, 65, 85);
+  doc.text("For ", pageWidth - 55, signY);
+
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(15, 23, 42);
+  doc.text("Pandali Electricals", pageWidth - 48, signY);
+
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 116, 139);
+  doc.text("Authorised Signatory", pageWidth - 55, signY + 14);
+
+  // 6. Page Numbering
+  const pageCount = (
+    doc.internal as unknown as { getNumberOfPages: () => number }
+  ).getNumberOfPages();
+
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 10, {
+      align: "center",
+    });
+  }
+
+  const safeProj = projTitle.replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 30);
+  const dateStr = new Date().toISOString().slice(0, 10);
+  doc.save(`Work_Summary_${safeProj}_${dateStr}.pdf`);
+}
