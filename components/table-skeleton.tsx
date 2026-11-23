@@ -50,8 +50,8 @@ export function ExpensesPageSkeleton() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {Array.from({ length: 3 }).map((_, i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {Array.from({ length: 2 }).map((_, i) => (
           <div key={i} className="p-4 rounded-2xl bg-[#181a20] border border-[#282b35] space-y-2">
             <div className="h-3 w-24 bg-slate-800 rounded" />
             <div className="h-7 w-32 bg-slate-800 rounded font-mono" />
@@ -68,22 +68,15 @@ export function ExpensesPageSkeleton() {
       </div>
 
       {/* Table Container */}
-      <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950">
-        <div className="bg-[#107c41] px-4 py-2 flex items-center justify-between text-white border-b border-emerald-800">
-          <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
-            <span className="font-semibold text-xs">Expenses_Ledger.xlsx</span>
-          </div>
-          <div className="h-6 w-24 bg-white/20 rounded" />
-        </div>
+      <div className="rounded-2xl overflow-hidden border border-slate-800 shadow-sm bg-slate-950">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
-              <tr className="bg-slate-900 border-b border-slate-700 text-slate-400 text-xs font-mono">
-                <th className="py-2.5 px-3 w-12 text-center border-r border-slate-700">◢</th>
-                <th className="py-2.5 px-4 border-r border-slate-700">DATE</th>
-                <th className="py-2.5 px-4 border-r border-slate-700">DETAILS</th>
-                <th className="py-2.5 px-4 border-r border-slate-700">AMOUNT</th>
+              <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 text-xs font-mono">
+                <th className="py-2.5 px-3 w-12 text-center border-r border-slate-800">#</th>
+                <th className="py-2.5 px-4 border-r border-slate-800">DATE</th>
+                <th className="py-2.5 px-4 border-r border-slate-800">DETAILS</th>
+                <th className="py-2.5 px-4 border-r border-slate-800">AMOUNT</th>
                 <th className="py-2.5 px-4">ACTIONS</th>
               </tr>
             </thead>

@@ -432,12 +432,24 @@ export function LabourAttendanceCalendar({
               badgeBg = "bg-[#242732] border-blue-500 ring-2 ring-blue-500/50";
             }
 
+            const handleClickDate = () => {
+              setSelectedDateStr(cell.dateStr);
+              if (!cell.isCurrentMonth) {
+                const [y, m] = cell.dateStr.split("-").map(Number);
+                setViewDate(new Date(y, m - 1, 1));
+              }
+              if (!hasAtt) {
+                onAddAttendanceForDate(cell.dateStr);
+              }
+            };
+
             return (
               <button
                 key={cell.dateStr}
                 type="button"
-                onClick={() => setSelectedDateStr(cell.dateStr)}
-                className={`min-h-[58px] sm:min-h-[72px] p-1 sm:p-1.5 rounded-xl flex flex-col justify-between transition-all text-left relative group border ${
+                onClick={handleClickDate}
+                title={!hasAtt ? `Click to mark attendance for ${cell.dateStr}` : `View attendance for ${cell.dateStr}`}
+                className={`min-h-[58px] sm:min-h-[72px] p-1 sm:p-1.5 rounded-xl flex flex-col justify-between transition-all text-left relative group border cursor-pointer ${
                   !cell.isCurrentMonth ? "opacity-30 bg-[#121317] border-transparent" : badgeBg
                 }`}
               >
@@ -482,7 +494,9 @@ export function LabourAttendanceCalendar({
                     </span>
                   )}
                   {!hasAtt && (
-                    <span className="text-[9px] text-slate-600 hidden sm:inline">-</span>
+                    <span className="text-[9px] text-slate-600 group-hover:text-emerald-400 font-medium transition-colors hidden sm:inline">
+                      + Add
+                    </span>
                   )}
                 </div>
               </button>
@@ -653,13 +667,21 @@ export function LabourAttendanceCalendar({
             })}
           </div>
         ) : (
-          <div className="p-4 rounded-xl bg-[#14151a] border border-[#22242e] text-center space-y-1">
+          <div className="p-4 rounded-xl bg-[#14151a] border border-[#22242e] text-center space-y-2">
             <p className="text-xs text-slate-400">
               No attendance logged for this date.
             </p>
-            <p className="text-[11px] text-slate-500">
-              Tap &quot;Mark / Change Attendance&quot; to log Full Day, Half Day, Over Time (with hours), or Absent.
-            </p>
+            <div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => onAddAttendanceForDate(selectedDateStr)}
+                className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-8 px-3 shadow-sm inline-flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Mark Attendance</span>
+              </Button>
+            </div>
           </div>
         )}
       </div>

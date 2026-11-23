@@ -37,6 +37,7 @@ export interface MaterialList {
   project_id?: string | null;
   project_number?: string;
   project_name?: string;
+  project_place?: string | null;
   client_name?: string;
   title: string;
   status?: string;

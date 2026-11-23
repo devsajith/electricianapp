@@ -10,11 +10,10 @@ import {
   RefreshCw,
   Eye,
   Trash2,
-  FileSpreadsheet,
-  Download,
   Building2,
   Layers,
   Calendar,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MaterialList } from "@/lib/types/material";
@@ -77,34 +76,11 @@ export default function ItemListPage() {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     const titleMatch = list.title.toLowerCase().includes(q);
-    const projMatch = list.project_name?.toLowerCase().includes(q) || list.project_number?.toLowerCase().includes(q);
+    const projMatch =
+      list.project_name?.toLowerCase().includes(q) ||
+      list.project_place?.toLowerCase().includes(q);
     return titleMatch || projMatch;
   });
-
-  const exportToCsv = () => {
-    if (filteredLists.length === 0) return;
-    const headers = ["#", "List Title", "Classification", "Project #", "Project Name", "Item Count", "Created Date"];
-    const rows = filteredLists.map((l, idx) => [
-      idx + 1,
-      `"${l.title.replace(/"/g, '""')}"`,
-      l.project_id ? "Project" : "General",
-      `"${l.project_number || "—"}"`,
-      `"${(l.project_name || "—").replace(/"/g, '""')}"`,
-      l.item_count || 0,
-      l.created_at ? new Date(l.created_at).toLocaleDateString() : "—",
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Material_Lists_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -210,195 +186,165 @@ export default function ItemListPage() {
         </div>
       </div>
 
-      {/* Excel Spreadsheet Container */}
-      <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950">
-          {/* Excel Ribbon */}
-          <div className="bg-[#107c41] px-4 py-2 flex flex-wrap items-center justify-between text-white border-b border-emerald-800 text-xs">
-            <div className="flex items-center gap-2">
-              <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
-              <span className="font-bold tracking-wide">Material_Lists_Register.xlsx</span>
-              <span className="text-[10px] bg-emerald-900/60 text-emerald-200 px-2 py-0.5 rounded font-mono font-semibold">
-                AutoSave: On
-              </span>
-              <span className="text-[11px] text-emerald-100 hidden sm:inline ml-2">
-                Showing {filteredLists.length} of {lists.length} lists
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={exportToCsv}
-                className="flex items-center gap-1.5 px-3 py-1 bg-emerald-800 hover:bg-emerald-700 text-white rounded font-medium text-xs shadow-sm transition-colors border border-emerald-600"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export Excel (.CSV)</span>
-              </button>
-            </div>
+      {/* Material Lists Table Container */}
+      <div className="rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950">
+        {loading && lists.length === 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[700px] font-sans">
+              <thead>
+                <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-800">
+                  <th className="py-3 px-3 w-12 text-center border-r border-slate-800 bg-slate-900 text-slate-500 font-mono select-none">
+                    #
+                  </th>
+                  <th className="py-3 px-4 border-r border-slate-800 font-bold">
+                    LIST TITLE
+                  </th>
+                  <th className="py-3 px-4 border-r border-slate-800 font-bold w-64">
+                    PROJECT &amp; PLACE
+                  </th>
+                  <th className="py-3 px-4 border-r border-slate-800 font-bold text-center w-28">
+                    ITEMS
+                  </th>
+                  <th className="py-3 px-4 border-r border-slate-800 font-bold text-center w-32">
+                    CREATED
+                  </th>
+                  <th className="py-3 px-3 font-bold text-center w-24">
+                    ACTIONS
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-xs">
+                <TableRowsSkeleton columns={6} rows={6} />
+              </tbody>
+            </table>
           </div>
+        ) : filteredLists.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 space-y-3">
+            <ListChecks className="w-10 h-10 mx-auto text-slate-600" />
+            <p className="text-sm font-semibold text-slate-300">No material lists found</p>
+            <p className="text-xs text-slate-500">
+              Create a project list or a general shop list to organize materials needed.
+            </p>
+            <Link href="/dashboard/item-list/new">
+              <Button className="mt-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs">
+                <Plus className="w-3.5 h-3.5 mr-1" /> Create Your First List
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[700px] font-sans">
+              <thead>
+                <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-800">
+                  <th className="py-3 px-3 w-12 text-center border-r border-slate-800 bg-slate-900 text-slate-500 font-mono select-none">
+                    #
+                  </th>
+                  <th className="py-3 px-4 border-r border-slate-800 font-bold">
+                    LIST TITLE
+                  </th>
+                  <th className="py-3 px-4 border-r border-slate-800 font-bold w-64">
+                    PROJECT &amp; PLACE
+                  </th>
+                  <th className="py-3 px-4 border-r border-slate-800 font-bold text-center w-28">
+                    ITEMS
+                  </th>
+                  <th className="py-3 px-4 border-r border-slate-800 font-bold text-center w-32">
+                    DATE
+                  </th>
+                  <th className="py-3 px-4 font-bold text-center w-28">
+                    ACTIONS
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-xs">
+                {filteredLists.map((item, idx) => {
+                  const isProject = Boolean(item.project_id);
+                  const viewHref = `/dashboard/item-list/${item.id}`;
 
-          {loading && lists.length === 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[700px] font-sans">
-                <thead>
-                  <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-700">
-                    <th className="py-2.5 px-3 w-12 text-center border-r border-slate-700/80 bg-slate-900 text-slate-500 font-mono select-none">
-                      ◢
-                    </th>
-                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
-                      <div className="text-[10px] text-emerald-400 font-mono">A</div>
-                      LIST TITLE
-                    </th>
-                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-64">
-                      <div className="text-[10px] text-emerald-400 font-mono">B</div>
-                      CLASSIFICATION / SITE
-                    </th>
-                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-center w-28">
-                      <div className="text-[10px] text-emerald-400 font-mono">C</div>
-                      ITEMS
-                    </th>
-                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-center w-32">
-                      <div className="text-[10px] text-emerald-400 font-mono">D</div>
-                      CREATED
-                    </th>
-                    <th className="py-2.5 px-3 font-bold text-center w-24">
-                      <div className="text-[10px] text-emerald-400 font-mono">E</div>
-                      ACTIONS
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800 text-xs">
-                  <TableRowsSkeleton columns={6} rows={6} />
-                </tbody>
-              </table>
-            </div>
-          ) : filteredLists.length === 0 ? (
-            <div className="p-12 text-center text-slate-400 space-y-3">
-              <ListChecks className="w-10 h-10 mx-auto text-slate-600" />
-              <p className="text-sm font-semibold text-slate-300">No material lists found</p>
-              <p className="text-xs text-slate-500">
-                Create a project list or a general shop list to organize materials needed.
-              </p>
-              <Link href="/dashboard/item-list/new">
-                <Button className="mt-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs">
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Create Your First List
-                </Button>
-              </Link>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[700px] font-sans">
-                <thead>
-                  <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-700">
-                    <th className="py-2.5 px-3 w-12 text-center border-r border-slate-700/80 bg-slate-900 text-slate-500 font-mono select-none">
-                      ◢
-                    </th>
-                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
-                      <div className="text-[10px] text-emerald-400 font-mono">A</div>
-                      LIST TITLE
-                    </th>
-                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-64">
-                      <div className="text-[10px] text-emerald-400 font-mono">B</div>
-                      CLASSIFICATION / SITE
-                    </th>
-                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-center w-28">
-                      <div className="text-[10px] text-emerald-400 font-mono">C</div>
-                      ITEMS
-                    </th>
-                    <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-center w-32">
-                      <div className="text-[10px] text-emerald-400 font-mono">D</div>
-                      DATE
-                    </th>
-                    <th className="py-2.5 px-4 font-bold text-center w-28">
-                      <div className="text-[10px] text-emerald-400 font-mono">E</div>
-                      ACTIONS
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800 text-xs">
-                  {filteredLists.map((item, idx) => {
-                    const isProject = Boolean(item.project_id);
-                    const viewHref = `/dashboard/item-list/${item.id}`;
-
-                    return (
-                      <tr
-                        key={item.id}
-                        className="hover:bg-emerald-500/10 transition-colors group border-b border-slate-800/80"
-                      >
-                        <td className="py-3 px-3 text-center bg-slate-900/70 border-r border-slate-800 text-slate-400 select-none text-[11px] font-mono group-hover:text-emerald-400">
-                          {idx + 1}
-                        </td>
-                        <td className="py-3 px-4 border-r border-slate-800">
-                          <Link
-                            href={viewHref}
-                            className="font-bold text-slate-100 hover:text-amber-400 transition-colors text-sm"
-                          >
-                            {item.title}
-                          </Link>
-                          {item.notes && (
-                            <div className="text-[11px] text-slate-400 truncate max-w-sm mt-0.5">
-                              {item.notes}
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 border-r border-slate-800">
-                          {isProject ? (
-                            <div className="flex flex-col gap-0.5">
-                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-400">
-                                <Building2 className="w-3 h-3" />
-                                {item.project_name || "Project"}
-                              </span>
-                              <span className="text-[10px] font-mono text-slate-400">
-                                {item.project_number}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-                              <Layers className="w-3 h-3" />
-                              General / Shop Stock
+                  return (
+                    <tr
+                      key={item.id}
+                      className="hover:bg-slate-900/60 transition-colors group border-b border-slate-800/80"
+                    >
+                      <td className="py-3 px-3 text-center bg-slate-900/70 border-r border-slate-800 text-slate-400 select-none text-[11px] font-mono group-hover:text-amber-400">
+                        {idx + 1}
+                      </td>
+                      <td className="py-3 px-4 border-r border-slate-800">
+                        <Link
+                          href={viewHref}
+                          className="font-bold text-slate-100 hover:text-amber-400 transition-colors text-sm"
+                        >
+                          {item.title}
+                        </Link>
+                        {item.notes && (
+                          <div className="text-[11px] text-slate-400 truncate max-w-sm mt-0.5">
+                            {item.notes}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 border-r border-slate-800">
+                        {isProject ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400">
+                              <Building2 className="w-3.5 h-3.5 shrink-0" />
+                              <span>{item.project_name || "Project"}</span>
                             </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 border-r border-slate-800 text-center font-mono font-bold text-slate-200">
-                          <span className="px-2 py-0.5 rounded-md bg-slate-800 text-amber-400 text-xs border border-slate-700">
-                            {item.item_count || 0}
+                            {item.project_place ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                                <MapPin className="w-3 h-3 text-amber-400 shrink-0" />
+                                <span>{item.project_place}</span>
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                            <Layers className="w-3 h-3" />
+                            General / Shop Stock
                           </span>
-                        </td>
-                        <td className="py-3 px-4 border-r border-slate-800 text-center font-mono text-slate-400 text-[11px]">
-                          <div className="flex items-center justify-center gap-1">
-                            <Calendar className="w-3 h-3 text-slate-500" />
-                            <span>
-                              {item.created_at ? new Date(item.created_at).toLocaleDateString() : "—"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <Link href={viewHref}>
-                              <Button
-                                size="sm"
-                                className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1 rounded px-2.5 shadow-sm"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>View</span>
-                              </Button>
-                            </Link>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(item.id, item.title)}
-                              className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
-                              title="Delete list"
+                        )}
+                      </td>
+                      <td className="py-3 px-4 border-r border-slate-800 text-center font-mono font-bold text-slate-200">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-800 text-amber-400 text-xs border border-slate-700">
+                          {item.item_count || 0}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 border-r border-slate-800 text-center font-mono text-slate-400 text-[11px]">
+                        <div className="flex items-center justify-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-500" />
+                          <span>
+                            {item.created_at ? new Date(item.created_at).toLocaleDateString() : "—"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Link href={viewHref}>
+                            <Button
+                              size="sm"
+                              className="h-7 text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold gap-1 rounded px-2.5 shadow-sm"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View</span>
+                            </Button>
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item.id, item.title)}
+                            className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
+                            title="Delete list"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

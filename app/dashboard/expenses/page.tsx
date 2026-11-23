@@ -7,11 +7,8 @@ import {
   Plus,
   Search,
   RefreshCw,
-  IndianRupee,
   Trash2,
-  TrendingDown,
-  FileSpreadsheet,
-  Download,
+  FileText,
   Briefcase,
   User,
 } from "lucide-react";
@@ -20,6 +17,8 @@ import { Expense, ExpenseType } from "@/lib/types/expense";
 import { getExpensesAction, deleteExpenseAction } from "./actions";
 import { RecordExpenseModal } from "@/components/record-expense-modal";
 import { ExpensesPageSkeleton } from "@/components/table-skeleton";
+import { generateExpensesPdf } from "@/lib/utils/pdf-generator";
+import { toast } from "@/lib/toast";
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -86,7 +85,6 @@ export default function ExpensesPage() {
   );
 
   // Overall KPI Calculations
-  const totalAmount = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   const projectTotalAmount = projectExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   const selfTotalAmount = selfExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   const uniqueProjects = new Set(projectExpenses.map((e) => e.project_id).filter(Boolean)).size;
@@ -98,6 +96,7 @@ export default function ExpensesPage() {
       !q ||
       exp.description?.toLowerCase().includes(q) ||
       (exp.name && exp.name.toLowerCase().includes(q)) ||
+      (exp.place && exp.place.toLowerCase().includes(q)) ||
       (exp.project_number && exp.project_number.toLowerCase().includes(q))
     );
   });
@@ -112,44 +111,53 @@ export default function ExpensesPage() {
   });
   const filteredSelfTotal = filteredSelfExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-  // Export Project Expenses CSV
-  const exportProjectCsv = () => {
-    if (filteredProjectExpenses.length === 0) return;
-    const headers = ["Row", "Expense Date", "Project", "Project Number", "Description", "Amount (INR)"];
-    const rows = filteredProjectExpenses.map((exp, idx) => [
-      idx + 1,
-      `"${exp.date}"`,
-      `"${(exp.name || "Project").replace(/"/g, '""')}"`,
-      `"${exp.project_number || ""}"`,
-      `"${(exp.description || "").replace(/"/g, '""')}"`,
-      exp.amount || 0,
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `Project_Expenses_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Download Project Expenses PDF
+  const downloadProjectPdf = () => {
+    if (filteredProjectExpenses.length === 0) {
+      toast.warning("No project expenses to download.");
+      return;
+    }
+    try {
+      generateExpensesPdf({
+        title: "Project Expenses Ledger",
+        category: "project",
+        expenses: filteredProjectExpenses.map((exp) => ({
+          date: exp.date,
+          project_name: exp.name,
+          place: exp.place,
+          project_number: exp.project_number,
+          description: exp.description || "",
+          amount: Number(exp.amount) || 0,
+        })),
+      });
+      toast.success("Project expenses PDF downloaded successfully!");
+    } catch (e) {
+      console.error("PDF generation error:", e);
+      toast.error("Failed to generate project expenses PDF.");
+    }
   };
 
-  // Export Self Expenses CSV
-  const exportSelfCsv = () => {
-    if (filteredSelfExpenses.length === 0) return;
-    const headers = ["Row", "Expense Date", "Description", "Amount (INR)"];
-    const rows = filteredSelfExpenses.map((exp, idx) => [
-      idx + 1,
-      `"${exp.date}"`,
-      `"${(exp.description || "").replace(/"/g, '""')}"`,
-      exp.amount || 0,
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `Self_Expenses_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Download Self Expenses PDF
+  const downloadSelfPdf = () => {
+    if (filteredSelfExpenses.length === 0) {
+      toast.warning("No self expenses to download.");
+      return;
+    }
+    try {
+      generateExpensesPdf({
+        title: "Self & Overhead Expenses Ledger",
+        category: "self",
+        expenses: filteredSelfExpenses.map((exp) => ({
+          date: exp.date,
+          description: exp.description || "",
+          amount: Number(exp.amount) || 0,
+        })),
+      });
+      toast.success("Self expenses PDF downloaded successfully!");
+    } catch (e) {
+      console.error("PDF generation error:", e);
+      toast.error("Failed to generate self expenses PDF.");
+    }
   };
 
   return (
@@ -199,22 +207,8 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      {/* KPI Stats Cards - Calculated Separately */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-        {/* Total Combined */}
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm space-y-1">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-medium uppercase tracking-wider">
-              Total Expenditure
-            </span>
-            <IndianRupee className="w-4 h-4 text-slate-400" />
-          </div>
-          <p className="text-xl sm:text-2xl font-black text-white font-mono">
-            ₹{totalAmount.toLocaleString("en-IN")}
-          </p>
-          <span className="text-[10px] text-slate-500">{expenses.length} total entries</span>
-        </div>
-
+      {/* KPI Stats Cards - Project Expenses & Self Expenses */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         {/* Project Expenses KPI */}
         <div className="p-4 rounded-xl bg-slate-900/80 border border-amber-500/30 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-amber-400">
@@ -250,27 +244,6 @@ export default function ExpensesPage() {
           </p>
           <span className="text-[10px] text-slate-400">Shop, personal draw, vehicle & tools</span>
         </div>
-
-        {/* Ratio / Split */}
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm space-y-1">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-medium uppercase tracking-wider">
-              Expense Distribution
-            </span>
-            <TrendingDown className="w-4 h-4 text-emerald-400" />
-          </div>
-          <p className="text-sm font-bold text-slate-200 mt-1">
-            <span className="text-amber-400 font-mono">
-              {totalAmount > 0 ? Math.round((projectTotalAmount / totalAmount) * 100) : 0}%
-            </span>{" "}
-            Project /{" "}
-            <span className="text-emerald-400 font-mono">
-              {totalAmount > 0 ? Math.round((selfTotalAmount / totalAmount) * 100) : 0}%
-            </span>{" "}
-            Self
-          </p>
-          <span className="text-[10px] text-slate-500">Calculated & tracked independently</span>
-        </div>
       </div>
 
       {/* Search Bar & 3 Filter Options: All, Project, Self */}
@@ -282,7 +255,7 @@ export default function ExpensesPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search expenses by description, project #, client name..."
+            placeholder="Search expenses by description, client name, place..."
             className="w-full pl-10 pr-4 py-2.5 sm:py-2 bg-slate-950/60 border border-slate-800 rounded-xl text-base sm:text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
           />
         </div>
@@ -360,7 +333,7 @@ export default function ExpensesPage() {
           {/* ======================================================== */}
           {(activeFilter === "all" || activeFilter === "project") && (
             <div className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-1">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
                     <Briefcase className="w-4 h-4" />
@@ -378,14 +351,26 @@ export default function ExpensesPage() {
                   </div>
                 </div>
 
-                <Button
-                  onClick={() => openRecordModal("project")}
-                  size="sm"
-                  className="h-8 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Project Expense</span>
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    onClick={downloadProjectPdf}
+                    variant="outline"
+                    size="sm"
+                    className="h-8 bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 text-xs font-semibold gap-1.5 shadow-sm"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Download PDF</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => openRecordModal("project")}
+                    size="sm"
+                    className="h-8 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold gap-1 shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Project Expense</span>
+                  </Button>
+                </div>
               </div>
 
               {filteredProjectExpenses.length === 0 ? (
@@ -397,57 +382,27 @@ export default function ExpensesPage() {
                   </p>
                 </div>
               ) : (
-                /* Excel Spreadsheet: Project_Expenses_Ledger.xlsx */
-                <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950">
-                  {/* Excel Green Ribbon */}
-                  <div className="bg-[#107c41] px-4 py-2 flex flex-wrap items-center justify-between text-white border-b border-emerald-800 text-xs">
-                    <div className="flex items-center gap-2">
-                      <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
-                      <span className="font-bold tracking-wide">Project_Expenses_Ledger.xlsx</span>
-                      <span className="bg-emerald-900/60 text-emerald-200 text-[10px] px-2 py-0.5 rounded font-mono font-semibold">
-                        AutoSave [ON]
-                      </span>
-                      <span className="text-[11px] text-emerald-100 hidden sm:inline ml-2">
-                        Showing {filteredProjectExpenses.length} entries
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={exportProjectCsv}
-                        className="flex items-center gap-1.5 px-3 py-1 bg-emerald-800 hover:bg-emerald-700 text-white rounded font-medium text-xs shadow-sm transition-colors border border-emerald-600"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Export Excel (.CSV)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Excel Grid */}
+                <div className="rounded-2xl overflow-hidden border border-slate-800 shadow-sm bg-slate-950">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[750px]">
                       <thead>
-                        <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-700">
-                          <th className="py-2 px-3 w-12 text-center border-r border-slate-700/80 bg-slate-900/90 text-slate-500 font-mono select-none">
-                            ◢
+                        <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-800">
+                          <th className="py-2.5 px-3 w-12 text-center border-r border-slate-800 bg-slate-900/90 text-slate-500 font-mono select-none">
+                            #
                           </th>
-                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-32">
-                            <div className="text-[10px] text-emerald-400 font-mono">A</div>
+                          <th className="py-2.5 px-4 border-r border-slate-800 font-bold w-32">
                             DATE
                           </th>
-                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-52">
-                            <div className="text-[10px] text-emerald-400 font-mono">B</div>
-                            PROJECT & CUSTOMER
+                          <th className="py-2.5 px-4 border-r border-slate-800 font-bold w-52">
+                            PROJECT &amp; CUSTOMER
                           </th>
-                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
-                            <div className="text-[10px] text-emerald-400 font-mono">C</div>
+                          <th className="py-2.5 px-4 border-r border-slate-800 font-bold">
                             DESCRIPTION / PURPOSE
                           </th>
-                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-right w-36">
-                            <div className="text-[10px] text-emerald-400 font-mono">D</div>
+                          <th className="py-2.5 px-4 border-r border-slate-800 font-bold text-right w-36">
                             AMOUNT (₹)
                           </th>
                           <th className="py-2.5 px-3 font-bold text-center w-16">
-                            <div className="text-[10px] text-emerald-400 font-mono">E</div>
                             ACTION
                           </th>
                         </tr>
@@ -456,9 +411,9 @@ export default function ExpensesPage() {
                         {filteredProjectExpenses.map((exp, idx) => (
                           <tr
                             key={exp.id}
-                            className="hover:bg-emerald-500/10 transition-colors group border-b border-slate-800/80"
+                            className="hover:bg-slate-900/70 transition-colors group border-b border-slate-800/80"
                           >
-                            <td className="py-2.5 px-3 text-center bg-slate-900/70 border-r border-slate-800 text-slate-400 select-none text-[11px] font-mono group-hover:text-emerald-400 group-hover:bg-emerald-950/30">
+                            <td className="py-2.5 px-3 text-center bg-slate-900/50 border-r border-slate-800 text-slate-400 select-none text-[11px] font-mono group-hover:text-amber-400">
                               {idx + 1}
                             </td>
 
@@ -468,16 +423,16 @@ export default function ExpensesPage() {
 
                             <td className="py-2.5 px-4 border-r border-slate-800 font-sans">
                               <Link
-                                href="/dashboard/projects"
-                                className="font-bold text-white hover:text-emerald-400 transition-colors block"
+                                href={exp.project_id ? `/dashboard/projects/${exp.project_id}` : "/dashboard/projects"}
+                                className="font-bold text-white hover:text-amber-400 transition-colors block"
                               >
-                                {exp.name || "Project"}
+                                <span>{exp.name || "Project"}</span>
+                                {exp.place && (
+                                  <span className="text-slate-400 text-xs font-normal ml-1.5">
+                                    ({exp.place})
+                                  </span>
+                                )}
                               </Link>
-                              {exp.project_number && (
-                                <span className="text-[10px] text-amber-400 font-mono font-semibold">
-                                  {exp.project_number}
-                                </span>
-                              )}
                             </td>
 
                             <td className="py-2.5 px-4 border-r border-slate-800 text-slate-200 font-sans">
@@ -500,45 +455,7 @@ export default function ExpensesPage() {
                           </tr>
                         ))}
                       </tbody>
-
-                      {/* Accounting Totals Row */}
-                      <tfoot>
-                        <tr className="bg-slate-900/90 font-bold border-t-2 border-slate-700 border-b-4 border-double border-slate-600 text-xs">
-                          <td className="py-3 px-3 text-center bg-slate-950 border-r border-slate-700 text-emerald-400 font-mono">
-                            Σ
-                          </td>
-                          <td colSpan={3} className="py-3 px-4 border-r border-slate-700 text-slate-200 uppercase tracking-wider text-[11px]">
-                            Total Project Expenses ({filteredProjectExpenses.length} entries)
-                          </td>
-                          <td className="py-3 px-4 border-r border-slate-700 text-right font-mono text-amber-400 text-sm">
-                            ₹{filteredProjectTotal.toLocaleString("en-IN")}
-                          </td>
-                          <td className="py-3 px-3"></td>
-                        </tr>
-                      </tfoot>
                     </table>
-                  </div>
-
-                  {/* Bottom Sheet Tab & Status Bar */}
-                  <div className="bg-slate-900 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-[11px] text-slate-400 select-none">
-                    <div className="flex items-center gap-1">
-                      <span className="px-3 py-1 bg-slate-950 text-emerald-400 font-semibold rounded-t border-t-2 border-emerald-500 border-x border-slate-800 flex items-center gap-1.5">
-                        <FileSpreadsheet className="w-3 h-3 text-emerald-400" />
-                        Sheet1 - Project Expenses
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4 font-mono text-[10px]">
-                      <span>READY</span>
-                      <span className="border-l border-slate-700 pl-3">COUNT: {filteredProjectExpenses.length}</span>
-                      <span className="border-l border-slate-700 pl-3 text-amber-400 font-bold">
-                        SUM: ₹{filteredProjectTotal.toLocaleString("en-IN")}
-                      </span>
-                      {filteredProjectExpenses.length > 0 && (
-                        <span className="border-l border-slate-700 pl-3 text-slate-300 hidden sm:inline">
-                          AVERAGE: ₹{Math.round(filteredProjectTotal / filteredProjectExpenses.length).toLocaleString("en-IN")}
-                        </span>
-                      )}
-                    </div>
                   </div>
                 </div>
               )}
@@ -550,14 +467,14 @@ export default function ExpensesPage() {
           {/* ======================================================== */}
           {(activeFilter === "all" || activeFilter === "self") && (
             <div className="space-y-3 pt-2">
-              <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-1">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                     <User className="w-4 h-4" />
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                      <span>Self & Overhead Expenses</span>
+                      <span>Self &amp; Overhead Expenses</span>
                       <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                         Total: ₹{filteredSelfTotal.toLocaleString("en-IN")}
                       </span>
@@ -568,14 +485,26 @@ export default function ExpensesPage() {
                   </div>
                 </div>
 
-                <Button
-                  onClick={() => openRecordModal("self")}
-                  size="sm"
-                  className="h-8 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Self Expense</span>
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    onClick={downloadSelfPdf}
+                    variant="outline"
+                    size="sm"
+                    className="h-8 bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 text-xs font-semibold gap-1.5 shadow-sm"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Download PDF</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => openRecordModal("self")}
+                    size="sm"
+                    className="h-8 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold gap-1 shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Self Expense</span>
+                  </Button>
+                </div>
               </div>
 
               {filteredSelfExpenses.length === 0 ? (
@@ -587,53 +516,24 @@ export default function ExpensesPage() {
                   </p>
                 </div>
               ) : (
-                /* Excel Spreadsheet: Self_Expenses_Ledger.xlsx */
-                <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950">
-                  {/* Excel Green Ribbon */}
-                  <div className="bg-[#107c41] px-4 py-2 flex flex-wrap items-center justify-between text-white border-b border-emerald-800 text-xs">
-                    <div className="flex items-center gap-2">
-                      <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
-                      <span className="font-bold tracking-wide">Self_Expenses_Ledger.xlsx</span>
-                      <span className="bg-emerald-900/60 text-emerald-200 text-[10px] px-2 py-0.5 rounded font-mono font-semibold">
-                        AutoSave [ON]
-                      </span>
-                      <span className="text-[11px] text-emerald-100 hidden sm:inline ml-2">
-                        Showing {filteredSelfExpenses.length} entries
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={exportSelfCsv}
-                        className="flex items-center gap-1.5 px-3 py-1 bg-emerald-800 hover:bg-emerald-700 text-white rounded font-medium text-xs shadow-sm transition-colors border border-emerald-600"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Export Excel (.CSV)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Excel Grid */}
+                <div className="rounded-2xl overflow-hidden border border-slate-800 shadow-sm bg-slate-950">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[700px]">
                       <thead>
-                        <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-700">
-                          <th className="py-2 px-3 w-12 text-center border-r border-slate-700/80 bg-slate-900/90 text-slate-500 font-mono select-none">
-                            ◢
+                        <tr className="bg-slate-900 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-800">
+                          <th className="py-2.5 px-3 w-12 text-center border-r border-slate-800 bg-slate-900/90 text-slate-500 font-mono select-none">
+                            #
                           </th>
-                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold w-32">
-                            <div className="text-[10px] text-emerald-400 font-mono">A</div>
+                          <th className="py-2.5 px-4 border-r border-slate-800 font-bold w-32">
                             DATE
                           </th>
-                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold">
-                            <div className="text-[10px] text-emerald-400 font-mono">B</div>
+                          <th className="py-2.5 px-4 border-r border-slate-800 font-bold">
                             DESCRIPTION / PURPOSE
                           </th>
-                          <th className="py-2.5 px-4 border-r border-slate-700/80 font-bold text-right w-36">
-                            <div className="text-[10px] text-emerald-400 font-mono">C</div>
+                          <th className="py-2.5 px-4 border-r border-slate-800 font-bold text-right w-36">
                             AMOUNT (₹)
                           </th>
                           <th className="py-2.5 px-3 font-bold text-center w-16">
-                            <div className="text-[10px] text-emerald-400 font-mono">D</div>
                             ACTION
                           </th>
                         </tr>
@@ -642,9 +542,9 @@ export default function ExpensesPage() {
                         {filteredSelfExpenses.map((exp, idx) => (
                           <tr
                             key={exp.id}
-                            className="hover:bg-emerald-500/10 transition-colors group border-b border-slate-800/80"
+                            className="hover:bg-slate-900/70 transition-colors group border-b border-slate-800/80"
                           >
-                            <td className="py-2.5 px-3 text-center bg-slate-900/70 border-r border-slate-800 text-slate-400 select-none text-[11px] font-mono group-hover:text-emerald-400 group-hover:bg-emerald-950/30">
+                            <td className="py-2.5 px-3 text-center bg-slate-900/50 border-r border-slate-800 text-slate-400 select-none text-[11px] font-mono group-hover:text-emerald-400">
                               {idx + 1}
                             </td>
 
@@ -672,45 +572,7 @@ export default function ExpensesPage() {
                           </tr>
                         ))}
                       </tbody>
-
-                      {/* Accounting Totals Row */}
-                      <tfoot>
-                        <tr className="bg-slate-900/90 font-bold border-t-2 border-slate-700 border-b-4 border-double border-slate-600 text-xs">
-                          <td className="py-3 px-3 text-center bg-slate-950 border-r border-slate-700 text-emerald-400 font-mono">
-                            Σ
-                          </td>
-                          <td colSpan={2} className="py-3 px-4 border-r border-slate-700 text-slate-200 uppercase tracking-wider text-[11px]">
-                            Total Self Expenses ({filteredSelfExpenses.length} entries)
-                          </td>
-                          <td className="py-3 px-4 border-r border-slate-700 text-right font-mono text-emerald-400 text-sm">
-                            ₹{filteredSelfTotal.toLocaleString("en-IN")}
-                          </td>
-                          <td className="py-3 px-3"></td>
-                        </tr>
-                      </tfoot>
                     </table>
-                  </div>
-
-                  {/* Bottom Sheet Tab & Status Bar */}
-                  <div className="bg-slate-900 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-[11px] text-slate-400 select-none">
-                    <div className="flex items-center gap-1">
-                      <span className="px-3 py-1 bg-slate-950 text-emerald-400 font-semibold rounded-t border-t-2 border-emerald-500 border-x border-slate-800 flex items-center gap-1.5">
-                        <FileSpreadsheet className="w-3 h-3 text-emerald-400" />
-                        Sheet1 - Self Expenses
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4 font-mono text-[10px]">
-                      <span>READY</span>
-                      <span className="border-l border-slate-700 pl-3">COUNT: {filteredSelfExpenses.length}</span>
-                      <span className="border-l border-slate-700 pl-3 text-emerald-400 font-bold">
-                        SUM: ₹{filteredSelfTotal.toLocaleString("en-IN")}
-                      </span>
-                      {filteredSelfExpenses.length > 0 && (
-                        <span className="border-l border-slate-700 pl-3 text-slate-300 hidden sm:inline">
-                          AVERAGE: ₹{Math.round(filteredSelfTotal / filteredSelfExpenses.length).toLocaleString("en-IN")}
-                        </span>
-                      )}
-                    </div>
                   </div>
                 </div>
               )}

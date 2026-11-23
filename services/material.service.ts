@@ -18,7 +18,7 @@ export function isValidUUID(id?: string | null): boolean {
 
 const MATERIAL_COLUMNS = "id, name, cat, brand, unit, created_at, updated_at";
 const MATERIAL_LIST_COLUMNS =
-  "id, project_id, title, status, notes, created_at, updated_at, projects(project_number, name)";
+  "id, project_id, title, status, notes, created_at, updated_at, projects(project_number, name, place)";
 const MATERIAL_LIST_ITEM_COLUMNS =
   "id, list_id, material_id, name, brand, unit, qty, is_purchased, created_at";
 
@@ -28,6 +28,7 @@ interface MaterialListDbRow {
   projects?: {
     project_number?: string;
     name?: string;
+    place?: string | null;
   } | null;
   title: string;
   status?: string;
@@ -219,7 +220,7 @@ export async function getMaterialListsService(): Promise<{ data: MaterialList[];
 
         const { data, error } = await supabase
           .from("material_lists")
-          .select("id, project_id, title, status, notes, created_at, updated_at, projects(project_number, name), material_list_items(id)")
+          .select("id, project_id, title, status, notes, created_at, updated_at, projects(project_number, name, place), material_list_items(id)")
           .order("created_at", { ascending: false });
 
         if (error) {
@@ -232,6 +233,7 @@ export async function getMaterialListsService(): Promise<{ data: MaterialList[];
           project_id: row.project_id || null,
           project_number: row.projects?.project_number,
           project_name: row.projects?.name,
+          project_place: row.projects?.place || null,
           client_name: row.projects?.name,
           title: row.title,
           status: row.status || "Draft",
@@ -268,7 +270,7 @@ export async function getMaterialListsByProjectIdService(
 
         const { data, error } = await supabase
           .from("material_lists")
-          .select("id, project_id, title, status, notes, created_at, updated_at, projects(project_number, name), material_list_items(id)")
+          .select("id, project_id, title, status, notes, created_at, updated_at, projects(project_number, name, place), material_list_items(id)")
           .eq("project_id", projectId)
           .order("created_at", { ascending: false });
 
@@ -282,6 +284,7 @@ export async function getMaterialListsByProjectIdService(
           project_id: row.project_id || null,
           project_number: row.projects?.project_number,
           project_name: row.projects?.name,
+          project_place: row.projects?.place || null,
           title: row.title || "Untitled List",
           status: row.status || "Draft",
           notes: row.notes,
@@ -343,6 +346,7 @@ export async function getMaterialListByIdService(
       project_id: listRow.project_id || null,
       project_number: listRow.projects?.project_number,
       project_name: listRow.projects?.name,
+      project_place: listRow.projects?.place || null,
       client_name: listRow.projects?.name,
       title: listRow.title,
       status: listRow.status || "Draft",

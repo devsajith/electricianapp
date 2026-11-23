@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Download,
+  Printer,
   Loader2,
   FolderPlus,
   FolderCheck,
@@ -19,6 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { Quotation, QuotationStatus } from "@/lib/types/quotation";
+import { generateQuotationPdf } from "@/lib/utils/pdf-generator";
+import { VOLTERA_HEADER_BASE64 } from "@/lib/utils/voltera-header";
 import {
   getQuotationByIdAction,
   updateQuotationStatusAction,
@@ -99,18 +102,44 @@ export default function QuotationDetailPage({
     }
   };
 
-  // Direct 1-Click Instant PDF & Print Generator (Instant vector resolution, zero freeze)
+  // Direct 1-Click Instant Branded PDF Generator
   const handleDownloadPdf = () => {
     if (!quotation) return;
     setDownloadingPdf(true);
     try {
-      window.print();
+      generateQuotationPdf({
+        quotationNumber: quotation.quotation_number,
+        quotationDate:
+          quotation.quotation_date ||
+          (quotation.created_at
+            ? new Date(quotation.created_at).toLocaleDateString("en-GB")
+            : new Date().toLocaleDateString("en-GB")),
+        clientName: quotation.client_name,
+        clientPhone: quotation.client_phone || null,
+        clientAddress: quotation.client_address || null,
+        clientPlace: quotation.client_place || null,
+        projectType: quotation.project_type || null,
+        subject: quotation.subject || null,
+        introText: quotation.intro_text || null,
+        items: (quotation.items || []).map((it) => ({
+          description: it.description,
+          unit: it.unit,
+          rate: Number(it.rate) || 0,
+        })),
+        terms: quotation.terms,
+      });
+      toast.success("Quotation PDF downloaded successfully!");
     } catch (err) {
-      console.error("PDF Print error:", err);
-      toast.error("Failed to open print / PDF dialog.");
+      console.error("PDF download error:", err);
+      // Graceful fallback to print
+      window.print();
     } finally {
       setTimeout(() => setDownloadingPdf(false), 600);
     }
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   if (loading) {
@@ -228,12 +257,13 @@ export default function QuotationDetailPage({
             )}
           </Button>
 
-          {/* Simple Direct PDF Download Button */}
+          {/* Direct Branded PDF Download Button */}
           <Button
             onClick={handleDownloadPdf}
             disabled={downloadingPdf}
             size="sm"
             className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 shadow-md active:scale-95 transition-all"
+            title="Download official branded PDF"
           >
             {downloadingPdf ? (
               <>
@@ -246,6 +276,18 @@ export default function QuotationDetailPage({
                 <span>Download PDF</span>
               </>
             )}
+          </Button>
+
+          {/* Print Button */}
+          <Button
+            onClick={handlePrint}
+            variant="outline"
+            size="sm"
+            className="border-slate-700 bg-slate-800 text-slate-200 hover:text-white text-xs gap-1.5 active:scale-95 transition-all"
+            title="Print Quotation"
+          >
+            <Printer className="w-4 h-4 text-amber-400" />
+            <span>Print</span>
           </Button>
 
           {quotation.status === "Draft" && (
@@ -322,15 +364,14 @@ export default function QuotationDetailPage({
           className="quotation-print-sheet w-full max-w-[800px] bg-white text-slate-900 rounded-xl shadow-2xl p-6 sm:p-10 border border-slate-200 flex flex-col justify-between"
         >
           <div>
-            {/* Header: Company Name & Subtitle */}
-            <div className="text-center pb-2">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#1a365d]">
-                Pandali Electricals
-              </h1>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Electrical Contractors & Suppliers
-              </p>
-              <div className="w-full border-b border-slate-800 mt-3"></div>
+            {/* Header: Official Voltera Brand Banner */}
+            <div className="pb-2">
+              <img
+                src={VOLTERA_HEADER_BASE64}
+                alt="Voltera Electrical & Plumbing"
+                className="w-full h-auto object-contain max-h-[105px] mx-auto"
+              />
+              <div className="w-full border-b border-slate-200 mt-2"></div>
             </div>
 
             {/* Document Title */}
@@ -468,7 +509,7 @@ export default function QuotationDetailPage({
             {/* Authorised Signatory Block */}
             <div className="mt-6 pt-2">
               <div className="text-xs text-slate-900">
-                For <strong className="font-bold">Pandali Electricals</strong>
+                For <strong className="font-bold">Voltera Electrical and Plumbing Solutions</strong>
               </div>
               <div className="h-14 sm:h-16"></div>
               <div className="text-xs text-slate-900 font-medium">
@@ -479,7 +520,7 @@ export default function QuotationDetailPage({
 
           {/* Letterhead Footer */}
           <div className="pt-4 border-t border-slate-200 mt-6 text-center text-[10px] sm:text-[11px] text-slate-500">
-            Pandali Electricals | Hyderabad | +91 98765 43210 | info@pandalielectricals.example
+            Voltera Electrical &amp; Plumbing | Adimali, Kerala | +91 99951 03204 | volteraelectricals68@gmail.com
           </div>
         </div>
       </div>
