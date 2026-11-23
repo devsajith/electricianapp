@@ -14,7 +14,7 @@ function drawVolteraHeader(doc: jsPDF): number {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(15);
     doc.setTextColor(30, 58, 95);
-    doc.text("Voltera Electrical & Plumbing Solutions", 15, 18);
+    doc.text("Voltera Electricals & Plumbing Solutions", 15, 18);
   }
 
   // Decorative Separator Line under header
@@ -41,7 +41,7 @@ function drawVolteraSignatory(doc: jsPDF, finalY: number): void {
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 58, 95);
-  doc.text("For Voltera Electrical and Plumbing Solutions", pageWidth - 15, signY, {
+  doc.text("For Voltera Electricals and Plumbing Solutions", pageWidth - 15, signY, {
     align: "right",
   });
 
@@ -838,7 +838,6 @@ export function generateQuotationPdf({
   clientPlace,
   projectType,
   subject,
-  introText,
   items,
   terms,
 }: GenerateQuotationPdfOptions) {

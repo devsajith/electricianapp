@@ -259,7 +259,7 @@ export async function getLabourEntriesService(
     }
 
     // Fetch worker names to attach to records
-    let workerMap = new Map<string, string>();
+    const workerMap = new Map<string, string>();
     try {
       const { data: workersData } = await supabase.from("workers").select("id, name");
       if (workersData) {
@@ -394,7 +394,7 @@ export async function createLabourEntryService(input: CreateLabourEntryDTO): Pro
 
     const otNum: number = attendanceStatus === "absent" ? 0 : parsedOt;
 
-    let insertPayload: Record<string, unknown> = {
+    const insertPayload: Record<string, unknown> = {
       worker_id: input.worker_id,
       project_id: input.project_id || null,
       work_date: input.date,

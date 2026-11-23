@@ -4,7 +4,6 @@ import React, { useState, useMemo, useCallback } from "react";
 import {
   BarChart3,
   Calendar,
-  Download,
   Printer,
   TrendingUp,
   TrendingDown,
@@ -341,87 +340,6 @@ export function ReportsClient({
       .sort((a, b) => b.amount - a.amount);
   }, [periodExpenses, totalPeriodExpenses]);
 
-  // ===================== CSV EXPORT FUNCTIONS =====================
-  const handleExportCSV = () => {
-    if (activeTab === "revenue") {
-      // Export Revenue Report
-      const headers = [
-        "Project Number",
-        "Client Name",
-        "Project Type",
-        "Status",
-        `Revenue in Period (${startDate || "All"} to ${endDate || "All"})`,
-        "Lifetime Cumulative Paid",
-        "Estimated Contract Value",
-        "Remaining Balance",
-      ];
-
-      const rows = projectRevenueMap.map((item) => {
-        const remaining = Math.max(
-          0,
-          item.estimatedTotal - item.lifetimeRevenue
-        );
-        return [
-          `"${item.project.project_number}"`,
-          `"${item.project.name}"`,
-          `"${item.project.type || ""}"`,
-          `"${item.project.status || ""}"`,
-          item.periodRevenue,
-          item.lifetimeRevenue,
-          item.estimatedTotal,
-          remaining,
-        ].join(",");
-      });
-
-      const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute(
-        "download",
-        `revenue-report-${startDate || "all"}-to-${endDate || "all"}.csv`
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } else {
-      // Export Payment Report
-      const headers = [
-        "Payment Date",
-        "Project Number",
-        "Client Name",
-        "Payment Type",
-        "Payment Method",
-        "Reference / UTR",
-        "Amount (INR)",
-        "Notes",
-      ];
-
-      const rows = filteredPayments.map((p) => [
-        `"${p.payment_date || ""}"`,
-        `"${p.projects?.project_number || ""}"`,
-        `"${p.projects?.name || ""}"`,
-        `"${p.payment_info || "Payment"}"`,
-        `"${p.method || ""}"`,
-        `"${p.payment_info || ""}"`,
-        p.amount,
-        `""`,
-      ].join(","));
-
-      const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute(
-        "download",
-        `payment-report-${startDate || "all"}-to-${endDate || "all"}.csv`
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  };
-
   const getMethodBadge = (method: string) => {
     switch (method?.toUpperCase()) {
       case "UPI":
@@ -507,14 +425,6 @@ export function ReportsClient({
         </div>
 
         <div className="flex items-center gap-2 no-print">
-          <Button
-            onClick={handleExportCSV}
-            variant="outline"
-            className="border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs gap-1.5 shadow-sm"
-          >
-            <Download className="w-3.5 h-3.5 text-amber-400" />
-            <span>Export CSV</span>
-          </Button>
           <Button
             onClick={() => window.print()}
             className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 shadow-md"

@@ -5,11 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  Download,
   Trash2,
-  Building2,
-  Layers,
-  Calendar,
   FileSpreadsheet,
   AlertTriangle,
   RefreshCw,
@@ -18,7 +14,6 @@ import {
   ListPlus,
   Search,
   X,
-  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -159,38 +154,6 @@ export default function MaterialListDetailPage({
     } finally {
       setIsGeneratingPdf(false);
     }
-  };
-
-  // Export CSV
-  const handleExportCsv = () => {
-    if (!list || items.length === 0) return;
-
-    const headers = ["#", "Material Name", "Category", "Brand", "Unit", "Quantity"];
-    const rows = items.map((it, idx) => [
-      idx + 1,
-      `"${it.name.replace(/"/g, '""')}"`,
-      `"${(it.cat || "—").replace(/"/g, '""')}"`,
-      `"${(it.brand || "—").replace(/"/g, '""')}"`,
-      `"${it.unit}"`,
-      it.qty,
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [
-        `"List Title: ${list.title}"`,
-        `"Destination: ${list.project_name || "General / Shop Stock"}"`,
-        headers.join(","),
-        ...rows.map((r) => r.join(",")),
-      ].join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${list.title.replace(/[^a-zA-Z0-9]/g, "_")}_Materials.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   // Open Catalog Modal & load data if needed
@@ -412,8 +375,6 @@ export default function MaterialListDetailPage({
     );
   }
 
-  const isProject = Boolean(list.project_id);
-
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Top Navigation */}
@@ -472,7 +433,7 @@ export default function MaterialListDetailPage({
               {list.client_name || list.project_name || "—"}
             </div>
             <div className="text-sm font-bold text-amber-400">
-              Pandali Electricals
+              Voltera Electricals
             </div>
           </div>
         </div>

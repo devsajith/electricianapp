@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Menu, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -80,6 +82,18 @@ export function Header({ userEmail, onMobileMenuToggle }: HeaderProps) {
                   <Menu className="w-5 h-5" />
                 </button>
               )}
+
+              <Link href="/dashboard" className="md:hidden flex items-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 p-0.5 flex items-center justify-center overflow-hidden">
+                  <Image
+                    src="/logo.png"
+                    alt="Logo"
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              </Link>
 
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-tight">

@@ -16,7 +16,6 @@ import {
   TrendingUp,
   Receipt,
   X,
-  Download,
   ChevronDown,
   ChevronUp,
   Users,
@@ -252,40 +251,6 @@ export default function PaymentsPage() {
     return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "Cash";
   }, [payments]);
 
-  const exportToCsv = () => {
-    if (filteredPayments.length === 0) return;
-    const headers = [
-      "Row",
-      "Payment Date",
-      "Client Name",
-      "Project Ref",
-      "Payment Method",
-      "Amount (INR)",
-    ];
-    const rows = filteredPayments.map((p, idx) => [
-      idx + 1,
-      p.payment_date || "",
-      `"${(p.projects?.name || "").replace(/"/g, '""')}"`,
-      `"${(p.projects?.project_number || "").replace(/"/g, '""')}"`,
-      `"${(p.method || "").replace(/"/g, '""')}"`,
-      Number(p.amount) || 0,
-    ]);
-    const totalRow = ["SUM", "", "", "", "", totalFilteredReceived];
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((r) => r.join(",")), totalRow.join(",")].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `Payments_Ledger_${new Date().toISOString().slice(0, 10)}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const getMethodBadge = (method: string) => {
     const m = (method || "").toUpperCase();
     if (m === "GPAY" || m === "UPI" || m === "GOOGLE PAY") {
@@ -338,20 +303,6 @@ export default function PaymentsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {filteredPayments.length > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={exportToCsv}
-              className="border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs gap-1.5 h-9"
-              title="Export filtered records to CSV"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Export CSV</span>
-            </Button>
-          )}
-
           <Button
             type="button"
             onClick={() => setIsModalOpen(true)}
@@ -770,17 +721,6 @@ export default function PaymentsPage() {
                 </strong>
               </span>
             </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={exportToCsv}
-              className="text-xs border-slate-300 dark:border-slate-800 gap-1.5"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
-            </Button>
           </div>
         </div>
       )}

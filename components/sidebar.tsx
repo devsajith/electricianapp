@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -13,7 +14,6 @@ import {
   Wallet,
   BarChart3,
   Settings,
-  Zap,
   LogOut,
   ChevronRight,
   X,
@@ -47,15 +47,22 @@ export function Sidebar({ userEmail, mobileOpen = false, onMobileClose }: Sideba
       {/* Brand Header */}
       <div>
         <div className="h-16 px-5 flex items-center justify-between border-b border-slate-800/80">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-              <Zap className="w-5 h-5" />
+          <Link href="/dashboard" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 rounded-xl bg-slate-800/80 border border-slate-700/60 p-1 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
+              <Image
+                src="/logo.png"
+                alt="Logo"
+                width={40}
+                height={40}
+                className="w-full h-full object-contain"
+                priority
+              />
             </div>
             <div>
               <h1 className="font-bold text-white text-base leading-none">Electrician</h1>
               <span className="text-[10px] text-amber-400 font-semibold tracking-wider uppercase">Pro Dashboard</span>
             </div>
-          </div>
+          </Link>
 
           {/* Close button for mobile drawer */}
           {onMobileClose && (

@@ -94,7 +94,8 @@ export async function createProjectService(
     // Fallback if 'plans' column does not exist in database yet
     if (error && (error.code === "42703" || error.message?.toLowerCase().includes("plans"))) {
       console.warn("[ProjectService] 'plans' column not found on insert, falling back to base columns.");
-      const { plans: _, ...basePayload } = payload;
+      const basePayload = { ...payload };
+      delete (basePayload as Partial<typeof payload>).plans;
       const fallback = await supabase
         .from("projects")
         .insert([basePayload])
@@ -254,7 +255,8 @@ export async function updateProjectService(
     // Fallback if 'plans' column has not been migrated in the database
     if (error && (error.code === "42703" || error.message?.toLowerCase().includes("plans"))) {
       console.warn(`[ProjectService] 'plans' column not found on update for project ${id}, falling back.`);
-      const { plans: _, ...basePayload } = payload;
+      const basePayload = { ...payload };
+      delete (basePayload as Partial<typeof payload>).plans;
       const fallback = await supabase
         .from("projects")
         .update(basePayload)

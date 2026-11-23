@@ -672,7 +672,11 @@ export async function addMaterialListItemsBatchService(
 
     if (error) {
       if (error.message?.includes("cat")) {
-        const fallbacks = insertPayloads.map(({ cat: _, ...rest }) => rest);
+        const fallbacks = insertPayloads.map((item) => {
+          const rest = { ...item };
+          delete (rest as Partial<typeof item>).cat;
+          return rest;
+        });
         const retryRes = await supabase
           .from("material_list_items")
           .insert(fallbacks)

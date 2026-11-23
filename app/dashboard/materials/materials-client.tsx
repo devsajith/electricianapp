@@ -9,7 +9,6 @@ import {
   Eye,
   Trash2,
   FileSpreadsheet,
-  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { deleteMaterialAction } from "./actions";
@@ -66,31 +65,6 @@ export default function MaterialsClient({ initialMaterials }: Props) {
   const totalItems = materials.length;
   const electricalCount = materials.filter((m) => m.cat?.toLowerCase().includes("elec")).length;
   const plumbingCount = materials.filter((m) => m.cat?.toLowerCase().includes("plumb")).length;
-
-  const exportToCsv = () => {
-    if (filteredMaterials.length === 0) return;
-    const headers = ["Row", "Name", "Category", "Brand", "Unit"];
-    const rows = filteredMaterials.map((item, idx) => [
-      idx + 1,
-      `"${item.name.replace(/"/g, '""')}"`,
-      `"${(item.cat || "—").replace(/"/g, '""')}"`,
-      `"${(item.brand || "—").replace(/"/g, '""')}"`,
-      `"${item.unit.replace(/"/g, '""')}"`,
-    ]);
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `Materials_Catalog_${new Date().toISOString().split("T")[0]}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -197,15 +171,6 @@ export default function MaterialsClient({ initialMaterials }: Props) {
             <span className="text-[11px] text-emerald-100 hidden sm:inline ml-2">
               Showing {filteredMaterials.length} of {materials.length} records
             </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={exportToCsv}
-              className="flex items-center gap-1.5 px-3 py-1 bg-emerald-800 hover:bg-emerald-700 text-white rounded font-medium text-xs shadow-sm transition-colors border border-emerald-600"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export Excel (.CSV)</span>
-            </button>
           </div>
         </div>
 

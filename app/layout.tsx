@@ -15,8 +15,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Electrician App - Management Dashboard",
-  description: "Electrical operations, job management, estimates, materials, and expense tracking.",
+  title: "Voltera Electricals and Plumbing Solutions - Management Dashboard",
+  description: "Voltera Electricals and Plumbing Solutions, Adimali, Kerala. Electrical operations, plumbing, job management, estimates, materials, and expense tracking.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/logo.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/logo.png",
+  },
 };
 
 const themeInitScript = `

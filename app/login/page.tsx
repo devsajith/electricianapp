@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { login } from "./actions";
 import { Zap, Eye, EyeOff, Lock, Mail, ShieldCheck, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,8 +16,15 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Header Branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 mb-4 shadow-sm">
-            <Zap className="w-8 h-8 fill-current" />
+          <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-slate-900 border border-slate-800 mb-4 shadow-md">
+            <Image
+              src="/logo.png"
+              alt="Electrician App Logo"
+              width={72}
+              height={72}
+              className="w-16 h-16 object-contain"
+              priority
+            />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
             Electrician App
