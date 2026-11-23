@@ -581,7 +581,7 @@ export default function CreateEstimatePage() {
       {/* Bottom Save Action */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-800">
         <div className="text-xs text-slate-400">
-          Generated quotation will be branded with <strong className="text-white">Voltera Electrical and Plumbing Solutions</strong>.
+          Generated quotation will be branded with <strong className="text-white">Voltera Electricals and Plumbing Solutions</strong>.
         </div>
         <Button
           type="button"

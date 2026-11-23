@@ -17,7 +17,6 @@ import {
   Filter,
   Eye,
   FileSpreadsheet,
-  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getStatusStyle, PROJECT_STATUSES, PROJECT_TYPES } from "@/lib/project-utils";
@@ -108,44 +107,6 @@ export default function ProjectsPage() {
 
     return matchesStatus && matchesType && matchesSearch;
   });
-
-  // Export projects list to CSV/Excel
-  const exportToCsv = () => {
-    if (filteredProjects.length === 0) return;
-    const headers = [
-      "Row",
-      "Project Number",
-      "Customer Name",
-      "Type",
-      "Place",
-      "Start Date",
-      "End Date",
-      "Status",
-    ];
-    const rows = filteredProjects.map((p, idx) => [
-      idx + 1,
-      `"${(p.project_number || "").replace(/"/g, '""')}"`,
-      `"${(p.name || "").replace(/"/g, '""')}"`,
-      `"${(p.type || "").replace(/"/g, '""')}"`,
-      `"${(p.place || "").replace(/"/g, '""')}"`,
-      p.start_date || "",
-      p.end_date || "",
-      `"${(p.status || "").replace(/"/g, '""')}"`,
-    ]);
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((r) => r.join(",")), `Total Projects,${filteredProjects.length}`].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `Projects_Master_${new Date().toISOString().slice(0, 10)}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -257,19 +218,6 @@ export default function ProjectsPage() {
               <span className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-emerald-100 font-medium">
                 AutoSave: On
               </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={exportToCsv}
-                className="flex items-center gap-1.5 px-3 py-1 rounded bg-white/15 hover:bg-white/25 active:bg-white/30 text-white text-xs font-semibold transition-all border border-white/20 shadow-sm"
-                title="Download CSV to open in Microsoft Excel"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Export Excel (.CSV)</span>
-                <span className="sm:hidden">CSV</span>
-              </button>
             </div>
           </div>
 

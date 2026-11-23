@@ -7,28 +7,13 @@ import {
   Search,
   X,
   FolderPlus,
-  FileText,
   Wallet,
-  ReceiptIndianRupee,
   Receipt,
   Plus,
-  Clock,
-  CheckCircle2,
-  Calendar,
-  IndianRupee,
-  ArrowRight,
-  Zap,
-  Phone,
-  Settings,
-  ChevronRight,
   ChevronDown,
-  Building2,
   FolderKanban,
   FileSpreadsheet,
-  Users,
-  User,
   UserPlus,
-  MapPin,
   Loader2,
 } from "lucide-react";
 import { ProjectRecord } from "@/app/dashboard/projects/actions";
@@ -75,7 +60,6 @@ export function DashboardClient({
   initialPayments,
   initialExpenses,
   initialLabours = [],
-  initialLabourEntries = [],
   userEmail,
 }: DashboardClientProps) {
   const router = useRouter();
@@ -86,7 +70,6 @@ export function DashboardClient({
 
   // Labour state
   const [labours, setLabours] = useState<Labour[]>(initialLabours);
-  const [labourEntries] = useState<LabourEntry[]>(initialLabourEntries);
   const [isAddLabourOpen, setIsAddLabourOpen] = useState(false);
   const [workerName, setWorkerName] = useState("");
   const [workerPhone, setWorkerPhone] = useState("");
@@ -98,7 +81,7 @@ export function DashboardClient({
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(undefined);
+  const selectedProjectId = undefined;
 
   // Financial Metrics Calculation
   const currentMonthPrefix = new Date().toISOString().substring(0, 7); // YYYY-MM
@@ -107,11 +90,6 @@ export function DashboardClient({
     (p.payment_date || "").startsWith(currentMonthPrefix)
   );
   const totalMoneyInMonth = thisMonthPayments.reduce(
-    (sum, p) => sum + (Number(p.amount) || 0),
-    0
-  );
-
-  const totalMoneyInAllTime = initialPayments.reduce(
     (sum, p) => sum + (Number(p.amount) || 0),
     0
   );
@@ -145,41 +123,6 @@ export function DashboardClient({
         (p.type && p.type.toLowerCase().includes(query))
     );
   }, [initialProjects, searchQuery]);
-
-  // Compute expenses and payments per project
-  const projectStats = useMemo(() => {
-    const stats: Record<string, { expenses: number; payments: number }> = {};
-    for (const p of initialProjects) {
-      if (!p.id) continue;
-      stats[p.id] = { expenses: 0, payments: 0 };
-    }
-    for (const exp of initialExpenses) {
-      if (exp.project_id && stats[exp.project_id]) {
-        stats[exp.project_id].expenses += Number(exp.amount) || 0;
-      }
-    }
-    for (const pay of initialPayments) {
-      if (pay.project_id && stats[pay.project_id]) {
-        stats[pay.project_id].payments += Number(pay.amount) || 0;
-      }
-    }
-    return stats;
-  }, [initialProjects, initialExpenses, initialPayments]);
-
-  // Compute stats per labourer (days worked, total amount paid)
-  const labourStats = useMemo(() => {
-    const stats: Record<string, { daysCount: number; totalPaid: number }> = {};
-    for (const l of labours) {
-      stats[l.id] = { daysCount: 0, totalPaid: 0 };
-    }
-    for (const entry of labourEntries) {
-      if (stats[entry.worker_id]) {
-        stats[entry.worker_id].daysCount += 1;
-        stats[entry.worker_id].totalPaid += Number(entry.amount_paid || entry.amount || 0);
-      }
-    }
-    return stats;
-  }, [labours, labourEntries]);
 
   // Filter labours based on search query
   const filteredLabours = useMemo(() => {
@@ -381,7 +324,6 @@ export function DashboardClient({
           {displayedAvatars.map((p) => {
             const initial = p.name ? p.name.trim().charAt(0).toUpperCase() : "P";
             const colorClass = getAvatarColor(p.name);
-            const stats = p.id ? projectStats[p.id] : null;
 
             return (
               <Link

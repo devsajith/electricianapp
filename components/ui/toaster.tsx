@@ -32,8 +32,7 @@ export function Toaster() {
         let borderColor = "border-slate-200 dark:border-slate-800";
         let bgColor = "bg-white dark:bg-slate-900";
         let icon = <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />;
-        let titleColor = "text-slate-900 dark:text-white";
-        let indicatorColor = "bg-blue-500";
+        const titleColor = "text-slate-900 dark:text-white";
 
         if (t.type === "success") {
           borderColor = "border-emerald-300 dark:border-emerald-500/40";
@@ -41,28 +40,24 @@ export function Toaster() {
           icon = (
             <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           );
-          indicatorColor = "bg-emerald-500";
         } else if (t.type === "error") {
           borderColor = "border-rose-300 dark:border-rose-500/40";
           bgColor = "bg-rose-50/90 dark:bg-[#221316]";
           icon = (
             <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
           );
-          indicatorColor = "bg-rose-500";
         } else if (t.type === "warning") {
           borderColor = "border-amber-300 dark:border-amber-500/40";
           bgColor = "bg-amber-50/90 dark:bg-[#211a12]";
           icon = (
             <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
           );
-          indicatorColor = "bg-amber-500";
         } else if (t.type === "info") {
           borderColor = "border-blue-300 dark:border-blue-500/40";
           bgColor = "bg-blue-50/90 dark:bg-[#121926]";
           icon = (
             <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
           );
-          indicatorColor = "bg-blue-500";
         }
 
         return (

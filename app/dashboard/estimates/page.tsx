@@ -14,7 +14,6 @@ import {
   RefreshCw,
   MapPin,
   FileSpreadsheet,
-  Download,
   ListOrdered,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -108,34 +107,6 @@ export default function EstimatesPage() {
   const draftCount = estimates.filter((e) => e.status === "Draft").length;
   const approvedCount = estimates.filter((e) => e.status === "Approved").length;
 
-  const exportToCsv = () => {
-    if (filteredEstimates.length === 0) return;
-    const headers = ["Row", "Quote #", "Date", "Client", "Place", "Items Count", "Status"];
-    const rows = filteredEstimates.map((est, idx) => {
-      const client = est.client_name || "Client";
-      const place = est.client_place || "—";
-      const itemsCount = est.items?.length || 1;
-      const dateStr = est.quotation_date || (est.created_at ? new Date(est.created_at).toLocaleDateString() : "N/A");
-      return [
-        idx + 1,
-        `"${est.quotation_number}"`,
-        `"${dateStr}"`,
-        `"${client.replace(/"/g, '""')}"`,
-        `"${place.replace(/"/g, '""')}"`,
-        itemsCount,
-        `"${est.status}"`,
-      ];
-    });
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Quotations_Register_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
@@ -146,7 +117,7 @@ export default function EstimatesPage() {
               <FileText className="w-5 h-5" />
             </span>
             <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-              Pandali Electricals Quotations
+              Voltera Electricals Quotations
             </h1>
           </div>
           <p className="text-xs text-slate-400">
@@ -283,15 +254,6 @@ export default function EstimatesPage() {
               <span className="text-[11px] text-emerald-100 hidden sm:inline ml-2">
                 Showing {filteredEstimates.length} of {estimates.length} quotations
               </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={exportToCsv}
-                className="flex items-center gap-1.5 px-3 py-1 bg-emerald-800 hover:bg-emerald-700 text-white rounded font-medium text-xs shadow-sm transition-colors border border-emerald-600"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export Excel (.CSV)</span>
-              </button>
             </div>
           </div>
 

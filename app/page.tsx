@@ -3,9 +3,9 @@ import { LandingPage } from "@/components/landing-page";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Pandali Electrical and Plumbing Solutions | Professional Services",
+  title: "Voltera Electricals and Plumbing Solutions | Professional Services",
   description:
-    "Certified licensed contractor delivering residential wiring, sanitary plumbing, 3-phase commercial switchgear, and 24/7 emergency repair solutions.",
+    "Voltera Electricals and Plumbing Solutions - Adimali, Kerala. Certified licensed contractor delivering residential wiring, sanitary plumbing, 3-phase commercial switchgear, and 24/7 emergency repair solutions.",
 };
 
 export default async function Home() {

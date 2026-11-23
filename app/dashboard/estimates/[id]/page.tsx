@@ -10,7 +10,6 @@ import {
   Loader2,
   FolderPlus,
   FolderCheck,
-  CheckCircle2,
   XCircle,
   Send,
   Trash2,
@@ -509,7 +508,7 @@ export default function QuotationDetailPage({
             {/* Authorised Signatory Block */}
             <div className="mt-6 pt-2">
               <div className="text-xs text-slate-900">
-                For <strong className="font-bold">Voltera Electrical and Plumbing Solutions</strong>
+                For <strong className="font-bold">Voltera Electricals and Plumbing Solutions</strong>
               </div>
               <div className="h-14 sm:h-16"></div>
               <div className="text-xs text-slate-900 font-medium">
@@ -520,7 +519,7 @@ export default function QuotationDetailPage({
 
           {/* Letterhead Footer */}
           <div className="pt-4 border-t border-slate-200 mt-6 text-center text-[10px] sm:text-[11px] text-slate-500">
-            Voltera Electrical &amp; Plumbing | Adimali, Kerala | +91 99951 03204 | volteraelectricals68@gmail.com
+            Voltera Electricals and Plumbing Solutions | Adimali, Kerala | +91 99951 03204 | volteraelectricals68@gmail.com
           </div>
         </div>
       </div>

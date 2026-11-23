@@ -7,7 +7,6 @@ import {
   Users,
   Trash2,
   FileSpreadsheet,
-  Download,
   Phone,
   MapPin,
   User,
@@ -236,67 +235,6 @@ export default function LabourClient({
     0
   );
 
-  const exportLabourDirectoryCsv = () => {
-    if (filteredLabours.length === 0) return;
-    const headers = ["Row", "Name", "Phone No", "Place"];
-    const rows = filteredLabours.map((item, idx) => [
-      idx + 1,
-      `"${item.name.replace(/"/g, '""')}"`,
-      `"${item.phone.replace(/"/g, '""')}"`,
-      `"${item.place.replace(/"/g, '""')}"`,
-    ]);
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `Labour_Directory_${new Date().toISOString().split("T")[0]}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const exportWorkerLogsCsv = () => {
-    if (!selectedLabour || workerEntries.length === 0) return;
-    const headers = [
-      "Row",
-      "Date",
-      "Day",
-      "Site",
-      "Tach",
-      "OT",
-      "Amount (INR)",
-    ];
-    const rows = workerEntries.map((e, idx) => [
-      idx + 1,
-      e.date,
-      e.day,
-      `"${e.project_name.replace(/"/g, '""')}"`,
-      `"${e.tach}"`,
-      `"${e.ot}"`,
-      e.amount,
-    ]);
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `Work_Logs_${selectedLabour.name.replace(/\s+/g, "_")}_${
-        new Date().toISOString().split("T")[0]
-      }.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   // -------------------------------------------------------------
   // VIEW: DETAILS VIEW (Selected Labour Work Log Table & Save Form)
   // -------------------------------------------------------------
@@ -334,17 +272,6 @@ export default function LabourClient({
                 </span>
               </p>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={exportWorkerLogsCsv}
-              disabled={workerEntries.length === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-medium text-xs shadow-sm transition-colors border border-emerald-600"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export Work Logs (.CSV)</span>
-            </button>
           </div>
         </div>
 
@@ -743,15 +670,6 @@ export default function LabourClient({
             <span className="text-[11px] text-emerald-100 hidden sm:inline ml-2">
               Showing {filteredLabours.length} of {labours.length} records
             </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={exportLabourDirectoryCsv}
-              className="flex items-center gap-1.5 px-3 py-1 bg-emerald-800 hover:bg-emerald-700 text-white rounded font-medium text-xs shadow-sm transition-colors border border-emerald-600"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export Excel (.CSV)</span>
-            </button>
           </div>
         </div>
 

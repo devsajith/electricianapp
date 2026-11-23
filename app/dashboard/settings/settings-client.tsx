@@ -18,9 +18,9 @@ export function SettingsClient() {
   const { theme, setTheme, resolvedTheme } = useTheme();
 
   // Settings form states
-  const [companyName, setCompanyName] = useState("VoltCraft Electrical & Plumbing");
+  const [companyName, setCompanyName] = useState("Voltera Electricals and Plumbing Solutions");
   const [licenseNumber, setLicenseNumber] = useState("ME-894102-TX");
-  const [phone, setPhone] = useState("+91 98450 11223");
+  const [phone, setPhone] = useState("+91 99951 03204");
   const [hourlyRate, setHourlyRate] = useState("500");
   const [saved, setSaved] = useState(false);
 
