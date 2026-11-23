@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition, Suspense } from "react";
+import { useEffect, useState, useTransition, Suspense, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -9,7 +9,6 @@ import {
   Trash2,
   Building2,
   Layers,
-  Search,
   CheckCircle2,
   AlertTriangle,
   ListChecks,
@@ -18,6 +17,7 @@ import {
   ChevronUp,
   Edit3,
   FileDown,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +32,8 @@ import {
   initialSampleMaterials,
 } from "@/lib/types/material";
 import { generateMaterialListPdf } from "@/lib/utils/pdf-generator";
+
+const BATCH_SIZE = 40;
 
 function NewItemListContent() {
   const router = useRouter();
@@ -54,8 +56,13 @@ function NewItemListContent() {
   const [viewFilter, setViewFilter] = useState<"all" | "selected">("all");
   const [categoryFilter, setCategoryFilter] = useState<"all" | "Electrical" | "Plumbing">("all");
 
-  // Selection state map: materialId -> { qty: number, checked: boolean }
-  const [selections, setSelections] = useState<Record<string, { qty: number; checked: boolean }>>({});
+  // Selection state map: materialId -> { qty: number, checked: boolean, brand?: string }
+  const [selections, setSelections] = useState<Record<string, { qty: number; checked: boolean; brand?: string }>>({});
+
+  // Progressive load-on-scroll (infinite scroll) state for 500+ items
+  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLTableRowElement | null>(null);
 
   // Custom off-catalog items
   const [customItems, setCustomItems] = useState<CreateMaterialListItemDTO[]>([]);
@@ -87,9 +94,9 @@ function NewItemListContent() {
       setCatalog(materialsList);
 
       // Initialize default selections
-      const initialMap: Record<string, { qty: number; checked: boolean }> = {};
+      const initialMap: Record<string, { qty: number; checked: boolean; brand?: string }> = {};
       materialsList.forEach((m) => {
-        initialMap[m.id] = { qty: 1, checked: false };
+        initialMap[m.id] = { qty: 1, checked: false, brand: m.brand || "" };
       });
       setSelections(initialMap);
     });
@@ -109,10 +116,15 @@ function NewItemListContent() {
   // Toggle checkbox for a catalog material
   const handleToggleCheck = (materialId: string) => {
     setSelections((prev) => {
-      const current = prev[materialId] || { qty: 1, checked: false };
+      const current = prev[materialId] || {
+        qty: 1,
+        checked: false,
+        brand: catalog.find((c) => c.id === materialId)?.brand || "",
+      };
       return {
         ...prev,
         [materialId]: {
+          ...current,
           qty: current.qty > 0 ? current.qty : 1,
           checked: !current.checked,
         },
@@ -123,25 +135,57 @@ function NewItemListContent() {
   // Change quantity for a catalog material (automatically checks it if qty > 0)
   const handleQtyChange = (materialId: string, newQty: number) => {
     const validQty = Math.max(1, newQty);
-    setSelections((prev) => ({
-      ...prev,
-      [materialId]: {
-        qty: validQty,
-        checked: true, // Auto check when quantity is entered/modified
-      },
-    }));
+    setSelections((prev) => {
+      const current = prev[materialId] || {
+        qty: 1,
+        checked: false,
+        brand: catalog.find((c) => c.id === materialId)?.brand || "",
+      };
+      return {
+        ...prev,
+        [materialId]: {
+          ...current,
+          qty: validQty,
+          checked: true, // Auto check when quantity is entered/modified
+        },
+      };
+    });
   };
 
   // Quick increment / decrement
   const handleAdjustQty = (materialId: string, delta: number) => {
     setSelections((prev) => {
-      const current = prev[materialId] || { qty: 1, checked: false };
+      const current = prev[materialId] || {
+        qty: 1,
+        checked: false,
+        brand: catalog.find((c) => c.id === materialId)?.brand || "",
+      };
       const nextQty = Math.max(1, (Number(current.qty) || 1) + delta);
       return {
         ...prev,
         [materialId]: {
+          ...current,
           qty: nextQty,
           checked: true,
+        },
+      };
+    });
+  };
+
+  // Change brand for a catalog material (automatically checks it)
+  const handleBrandChange = (materialId: string, newBrand: string) => {
+    setSelections((prev) => {
+      const current = prev[materialId] || {
+        qty: 1,
+        checked: false,
+        brand: catalog.find((c) => c.id === materialId)?.brand || "",
+      };
+      return {
+        ...prev,
+        [materialId]: {
+          ...current,
+          brand: newBrand,
+          checked: true, // Auto check when brand is entered/modified
         },
       };
     });
@@ -192,28 +236,82 @@ function NewItemListContent() {
     if (categoryFilter === "Electrical" && !m.cat?.toLowerCase().includes("elec")) return false;
     if (categoryFilter === "Plumbing" && !m.cat?.toLowerCase().includes("plumb")) return false;
 
-    if (!searchTerm.trim()) return true;
-    const q = searchTerm.toLowerCase();
-    return (
-      m.name.toLowerCase().includes(q) ||
-      (m.cat && m.cat.toLowerCase().includes(q)) ||
-      (m.brand && m.brand.toLowerCase().includes(q)) ||
-      m.unit.toLowerCase().includes(q)
-    );
+    return true;
   });
+
+  // Reset pagination when category or view filter changes
+  useEffect(() => {
+    setVisibleCount(BATCH_SIZE);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [categoryFilter, viewFilter]);
+
+  // Load more items as user scrolls near bottom of the table
+  const handleTableScroll = useCallback(
+    (e: React.UIEvent<HTMLDivElement>) => {
+      const target = e.currentTarget;
+      if (target.scrollHeight - target.scrollTop - target.clientHeight < 250) {
+        setVisibleCount((prev) => {
+          if (prev < filteredMaterials.length) {
+            return Math.min(prev + BATCH_SIZE, filteredMaterials.length);
+          }
+          return prev;
+        });
+      }
+    },
+    [filteredMaterials.length]
+  );
+
+  // Sentinel observer for smooth infinite loading
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    const sentinel = sentinelRef.current;
+    if (!container || !sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((prev) => {
+            if (prev < filteredMaterials.length) {
+              return Math.min(prev + BATCH_SIZE, filteredMaterials.length);
+            }
+            return prev;
+          });
+        }
+      },
+      {
+        root: container,
+        rootMargin: "250px",
+        threshold: 0.05,
+      }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filteredMaterials.length, visibleCount]);
+
+  // Sliced items visible in DOM (smooth 60fps rendering even with 500+ items)
+  const visibleMaterials = filteredMaterials.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredMaterials.length;
 
   // Quick Download PDF of current selection
   const handleDownloadPdf = () => {
     const selectedCatalogItems: CreateMaterialListItemDTO[] = catalog
       .filter((m) => selections[m.id]?.checked)
-      .map((m) => ({
-        material_id: m.id,
-        name: m.name,
-        cat: m.cat || null,
-        brand: m.brand || null,
-        unit: m.unit,
-        qty: selections[m.id]?.qty || 1,
-      }));
+      .map((m) => {
+        const itemSelection = selections[m.id];
+        const chosenBrand =
+          itemSelection?.brand !== undefined ? itemSelection.brand.trim() : m.brand;
+        return {
+          material_id: m.id,
+          name: m.name,
+          cat: m.cat || null,
+          brand: chosenBrand || null,
+          unit: m.unit,
+          qty: itemSelection?.qty || 1,
+        };
+      });
 
     const allItems = [...selectedCatalogItems, ...customItems];
     if (allItems.length === 0) {
@@ -246,14 +344,19 @@ function NewItemListContent() {
     // Assemble all selected items
     const selectedCatalogItems: CreateMaterialListItemDTO[] = catalog
       .filter((m) => selections[m.id]?.checked)
-      .map((m) => ({
-        material_id: m.id,
-        name: m.name,
-        cat: m.cat || null,
-        brand: m.brand || null,
-        unit: m.unit,
-        qty: selections[m.id]?.qty || 1,
-      }));
+      .map((m) => {
+        const itemSelection = selections[m.id];
+        const chosenBrand =
+          itemSelection?.brand !== undefined ? itemSelection.brand.trim() : m.brand;
+        return {
+          material_id: m.id,
+          name: m.name,
+          cat: m.cat || null,
+          brand: chosenBrand || null,
+          unit: m.unit,
+          qty: itemSelection?.qty || 1,
+        };
+      });
 
     const finalItems = [...selectedCatalogItems, ...customItems];
 
@@ -282,7 +385,11 @@ function NewItemListContent() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div
+      className={`mx-auto space-y-4 sm:space-y-6 transition-all duration-300 ${
+        isHeaderCollapsed ? "max-w-7xl" : "max-w-4xl"
+      }`}
+    >
       {/* Top Navigation */}
       <div className="flex items-center justify-between">
         <Link href="/dashboard/item-list">
@@ -321,14 +428,23 @@ function NewItemListContent() {
                     {title.trim() || "(Untitled List)"}
                   </span>
                   {isProject ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30">
-                      <Building2 className="w-3 h-3" />
-                      <span>
-                        {projects.find((p) => p.id === selectedProjectId)
-                          ? `${projects.find((p) => p.id === selectedProjectId)?.project_number} • ${projects.find((p) => p.id === selectedProjectId)?.name}`
-                          : "Project List"}
-                      </span>
-                    </span>
+                    (() => {
+                      const proj = projects.find((p) => p.id === selectedProjectId);
+                      return (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                            <Building2 className="w-3 h-3" />
+                            <span>{proj?.name || "Project List"}</span>
+                          </span>
+                          {proj?.place && (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                              <MapPin className="w-3 h-3 text-amber-400 shrink-0" />
+                              <span>{proj.place}</span>
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
                       <Layers className="w-3 h-3" />
@@ -347,7 +463,7 @@ function NewItemListContent() {
             <button
               type="button"
               onClick={() => setIsHeaderCollapsed(false)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-950 hover:bg-slate-800 text-xs font-semibold text-slate-200 hover:text-white transition-all shrink-0 self-end sm:self-center cursor-pointer shadow-sm hover:border-slate-600"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-950 hover:bg-slate-800 text-xs font-semibold text-slate-200 hover:text-white transition-all shrink-0 self-end sm:self-center cursor-pointer shadow-sm hover:border-slate-600"
             >
               <Edit3 className="w-3.5 h-3.5 text-amber-400" />
               <span>Edit Details</span>
@@ -430,7 +546,7 @@ function NewItemListContent() {
                   <option value="">-- Choose Project --</option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id} className="bg-slate-900 text-slate-200">
-                      {p.project_number} - {p.name} {p.place ? `(${p.place})` : ""}
+                      {p.name} {p.place ? `(${p.place})` : ""}
                     </option>
                   ))}
                 </select>
@@ -467,7 +583,10 @@ function NewItemListContent() {
             </div>
 
             {/* Minimize / Proceed Button */}
-            <div className="flex items-center justify-end pt-3 border-t border-slate-800/80">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-800/80">
+              <span className="text-xs text-slate-400">
+                Form filled? Minimize details to expand the material selection table.
+              </span>
               <button
                 type="button"
                 onClick={() => {
@@ -482,10 +601,10 @@ function NewItemListContent() {
                   setErrorMsg(null);
                   setIsHeaderCollapsed(true);
                 }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 hover:text-amber-300 text-xs font-bold transition-all shadow-sm cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
               >
-                <Check className="w-3.5 h-3.5" />
-                <span>Done • Minimize Form & Select Materials ↓</span>
+                <Check className="w-4 h-4" />
+                <span>Minimize Details &amp; Open Big Selection Table ↓</span>
               </button>
             </div>
           </div>
@@ -494,46 +613,23 @@ function NewItemListContent() {
         {/* ==================================================== */}
         {/* MATERIAL SELECTION LIST (CHECKBOX + QUANTITY)       */}
         {/* ==================================================== */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-            <div>
-              <h3 className="font-bold text-white text-sm flex items-center gap-2">
-                <ListChecks className="w-4 h-4 text-amber-400" />
-                Select Materials &amp; Set Quantity
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Tick the checkbox next to any material and specify the quantity needed.
-              </p>
-            </div>
-
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+          {/* Compact Category Tabs & Selection Filter */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-800/80">
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="xs"
-                variant="outline"
-                onClick={() => setIsCustomModalOpen(true)}
-                className="border-slate-700 bg-slate-800/80 hover:bg-slate-800 text-amber-400 text-xs gap-1 font-semibold"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Custom Material</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* Search Bar & Filter Tabs */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search materials (e.g. wire, pipe, switch, mcb)..."
-                className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-              />
+              <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+                <ListChecks className="w-4 h-4" />
+              </span>
+              <span className="font-bold text-white text-sm">
+                Materials Catalog
+              </span>
+              <span className="text-[11px] font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800">
+                {visibleMaterials.length < filteredMaterials.length
+                  ? `Showing ${visibleMaterials.length} of ${filteredMaterials.length}`
+                  : `${filteredMaterials.length} items`}
+              </span>
             </div>
 
-            {/* Category Filter Pills & Selection Toggle */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center rounded-lg bg-slate-950 p-0.5 border border-slate-800">
                 <button
@@ -542,7 +638,7 @@ function NewItemListContent() {
                     setCategoryFilter("all");
                     if (viewFilter === "selected") setViewFilter("all");
                   }}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                     categoryFilter === "all" && viewFilter !== "selected"
                       ? "bg-slate-800 text-white shadow-sm font-bold"
                       : "text-slate-400 hover:text-slate-200"
@@ -556,7 +652,7 @@ function NewItemListContent() {
                     setCategoryFilter("Electrical");
                     if (viewFilter === "selected") setViewFilter("all");
                   }}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1 ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1 ${
                     categoryFilter === "Electrical" && viewFilter !== "selected"
                       ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm font-bold"
                       : "text-amber-400/80 hover:text-amber-300"
@@ -571,7 +667,7 @@ function NewItemListContent() {
                     setCategoryFilter("Plumbing");
                     if (viewFilter === "selected") setViewFilter("all");
                   }}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1 ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1 ${
                     categoryFilter === "Plumbing" && viewFilter !== "selected"
                       ? "bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm font-bold"
                       : "text-sky-400/80 hover:text-sky-300"
@@ -585,7 +681,7 @@ function NewItemListContent() {
               <button
                 type="button"
                 onClick={() => setViewFilter((v) => (v === "selected" ? "all" : "selected"))}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                   viewFilter === "selected"
                     ? "bg-amber-500 text-slate-950 font-bold shadow-sm"
                     : "bg-slate-950 text-amber-400 hover:text-amber-300 border border-slate-800"
@@ -597,184 +693,174 @@ function NewItemListContent() {
             </div>
           </div>
 
-          {/* Custom Items Banner (if any added) */}
-          {customItems.length > 0 && (
-            <div className="space-y-2 pt-1">
-              <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block">
-                Custom Added Materials ({customItems.length})
-              </span>
-              <div className="border border-amber-500/30 rounded-xl overflow-hidden bg-slate-950/70">
-                <table className="w-full text-left border-collapse text-xs">
-                  <tbody className="divide-y divide-slate-800/80">
-                    {customItems.map((ci, idx) => (
-                      <tr key={idx} className="bg-amber-500/5">
-                        <td className="py-2.5 px-3 w-10 text-center text-amber-400 font-bold">
-                          ✓
-                        </td>
-                        <td className="py-2.5 px-3 font-semibold text-slate-100">
-                          {ci.name}
-                        </td>
-                        <td className="py-2.5 px-3 text-center w-28">
-                          {ci.cat?.toLowerCase().includes("plumb") ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">
-                              🚰 Plumbing
-                            </span>
-                          ) : ci.cat?.toLowerCase().includes("elec") ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                              ⚡ Electrical
-                            </span>
-                          ) : (
-                            <span className="text-slate-500 text-[11px] font-mono">—</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-400 font-mono w-32">
-                          {ci.brand || "—"}
-                        </td>
-                        <td className="py-2.5 px-3 text-center text-slate-400 w-28">
-                          {ci.unit}
-                        </td>
-                        <td className="py-2.5 px-3 text-center w-36 font-bold text-amber-400 font-mono">
-                          {ci.qty}
-                        </td>
-                        <td className="py-2.5 px-2 text-center w-12">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveCustomItem(idx)}
-                            className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
           {/* Material Selection Table */}
-          <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-950">
-            <div className="max-h-[460px] overflow-y-auto">
+          <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-950 shadow-inner">
+            <div
+              ref={scrollContainerRef}
+              onScroll={handleTableScroll}
+              className={`overflow-y-auto transition-all duration-300 ${
+                isHeaderCollapsed
+                  ? "max-h-[calc(100vh-270px)] min-h-[580px]"
+                  : "max-h-[460px]"
+              }`}
+            >
               <table className="w-full text-left border-collapse text-xs">
-                <thead className="sticky top-0 z-10 bg-slate-900 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <thead className="sticky top-0 z-10 bg-slate-900 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider shadow-sm">
                   <tr>
-                    <th className="py-2.5 px-3 w-12 text-center border-r border-slate-800 select-none">
+                    <th className="py-3 px-3 w-14 text-center border-r border-slate-800 select-none">
                       ADD
                     </th>
-                    <th className="py-2.5 px-3 border-r border-slate-800">MATERIAL NAME</th>
-                    <th className="py-2.5 px-3 w-28 text-center border-r border-slate-800">CATEGORY</th>
-                    <th className="py-2.5 px-3 w-36 border-r border-slate-800">BRAND</th>
-                    <th className="py-2.5 px-3 w-24 text-center border-r border-slate-800">UNIT</th>
-                    <th className="py-2.5 px-3 w-40 text-center">QUANTITY</th>
+                    <th className="py-3 px-4 border-r border-slate-800">MATERIAL NAME</th>
+                    <th className="py-3 px-3 w-32 text-center border-r border-slate-800">CATEGORY</th>
+                    <th className="py-3 px-3 w-48 border-r border-slate-800">BRAND</th>
+                    <th className="py-3 px-3 w-28 text-center border-r border-slate-800">UNIT</th>
+                    <th className="py-3 px-4 w-48 text-center">QUANTITY</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/80">
                   {filteredMaterials.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-10 text-center text-slate-500 text-xs">
-                        No materials matching &quot;{searchTerm}&quot; {categoryFilter !== "all" ? `in ${categoryFilter}` : ""}
+                        No materials found {categoryFilter !== "all" ? `in ${categoryFilter}` : ""}
                       </td>
                     </tr>
                   ) : (
-                    filteredMaterials.map((m) => {
-                      const isChecked = selections[m.id]?.checked || false;
-                      const qty = selections[m.id]?.qty || 1;
+                    <>
+                      {visibleMaterials.map((m) => {
+                        const isChecked = selections[m.id]?.checked || false;
+                        const qty = selections[m.id]?.qty || 1;
 
-                      return (
-                        <tr
-                          key={m.id}
-                          className={`transition-colors ${
-                            isChecked
-                              ? "bg-amber-500/10"
-                              : "hover:bg-slate-900/50"
-                          }`}
-                        >
-                          {/* Checkbox */}
-                          <td className="py-2.5 px-3 text-center border-r border-slate-800">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => handleToggleCheck(m.id)}
-                              className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500 cursor-pointer"
-                            />
-                          </td>
-
-                          {/* Material Name */}
-                          <td
-                            className="py-2.5 px-3 font-semibold text-slate-100 border-r border-slate-800 cursor-pointer"
-                            onClick={() => handleToggleCheck(m.id)}
+                        return (
+                          <tr
+                            key={m.id}
+                            className={`transition-colors border-b border-slate-800/60 ${
+                              isChecked
+                                ? "bg-amber-500/10 hover:bg-amber-500/15 border-l-4 border-l-amber-500"
+                                : "hover:bg-slate-900/60 border-l-4 border-l-transparent"
+                            }`}
                           >
-                            <span className={isChecked ? "text-amber-400 font-bold" : ""}>
-                              {m.name}
-                            </span>
-                          </td>
-
-                          {/* Category */}
-                          <td className="py-2.5 px-3 text-center border-r border-slate-800 select-none">
-                            {m.cat?.toLowerCase().includes("plumb") ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 whitespace-nowrap">
-                                🚰 Plumbing
-                              </span>
-                            ) : m.cat?.toLowerCase().includes("elec") ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap">
-                                ⚡ Electrical
-                              </span>
-                            ) : m.cat ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700 whitespace-nowrap">
-                                {m.cat}
-                              </span>
-                            ) : (
-                              <span className="text-slate-600 font-mono text-[11px]">—</span>
-                            )}
-                          </td>
-
-                          {/* Brand */}
-                          <td className="py-2.5 px-3 text-slate-300 font-mono border-r border-slate-800">
-                            {m.brand || "—"}
-                          </td>
-
-                          {/* Unit */}
-                          <td className="py-2.5 px-3 text-center border-r border-slate-800">
-                            <span className="px-2 py-0.5 rounded bg-slate-900 text-slate-300 text-[11px] border border-slate-800">
-                              {m.unit}
-                            </span>
-                          </td>
-
-                          {/* Quantity with +/- and Direct Input */}
-                          <td className="py-2 px-3 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleAdjustQty(m.id, -1)}
-                                className="w-6 h-6 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold flex items-center justify-center text-xs transition-colors"
-                              >
-                                -
-                              </button>
+                            {/* Checkbox */}
+                            <td className="py-3 px-3 text-center border-r border-slate-800">
                               <input
-                                type="number"
-                                min="1"
-                                step="any"
-                                value={qty}
-                                onChange={(e) => handleQtyChange(m.id, Number(e.target.value))}
-                                className={`w-16 px-2 py-1 rounded text-center text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleToggleCheck(m.id)}
+                                className="w-5 h-5 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500 cursor-pointer accent-amber-500"
+                              />
+                            </td>
+
+                            {/* Material Name */}
+                            <td
+                              className="py-3 px-4 border-r border-slate-800 cursor-pointer select-none"
+                              onClick={() => handleToggleCheck(m.id)}
+                            >
+                              <span className={`text-sm ${isChecked ? "text-amber-300 font-bold" : "font-semibold text-slate-100"}`}>
+                                {m.name}
+                              </span>
+                            </td>
+
+                            {/* Category */}
+                            <td className="py-3 px-3 text-center border-r border-slate-800 select-none">
+                              {m.cat?.toLowerCase().includes("plumb") ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 whitespace-nowrap">
+                                  🚰 Plumbing
+                                </span>
+                              ) : m.cat?.toLowerCase().includes("elec") ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap">
+                                  ⚡ Electrical
+                                </span>
+                              ) : m.cat ? (
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700 whitespace-nowrap">
+                                  {m.cat}
+                                </span>
+                              ) : (
+                                <span className="text-slate-600 font-mono text-[11px]">—</span>
+                              )}
+                            </td>
+
+                            {/* Brand Input */}
+                            <td className="py-2.5 px-3 border-r border-slate-800">
+                              <input
+                                type="text"
+                                value={
+                                  selections[m.id]?.brand !== undefined
+                                    ? selections[m.id].brand
+                                    : m.brand || ""
+                                }
+                                onChange={(e) => handleBrandChange(m.id, e.target.value)}
+                                placeholder={m.brand || "Enter brand"}
+                                className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-mono transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 ${
                                   isChecked
-                                    ? "bg-slate-900 border-2 border-amber-500 text-amber-400"
-                                    : "bg-slate-900 border border-slate-700 text-slate-300"
+                                    ? "bg-slate-900 border border-amber-500/60 text-amber-200 placeholder-slate-500 font-semibold shadow-inner"
+                                    : "bg-slate-900/40 border border-slate-800 text-slate-300 placeholder-slate-600 hover:border-slate-700"
                                 }`}
                               />
-                              <button
-                                type="button"
-                                onClick={() => handleAdjustQty(m.id, 1)}
-                                className="w-6 h-6 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold flex items-center justify-center text-xs transition-colors"
-                              >
-                                +
-                              </button>
+                            </td>
+
+                            {/* Unit */}
+                            <td className="py-3 px-3 text-center border-r border-slate-800">
+                              <span className="px-2.5 py-1 rounded bg-slate-900 text-slate-200 text-xs font-mono font-medium border border-slate-800">
+                                {m.unit}
+                              </span>
+                            </td>
+
+                            {/* Quantity with +/- and Direct Input */}
+                            <td className="py-3 px-4 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdjustQty(m.id, -1)}
+                                  className="w-8 h-8 rounded-lg bg-slate-900 hover:bg-slate-800 hover:text-amber-400 border border-slate-700 text-slate-200 font-bold flex items-center justify-center text-sm transition-colors active:scale-95 cursor-pointer"
+                                  title="Decrease quantity"
+                                >
+                                  -
+                                </button>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="any"
+                                  value={qty}
+                                  onChange={(e) => handleQtyChange(m.id, Number(e.target.value))}
+                                  className={`w-20 px-2.5 py-1.5 rounded-lg text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                                    isChecked
+                                      ? "bg-slate-900 border-2 border-amber-500 text-amber-400 shadow-inner"
+                                      : "bg-slate-900 border border-slate-700 text-slate-300"
+                                  }`}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdjustQty(m.id, 1)}
+                                  className="w-8 h-8 rounded-lg bg-slate-900 hover:bg-slate-800 hover:text-amber-400 border border-slate-700 text-slate-200 font-bold flex items-center justify-center text-sm transition-colors active:scale-95 cursor-pointer"
+                                  title="Increase quantity"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {/* Infinite Scroll Sentinel Row */}
+                      {hasMore && (
+                        <tr ref={sentinelRef}>
+                          <td colSpan={6} className="py-4 text-center bg-slate-950/90 border-t border-slate-800/60">
+                            <div className="flex items-center justify-center gap-2 text-xs text-amber-400 font-medium animate-pulse">
+                              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                              <span>Loading more materials... ({visibleMaterials.length} of {filteredMaterials.length} loaded)</span>
                             </div>
                           </td>
                         </tr>
-                      );
-                    })
+                      )}
+
+                      {!hasMore && filteredMaterials.length > BATCH_SIZE && (
+                        <tr>
+                          <td colSpan={6} className="py-3 text-center text-[11px] font-medium text-slate-500 bg-slate-950/40 border-t border-slate-800/60">
+                            ✓ All {filteredMaterials.length} items loaded
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   )}
                 </tbody>
               </table>
@@ -782,8 +868,8 @@ function NewItemListContent() {
           </div>
         </div>
 
-        {/* Floating / Sticky Bottom Bar */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+        {/* Bottom Action Bar (Non-sticky to prevent overlapping table) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
               <CheckCircle2 className="w-5 h-5" />
@@ -826,120 +912,6 @@ function NewItemListContent() {
           </div>
         </div>
       </form>
-
-      {/* Modal: Add Custom Off-Catalog Item */}
-      {isCustomModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-white text-sm">Add Custom Material</h3>
-              <button
-                type="button"
-                onClick={() => setIsCustomModalOpen(false)}
-                className="text-slate-400 hover:text-white text-xs"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                  Material Name <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="e.g. 3-Way Heavy PVC Junction Box"
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                  Category
-                </label>
-                <select
-                  value={customCat}
-                  onChange={(e) => setCustomCat(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-                >
-                  <option value="Electrical">⚡ Electrical</option>
-                  <option value="Plumbing">🚰 Plumbing</option>
-                  <option value="General">General</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                    Brand (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={customBrand}
-                    onChange={(e) => setCustomBrand(e.target.value)}
-                    placeholder="e.g. Precision"
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                    Unit
-                  </label>
-                  <select
-                    value={customUnit}
-                    onChange={(e) => setCustomUnit(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-                  >
-                    {MATERIAL_UNITS.map((u) => (
-                      <option key={u} value={u} className="bg-slate-900 text-slate-100">
-                        {u}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block mb-1">
-                  Quantity
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={customQty}
-                  onChange={(e) => setCustomQty(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-950 border border-amber-500/40 rounded-lg text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsCustomModalOpen(false)}
-                className="border-slate-800 text-slate-400 text-xs"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleAddCustomItem}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs"
-              >
-                Add to List
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

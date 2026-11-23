@@ -6,6 +6,7 @@ export interface Expense {
   project_id?: string | null;
   project_number?: string;
   name?: string; // joined project name
+  place?: string; // joined project place
   amount: number;
   description: string;
   date: string; // YYYY-MM-DD

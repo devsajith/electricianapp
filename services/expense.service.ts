@@ -14,6 +14,7 @@ interface ExpenseDbRow {
   projects?: {
     project_number?: string;
     name?: string;
+    place?: string;
   } | null;
   amount: number | string;
   description: string;
@@ -24,7 +25,7 @@ interface ExpenseDbRow {
 
 // Columns guaranteed to exist in the database
 const EXPENSE_WITH_PROJECT_COLUMNS =
-  "id, type, project_id, amount, description, date, created_at, projects(project_number, name)";
+  "id, type, project_id, amount, description, date, created_at, projects(project_number, name, place)";
 
 const EXPENSE_SIMPLE_COLUMNS =
   "id, type, project_id, amount, description, date, created_at";
@@ -63,6 +64,7 @@ export async function getExpensesService(): Promise<{ data: Expense[]; error?: s
           project_id: row.project_id,
           project_number: row.projects?.project_number,
           name: row.projects?.name,
+          place: row.projects?.place,
           amount: Number(row.amount) || 0,
           description: row.description,
           date: row.date,
@@ -173,6 +175,7 @@ export async function createExpenseService(
           project_id: row.project_id,
           project_number: row.projects?.project_number,
           name: row.projects?.name,
+          place: row.projects?.place,
           amount: Number(row.amount) || 0,
           description: row.description,
           date: row.date,

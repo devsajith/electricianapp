@@ -55,7 +55,8 @@ export default function MaterialListDetailPage({
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogCatFilter, setCatalogCatFilter] = useState<"all" | "Electrical" | "Plumbing">("all");
   const [catalogInListFilter, setCatalogInListFilter] = useState<"all" | "unselected">("unselected");
-  const [catalogSelections, setCatalogSelections] = useState<Record<string, { qty: number; checked: boolean }>>({});
+  const [catalogSelections, setCatalogSelections] = useState<Record<string, { qty: number; checked: boolean; brand?: string }>>({});
+  const [catalogVisibleCount, setCatalogVisibleCount] = useState(40);
   const [isCatalogAdding, setIsCatalogAdding] = useState(false);
   const [catalogModalError, setCatalogModalError] = useState<string | null>(null);
 
@@ -197,6 +198,7 @@ export default function MaterialListDetailPage({
     setIsCatalogModalOpen(true);
     setCatalogModalError(null);
     setCatalogInListFilter("unselected"); // Default to Unselected Only on open
+    setCatalogVisibleCount(40);
     if (catalog.length === 0) {
       setCatalogLoading(true);
       getMaterialsCatalogAction().then((data) => {
@@ -206,13 +208,30 @@ export default function MaterialListDetailPage({
     }
   };
 
+  // Reset visible items when modal filters or search change
+  useEffect(() => {
+    setCatalogVisibleCount(40);
+  }, [catalogSearch, catalogCatFilter, catalogInListFilter]);
+
+  const handleCatalogModalScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    if (target.scrollHeight - target.scrollTop - target.clientHeight < 250) {
+      setCatalogVisibleCount((prev) => prev + 40);
+    }
+  };
+
   // Toggle selection for catalog item
   const handleToggleCatalogCheck = (materialId: string) => {
     setCatalogSelections((prev) => {
-      const current = prev[materialId] || { qty: 1, checked: false };
+      const current = prev[materialId] || {
+        qty: 1,
+        checked: false,
+        brand: catalog.find((c) => c.id === materialId)?.brand || "",
+      };
       return {
         ...prev,
         [materialId]: {
+          ...current,
           qty: current.qty > 0 ? current.qty : 1,
           checked: !current.checked,
         },
@@ -223,11 +242,16 @@ export default function MaterialListDetailPage({
   // Adjust quantity in catalog modal
   const handleAdjustCatalogQty = (materialId: string, delta: number) => {
     setCatalogSelections((prev) => {
-      const current = prev[materialId] || { qty: 1, checked: false };
+      const current = prev[materialId] || {
+        qty: 1,
+        checked: false,
+        brand: catalog.find((c) => c.id === materialId)?.brand || "",
+      };
       const nextQty = Math.max(1, (Number(current.qty) || 1) + delta);
       return {
         ...prev,
         [materialId]: {
+          ...current,
           qty: nextQty,
           checked: true,
         },
@@ -238,27 +262,59 @@ export default function MaterialListDetailPage({
   // Change quantity directly in catalog modal
   const handleCatalogQtyChange = (materialId: string, newQty: number) => {
     const valid = Math.max(1, newQty);
-    setCatalogSelections((prev) => ({
-      ...prev,
-      [materialId]: {
-        qty: valid,
-        checked: true,
-      },
-    }));
+    setCatalogSelections((prev) => {
+      const current = prev[materialId] || {
+        qty: 1,
+        checked: false,
+        brand: catalog.find((c) => c.id === materialId)?.brand || "",
+      };
+      return {
+        ...prev,
+        [materialId]: {
+          ...current,
+          qty: valid,
+          checked: true,
+        },
+      };
+    });
+  };
+
+  // Change brand in catalog modal
+  const handleCatalogBrandChange = (materialId: string, newBrand: string) => {
+    setCatalogSelections((prev) => {
+      const current = prev[materialId] || {
+        qty: 1,
+        checked: false,
+        brand: catalog.find((c) => c.id === materialId)?.brand || "",
+      };
+      return {
+        ...prev,
+        [materialId]: {
+          ...current,
+          brand: newBrand,
+          checked: true,
+        },
+      };
+    });
   };
 
   // Add selected catalog items to list
   const handleAddSelectedFromCatalog = async () => {
     const selected = catalog
       .filter((m) => catalogSelections[m.id]?.checked)
-      .map((m) => ({
-        material_id: m.id,
-        name: m.name,
-        cat: m.cat || null,
-        brand: m.brand || null,
-        unit: m.unit,
-        qty: catalogSelections[m.id]?.qty || 1,
-      }));
+      .map((m) => {
+        const itemSelection = catalogSelections[m.id];
+        const chosenBrand =
+          itemSelection?.brand !== undefined ? itemSelection.brand.trim() : m.brand;
+        return {
+          material_id: m.id,
+          name: m.name,
+          cat: m.cat || null,
+          brand: chosenBrand || null,
+          unit: m.unit,
+          qty: itemSelection?.qty || 1,
+        };
+      });
 
     if (selected.length === 0) {
       setCatalogModalError("Please select at least one material.");
@@ -376,29 +432,6 @@ export default function MaterialListDetailPage({
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             size="xs"
-            onClick={openCatalogModal}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 shadow-sm active:scale-95 transition-all"
-            title="Select materials from catalog"
-          >
-            <ListPlus className="w-3.5 h-3.5" />
-            <span>Add from List</span>
-          </Button>
-
-          <Button
-            size="xs"
-            onClick={() => {
-              setIsCustomModalOpen(true);
-              setCustomModalError(null);
-            }}
-            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold gap-1.5 shadow-sm active:scale-95 transition-all"
-            title="Add a custom off-catalog material"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ Custom Item</span>
-          </Button>
-
-          <Button
-            size="xs"
             onClick={handleDownloadPdf}
             disabled={isGeneratingPdf}
             className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold gap-1.5 shadow-sm active:scale-95 transition-all"
@@ -406,16 +439,6 @@ export default function MaterialListDetailPage({
           >
             <FileDown className="w-3.5 h-3.5" />
             <span>{isGeneratingPdf ? "Generating PDF..." : "Download PDF"}</span>
-          </Button>
-
-          <Button
-            size="xs"
-            variant="outline"
-            onClick={handleExportCsv}
-            className="border-slate-700 bg-slate-800 text-slate-200 hover:text-white gap-1.5"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Excel (.CSV)</span>
           </Button>
 
           <Button
@@ -783,7 +806,10 @@ export default function MaterialListDetailPage({
             </div>
 
             {/* Catalog Items Table */}
-            <div className="flex-1 min-h-0 overflow-y-auto bg-slate-950">
+            <div
+              onScroll={handleCatalogModalScroll}
+              className="flex-1 min-h-0 overflow-y-auto bg-slate-950"
+            >
               {catalogLoading ? (
                 <div className="py-20 text-center text-slate-400 text-xs">
                   <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-400" />
@@ -796,7 +822,7 @@ export default function MaterialListDetailPage({
                       <th className="py-2.5 px-3 w-12 text-center border-r border-slate-800">ADD</th>
                       <th className="py-2.5 px-3 border-r border-slate-800">MATERIAL NAME</th>
                       <th className="py-2.5 px-3 w-28 text-center border-r border-slate-800">CATEGORY</th>
-                      <th className="py-2.5 px-3 w-32 border-r border-slate-800">BRAND</th>
+                      <th className="py-2.5 px-3 w-44 border-r border-slate-800">BRAND</th>
                       <th className="py-2.5 px-3 w-20 text-center border-r border-slate-800">UNIT</th>
                       <th className="py-2.5 px-3 w-36 text-center">QUANTITY</th>
                     </tr>
@@ -847,7 +873,12 @@ export default function MaterialListDetailPage({
                         );
                       }
 
-                      return filteredCatalog.map((m) => {
+                      const visibleCatalog = filteredCatalog.slice(0, catalogVisibleCount);
+                      const hasMoreCatalog = catalogVisibleCount < filteredCatalog.length;
+
+                      return (
+                        <>
+                          {visibleCatalog.map((m) => {
                         const existing = items.find(
                           (it) =>
                             (it.material_id && it.material_id === m.id) ||
@@ -903,8 +934,22 @@ export default function MaterialListDetailPage({
                                 <span className="text-slate-600 font-mono text-[11px]">—</span>
                               )}
                             </td>
-                            <td className="py-2.5 px-3 text-slate-300 font-mono border-r border-slate-800">
-                              {m.brand || "—"}
+                            <td className="py-2 px-2.5 border-r border-slate-800">
+                              <input
+                                type="text"
+                                value={
+                                  catalogSelections[m.id]?.brand !== undefined
+                                    ? catalogSelections[m.id].brand
+                                    : m.brand || ""
+                                }
+                                onChange={(e) => handleCatalogBrandChange(m.id, e.target.value)}
+                                placeholder={m.brand || "Enter brand"}
+                                className={`w-full px-2 py-1 rounded text-xs font-mono transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                                  isChecked
+                                    ? "bg-slate-900 border border-emerald-500/50 text-emerald-200 placeholder-slate-500 font-semibold shadow-inner"
+                                    : "bg-slate-900/50 border border-slate-800 text-slate-300 placeholder-slate-600 hover:border-slate-700"
+                                }`}
+                              />
                             </td>
                             <td className="py-2.5 px-3 text-center border-r border-slate-800 text-slate-400">
                               {m.unit}
@@ -938,8 +983,17 @@ export default function MaterialListDetailPage({
                             </td>
                           </tr>
                         );
-                      });
-                    })()}
+                      })}
+                      {hasMoreCatalog && (
+                        <tr>
+                          <td colSpan={6} className="py-3 text-center bg-slate-950/90 text-xs text-emerald-400 font-medium animate-pulse border-t border-slate-800/60">
+                            Scroll down to load more ({visibleCatalog.length} of {filteredCatalog.length} loaded)
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })()}
                   </tbody>
                 </table>
               )}

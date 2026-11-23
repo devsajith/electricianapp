@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   X,
   Calendar as CalendarIcon,
@@ -49,7 +49,13 @@ export function MarkAttendanceModal({
   initialDate,
   onSaveAttendance,
 }: MarkAttendanceModalProps) {
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, []);
 
   const [attendanceType, setAttendanceType] = useState<AttendanceOption>("full_day");
   const [date, setDate] = useState<string>(initialDate || todayStr);
